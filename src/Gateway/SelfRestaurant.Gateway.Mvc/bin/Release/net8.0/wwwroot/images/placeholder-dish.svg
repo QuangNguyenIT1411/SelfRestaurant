@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" role="img" aria-label="Dish image not available">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#e2e8f0" />
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg)" />
+  <g fill="#94a3b8">
+    <circle cx="400" cy="210" r="72" />
+    <rect x="260" y="310" width="280" height="26" rx="13" />
+    <rect x="300" y="350" width="200" height="20" rx="10" />
+  </g>
+  <text x="400" y="430" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="28" fill="#64748b">
+    Image unavailable
+  </text>
+</svg>
+

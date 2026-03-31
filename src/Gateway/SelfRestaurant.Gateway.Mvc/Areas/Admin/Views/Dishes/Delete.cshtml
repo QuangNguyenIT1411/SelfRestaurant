@@ -1,0 +1,50 @@
+﻿@using SelfRestaurant.Gateway.Mvc.Models
+@model AdminDishDto
+@{
+    ViewBag.Title = "Ẩn món ăn";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container py-4">
+    <div class="row g-3">
+        <div class="col-lg-3">
+            @Html.Partial("~/Areas/Admin/Views/Shared/_AdminSidebar.cshtml")
+        </div>
+        <div class="col-lg-9">
+            <h2 class="mb-3 text-danger">Ẩn món ăn khỏi hệ thống</h2>
+
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                Món ăn sẽ không bị xóa khỏi database, mà chỉ bị đánh dấu <strong>ngừng bán</strong>.
+            </div>
+
+            <dl class="row">
+                <dt class="col-sm-3">Tên món</dt>
+                <dd class="col-sm-9">@Model.Name</dd>
+
+                <dt class="col-sm-3">Danh mục</dt>
+                <dd class="col-sm-9">@(string.IsNullOrWhiteSpace(Model.CategoryName) ? "-" : Model.CategoryName)</dd>
+
+                <dt class="col-sm-3">Giá</dt>
+                <dd class="col-sm-9">@Model.Price.ToString("N0") đ</dd>
+
+                <dt class="col-sm-3">Mô tả</dt>
+                <dd class="col-sm-9">@Model.Description</dd>
+            </dl>
+
+            @using (Html.BeginForm())
+            {
+                @Html.AntiForgeryToken()
+                @Html.Hidden("id", Model.DishId)
+                <div class="d-flex justify-content-between mt-3">
+                    <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i>Hủy
+                    </a>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-eye-slash me-1"></i>Ẩn món ăn
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+</div>

@@ -1,0 +1,33 @@
+﻿{
+    "timestamp":  "20260329_010720",
+    "passed":  3,
+    "total":  5,
+    "log":  "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\.runlogs\\customer_detailed_new_20260329_010720.log",
+    "results":  [
+                    {
+                        "Step":  "Open Register",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Register",
+                        "Pass":  true,
+                        "Detail":  "status=200 user=cusd_20260329010720866"
+                    },
+                    {
+                        "Step":  "Open Login",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Login",
+                        "Pass":  false,
+                        "Detail":  "message=Không thể kết nối dịch vụ đăng nhập. The I/O operation has been aborted because of either a thread exit or an application request."
+                    },
+                    {
+                        "Step":  "Unhandled Error",
+                        "Pass":  false,
+                        "Detail":  "Login failed for both new account and fallback account"
+                    }
+                ]
+}

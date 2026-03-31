@@ -1,0 +1,160 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: selfrestaurant-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: selfrestaurant-db
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+
+  db-init:
+    image: mcr.microsoft.com/mssql-tools:latest
+    container_name: selfrestaurant-db-init
+    depends_on:
+      - db
+    environment:
+      MSSQL_HOST: db
+      MSSQL_PORT: "1433"
+      MSSQL_USER: sa
+      MSSQL_PASSWORD: ${MSSQL_SA_PASSWORD}
+      DB_NAME: RESTAURANT
+      SCHEMA_SCRIPT: /scripts/sqlchuan.cleaned.sql
+    volumes:
+      - ./docker/db-init.sh:/docker/db-init.sh:ro
+      - ./sql/sqlchuan.cleaned.sql:/scripts/sqlchuan.cleaned.sql:ro
+    entrypoint: ["/bin/bash", "/docker/db-init.sh"]
+    restart: "no"
+
+  catalog:
+    container_name: selfrestaurant-catalog
+    build:
+      context: .
+      dockerfile: src/Services/SelfRestaurant.Catalog.Api/Dockerfile
+    depends_on:
+      - db
+      - db-init
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      HttpsRedirection__Enabled: "false"
+      ConnectionStrings__RestaurantDb: Server=db,1433;Database=RESTAURANT;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=False;MultipleActiveResultSets=True
+    ports:
+      - "5101:8080"
+
+  orders:
+    container_name: selfrestaurant-orders
+    build:
+      context: .
+      dockerfile: src/Services/SelfRestaurant.Orders.Api/Dockerfile
+    depends_on:
+      - db
+      - db-init
+      - rabbitmq
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      HttpsRedirection__Enabled: "false"
+      ConnectionStrings__RestaurantDb: Server=db,1433;Database=RESTAURANT;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=False;MultipleActiveResultSets=True
+      RabbitMq__Enabled: "true"
+      RabbitMq__Host: rabbitmq
+      RabbitMq__Port: "5672"
+      RabbitMq__Username: guest
+      RabbitMq__Password: guest
+    ports:
+      - "5102:8080"
+
+  customers:
+    container_name: selfrestaurant-customers
+    build:
+      context: .
+      dockerfile: src/Services/SelfRestaurant.Customers.Api/Dockerfile
+    depends_on:
+      - db
+      - db-init
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      HttpsRedirection__Enabled: "false"
+      ConnectionStrings__RestaurantDb: Server=db,1433;Database=RESTAURANT;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=False;MultipleActiveResultSets=True
+    ports:
+      - "5103:8080"
+
+  identity:
+    container_name: selfrestaurant-identity
+    build:
+      context: .
+      dockerfile: src/Services/SelfRestaurant.Identity.Api/Dockerfile
+    depends_on:
+      - db
+      - db-init
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      HttpsRedirection__Enabled: "false"
+      ConnectionStrings__RestaurantDb: Server=db,1433;Database=RESTAURANT;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=False;MultipleActiveResultSets=True
+    ports:
+      - "5104:8080"
+
+  billing:
+    container_name: selfrestaurant-billing
+    build:
+      context: .
+      dockerfile: src/Services/SelfRestaurant.Billing.Api/Dockerfile
+    depends_on:
+      - db
+      - db-init
+      - rabbitmq
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      HttpsRedirection__Enabled: "false"
+      ConnectionStrings__RestaurantDb: Server=db,1433;Database=RESTAURANT;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=False;MultipleActiveResultSets=True
+      RabbitMq__Enabled: "true"
+      RabbitMq__Host: rabbitmq
+      RabbitMq__Port: "5672"
+      RabbitMq__Username: guest
+      RabbitMq__Password: guest
+    ports:
+      - "5105:8080"
+
+  gateway:
+    container_name: selfrestaurant-gateway
+    build:
+      context: .
+      dockerfile: src/Gateway/SelfRestaurant.Gateway.Mvc/Dockerfile
+    depends_on:
+      - catalog
+      - orders
+      - customers
+      - identity
+      - billing
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      HttpsRedirection__Enabled: "false"
+      Services__Catalog: http://catalog:8080
+      Services__Orders: http://orders:8080
+      Services__Customers: http://customers:8080
+      Services__Identity: http://identity:8080
+      Services__Billing: http://billing:8080
+    ports:
+      - "5100:8080"
+    volumes:
+      - gateway-uploads:/app/wwwroot/Images/uploads
+
+volumes:
+  mssql-data:
+  gateway-uploads:

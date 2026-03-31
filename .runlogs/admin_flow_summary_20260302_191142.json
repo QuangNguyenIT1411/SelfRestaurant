@@ -1,0 +1,69 @@
+﻿{
+    "timestamp":  "20260302_191142",
+    "total":  10,
+    "passed":  8,
+    "failed":  2,
+    "log":  "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\.runlogs\\admin_flow_test_20260302_191142.log",
+    "results":  [
+                    {
+                        "env":  "OLD",
+                        "feature":  "Admin-Login",
+                        "pass":  true,
+                        "detail":  "login success"
+                    },
+                    {
+                        "env":  "NEW",
+                        "feature":  "Admin-Login",
+                        "pass":  true,
+                        "detail":  "login success"
+                    },
+                    {
+                        "env":  "OLD",
+                        "feature":  "Admin-Customers",
+                        "pass":  false,
+                        "detail":  "Updated phone mismatch (0926728433 != 0967231187)"
+                    },
+                    {
+                        "env":  "NEW",
+                        "feature":  "Admin-Customers",
+                        "pass":  true,
+                        "detail":  "customerId=43 phone 0985855460 -\u003e 0972082863 -\u003e 0985855460 (created temp customer)"
+                    },
+                    {
+                        "env":  "OLD",
+                        "feature":  "Admin-Employees",
+                        "pass":  false,
+                        "detail":  "The remote server returned an error: (500) Internal Server Error."
+                    },
+                    {
+                        "env":  "NEW",
+                        "feature":  "Admin-Employees",
+                        "pass":  true,
+                        "detail":  "employeeId=12 phone 0954744905 -\u003e 0976927407 -\u003e 0954744905"
+                    },
+                    {
+                        "env":  "OLD",
+                        "feature":  "Admin-Revenue",
+                        "pass":  true,
+                        "detail":  "Revenue + TopDishes pages loaded"
+                    },
+                    {
+                        "env":  "NEW",
+                        "feature":  "Admin-Revenue",
+                        "pass":  true,
+                        "detail":  "Revenue + TopDishes pages loaded"
+                    },
+                    {
+                        "env":  "OLD",
+                        "feature":  "Admin-Dishes",
+                        "pass":  true,
+                        "detail":  "dishId=31 name=AUTO_ADMIN_TEST_OLD_20260302_191204276_555 created then removed from list"
+                    },
+                    {
+                        "env":  "NEW",
+                        "feature":  "Admin-Dishes",
+                        "pass":  true,
+                        "detail":  "dishId=32 name=AUTO_ADMIN_TEST_NEW_20260302_191205450_293 created then deactivated"
+                    }
+                ]
+}

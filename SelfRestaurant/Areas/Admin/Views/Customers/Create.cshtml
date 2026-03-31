@@ -1,0 +1,102 @@
+﻿@model SelfRestaurant.Customers
+@{
+    ViewBag.Title = "Thêm khách hàng";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container py-4">
+    <div class="row g-3">
+        <div class="col-lg-3">
+            @Html.Partial("~/Areas/Admin/Views/Shared/_AdminSidebar.cshtml")
+        </div>
+        <div class="col-lg-9">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+                <div>
+                    <h1 class="page-title mb-1">Thêm khách hàng</h1>
+                    <p class="text-muted mb-0">Tạo tài khoản đăng nhập cho khách.</p>
+                </div>
+                <a href="@Url.Action("Index")" class="btn btn-outline-secondary btn-lg">
+                    <i class="bi bi-arrow-left me-2"></i>Quay lại danh sách
+                </a>
+            </div>
+
+            @using (Html.BeginForm())
+            {
+                @Html.AntiForgeryToken()
+                <div class="card">
+                    <div class="card-body">
+                        @Html.ValidationSummary(true, "", new { @class = "alert alert-danger" })
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <label class="form-label">Họ tên</label>
+                                @Html.TextBoxFor(m => m.Name, new { @class = "form-control form-control-lg", placeholder = "Nguyễn Văn B", required = "required" })
+                                @Html.ValidationMessageFor(m => m.Name, "", new { @class = "text-danger small" })
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Tên đăng nhập</label>
+                                @Html.TextBoxFor(m => m.Username, new { @class = "form-control form-control-lg", placeholder = "customer01", required = "required" })
+                                @Html.ValidationMessageFor(m => m.Username, "", new { @class = "text-danger small" })
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Mật khẩu</label>
+                                @Html.PasswordFor(m => m.Password, new { @class = "form-control form-control-lg", placeholder = "••••••••", required = "required" })
+                                @Html.ValidationMessageFor(m => m.Password, "", new { @class = "text-danger small" })
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label">Số điện thoại</label>
+                                @Html.TextBoxFor(m => m.PhoneNumber, new { @class = "form-control form-control-lg", placeholder = "0901234567" })
+                                @Html.ValidationMessageFor(m => m.PhoneNumber, "", new { @class = "text-danger small" })
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Email</label>
+                                @Html.TextBoxFor(m => m.Email, new { @class = "form-control form-control-lg", placeholder = "customer@example.com", type = "email" })
+                                @Html.ValidationMessageFor(m => m.Email, "", new { @class = "text-danger small" })
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Giới tính</label>
+                                @Html.TextBoxFor(m => m.Gender, new { @class = "form-control form-control-lg", placeholder = "Nam/Nữ" })
+                                @Html.ValidationMessageFor(m => m.Gender, "", new { @class = "text-danger small" })
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Địa chỉ</label>
+                                @Html.TextBoxFor(m => m.Address, new { @class = "form-control form-control-lg", placeholder = "Địa chỉ chi tiết" })
+                                @Html.ValidationMessageFor(m => m.Address, "", new { @class = "text-danger small" })
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Ngày sinh</label>
+                                @Html.TextBoxFor(m => m.DateOfBirth, "{0:yyyy-MM-dd}", new { @class = "form-control form-control-lg", type = "date" })
+                                @Html.ValidationMessageFor(m => m.DateOfBirth, "", new { @class = "text-danger small" })
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Điểm tích lũy</label>
+                                @Html.TextBoxFor(m => m.LoyaltyPoints, new { @class = "form-control form-control-lg", type = "number", min = "0", step = "1", placeholder = "0" })
+                                @Html.ValidationMessageFor(m => m.LoyaltyPoints, "", new { @class = "text-danger small" })
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label d-block">Trạng thái</label>
+                                <div class="form-check form-switch">
+                                    @Html.CheckBox("IsActive", Model?.IsActive ?? true, new { @class = "form-check-input", role = "switch" })
+                                    <label class="form-check-label">Cho phép đăng nhập</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer d-flex justify-content-between align-items-center bg-white py-3">
+                        <div class="text-muted small">
+                            Khách hàng sẽ được tạo ngay sau khi lưu.
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a href="@Url.Action("Index")" class="btn btn-outline-secondary">Hủy</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save me-2"></i>Lưu
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>

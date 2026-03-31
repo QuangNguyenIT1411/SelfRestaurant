@@ -1,0 +1,17 @@
+=== CUSTOMER FLOW TEST AFTER FIX START ===
+Using cookie file: C:\Users\Quang\AppData\Local\Temp\gw_customer_1772478574.cookies
+[1] Unauth GetBranchTables: {"success":false,"requiresLogin":true,"loginUrl":"/Customer/Login"}
+[2] Login token length: 155
+[3] Login status: HTTP/1.1 302 Found
+[4] Auth GetBranchTables success: "success":true
+[5] Menu token length: 155
+[6] AddItem: {"success":true}
+[7] GetOrderItems -> orderId=50 itemId=139
+[8] UpdateQuantity: {"success":true}
+[9] RemoveItem: {"success":true}
+[10] SendOrderToKitchen: {"success":true,"message":"\u0110\u01A1n c\u1EE7a b\u1EA1n \u0111\u00E3 \u0111\u01B0\u1EE3c g\u1EEDi xu\u1ED1ng b\u1EBFp.","orderID":51}
+[11] Home/GetOrderStatus statusCode: CONFIRMED
+[12] Order/Index HTTP: 200
+[13] Customer/Dashboard HTTP: 200
+LOG_FILE=.runlogs/customer_flow_test_20260302_110934_after_fix.log
+=== CUSTOMER FLOW TEST AFTER FIX DONE ===

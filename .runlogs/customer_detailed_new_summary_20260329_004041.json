@@ -1,0 +1,48 @@
+﻿{
+    "timestamp":  "20260329_004041",
+    "passed":  6,
+    "total":  8,
+    "log":  "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\.runlogs\\customer_detailed_new_20260329_004041.log",
+    "results":  [
+                    {
+                        "Step":  "Open Register",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Register",
+                        "Pass":  true,
+                        "Detail":  "status=200 user=cusd_20260329004041247"
+                    },
+                    {
+                        "Step":  "Open Login",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Login",
+                        "Pass":  true,
+                        "Detail":  "user=cusd_20260329004041247"
+                    },
+                    {
+                        "Step":  "Select Branch/Table",
+                        "Pass":  true,
+                        "Detail":  "branch=1 table=1 display=1"
+                    },
+                    {
+                        "Step":  "Open Menu",
+                        "Pass":  true,
+                        "Detail":  "dishId=4"
+                    },
+                    {
+                        "Step":  "Add Item",
+                        "Pass":  false,
+                        "Detail":  "raw={\"success\":false,\"message\":\"The request was canceled due to the configured HttpClient.Timeout of 10 seconds elapsing.\"}"
+                    },
+                    {
+                        "Step":  "Unhandled Error",
+                        "Pass":  false,
+                        "Detail":  "The remote server returned an error: (500) Internal Server Error."
+                    }
+                ]
+}

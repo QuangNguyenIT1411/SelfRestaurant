@@ -1,0 +1,20 @@
+=== CUSTOMER FLOW TEST START ===
+Using cookie file: C:\Users\Quang\AppData\Local\Temp\gw_customer_1772478032.cookies
+[1] Unauth GetBranchTables: {"success":false,"requiresLogin":true,"loginUrl":"/Customer/Login"}
+[2] Login token length: 155
+[3] Login status: HTTP/1.1 302 Found
+[3] Login location: Location: /
+[4] Auth GetBranchTables success flag: "success":true
+[5] Menu token length: 155
+[6] AddItem response: {"success":true}
+[7] GetOrderItems has orderId=47 itemId=135
+[8] UpdateQuantity response: {"success":true}
+[9] UpdateItemNote response: {"success":true}
+[10] RemoveItem response: {"success":true}
+[11] SendOrderToKitchen response: {"success":true,"message":"\u0110\u01A1n c\u1EE7a b\u1EA1n \u0111\u00E3 \u0111\u01B0\u1EE3c g\u1EEDi xu\u1ED1ng b\u1EBFp.","orderID":47}
+[11] Parsed new orderID: 47
+[12] Home/GetOrderStatus StatusCode: <none>
+[13] Order/Index HTTP: 200
+[14] Customer/Dashboard HTTP: 200
+LOG_FILE=.runlogs/customer_flow_test_$(date +%Y%m%d_%H%M%S).log
+=== CUSTOMER FLOW TEST DONE ===

@@ -1,0 +1,14 @@
+[2026-03-02 19:15:27] [PASS] Open Register :: status=200
+[2026-03-02 19:15:27] [PASS] Register :: status=200 user=cusd_20260302191527098
+[2026-03-02 19:15:27] [PASS] Open Login :: status=200
+[2026-03-02 19:15:27] [PASS] Login :: fallback user=lan.nguyen
+[2026-03-02 19:15:27] [PASS] Select Branch/Table :: branch=1 table=6 display=6
+[2026-03-02 19:15:27] [PASS] Open Menu :: dishId=1 (fallback)
+[2026-03-02 19:15:27] [PASS] Add Item :: raw={"success":true}
+[2026-03-02 19:15:27] [PASS] Read Active Order :: orderId=65 itemId=154 status=PENDING
+[2026-03-02 19:15:27] [PASS] Update Quantity :: raw={"success":true}
+[2026-03-02 19:15:27] [PASS] Remove Item :: raw={"success":true} [json-fallback]
+[2026-03-02 19:15:27] [PASS] Add Item Again :: raw={"success":true}
+[2026-03-02 19:15:27] [FAIL] Unhandled Error :: The remote server returned an error: (415) Unsupported Media Type.
+[2026-03-02 19:15:27] SUMMARY: 11/12 PASS
+[2026-03-02 19:15:27] SUMMARY_JSON: C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\.runlogs\customer_detailed_new_summary_20260302_191527.json

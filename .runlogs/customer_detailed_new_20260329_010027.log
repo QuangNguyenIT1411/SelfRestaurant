@@ -1,0 +1,16 @@
+[2026-03-29 01:00:27] [PASS] Open Register :: status=200
+[2026-03-29 01:00:28] [PASS] Register :: status=200 user=cusd_20260329010027716
+[2026-03-29 01:00:29] [PASS] Open Login :: status=200
+[2026-03-29 01:00:29] [PASS] Login :: user=cusd_20260329010027716
+[2026-03-29 01:00:29] [PASS] Select Branch/Table :: branch=1 table=1 display=1
+[2026-03-29 01:00:43] [PASS] Open Menu :: dishId=4
+[2026-03-29 01:00:44] [PASS] Add Item :: raw={"success":true}
+[2026-03-29 01:00:45] [PASS] Read Active Order :: orderId=1 itemId=1 status=PENDING
+[2026-03-29 01:00:46] [PASS] Update Quantity :: raw={"success":true}
+[2026-03-29 01:00:56] [FAIL] Remove Item :: raw={"success":false,"message":"The request was canceled due to the configured HttpClient.Timeout of 10 seconds elapsing."} [json-fallback]
+[2026-03-29 01:01:05] [PASS] Add Item Again :: raw={"success":true}
+[2026-03-29 01:01:05] [PASS] Send To Kitchen :: raw={"success":true,"message":"\u0110\u00E3 g\u1EEDi y\u00EAu c\u1EA7u xu\u1ED1ng b\u1EBFp."} [json-fallback]
+[2026-03-29 01:01:05] [PASS] Check Order Status :: statusCode=CONFIRMED
+[2026-03-29 01:01:15] [FAIL] Unhandled Error :: The remote server returned an error: (500) Internal Server Error.
+[2026-03-29 01:01:15] SUMMARY: 12/14 PASS
+[2026-03-29 01:01:15] SUMMARY_JSON: C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\.runlogs\customer_detailed_new_summary_20260329_010027.json

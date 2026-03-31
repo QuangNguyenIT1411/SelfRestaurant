@@ -1,0 +1,20 @@
+[2026-03-05 08:59:28] [PASS] Open Register :: status=200
+[2026-03-05 08:59:29] [PASS] Register :: status=200 user=cusd_20260305085928864
+[2026-03-05 08:59:29] [PASS] Open Login :: status=200
+[2026-03-05 08:59:29] [PASS] Login :: fallback user=lan.nguyen
+[2026-03-05 08:59:29] [PASS] Select Branch/Table :: branch=1 table=8 display=8
+[2026-03-05 08:59:30] [PASS] Open Menu :: dishId=1 (fallback)
+[2026-03-05 08:59:30] [PASS] Add Item :: raw={"success":true}
+[2026-03-05 08:59:30] [PASS] Read Active Order :: orderId=1055 itemId=1055 status=PENDING
+[2026-03-05 08:59:30] [PASS] Update Quantity :: raw={"success":true}
+[2026-03-05 08:59:30] [PASS] Remove Item :: raw={"success":true} [json-fallback]
+[2026-03-05 08:59:31] [PASS] Add Item Again :: raw={"success":true}
+[2026-03-05 08:59:31] [PASS] Send To Kitchen :: raw={"success":true,"message":"\u0110\u00E3 g\u1EEDi y\u00EAu c\u1EA7u xu\u1ED1ng b\u1EBFp."} [json-fallback]
+[2026-03-05 08:59:31] [PASS] Check Order Status :: statusCode=PENDING
+[2026-03-05 08:59:31] [PASS] Update Profile :: status=200
+[2026-03-05 08:59:31] [PASS] Forgot Password :: SKIPPED (fallback account)
+[2026-03-05 08:59:31] [PASS] Get Reset Token :: SKIPPED (fallback account)
+[2026-03-05 08:59:31] [PASS] Reset Password :: SKIPPED (fallback account)
+[2026-03-05 08:59:31] [PASS] Login With New Password :: SKIPPED (fallback account)
+[2026-03-05 08:59:31] SUMMARY: 18/18 PASS
+[2026-03-05 08:59:31] SUMMARY_JSON: C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\.runlogs\customer_detailed_new_summary_20260305_085928.json

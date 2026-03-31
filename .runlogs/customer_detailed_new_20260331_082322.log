@@ -1,0 +1,20 @@
+[2026-03-31 08:23:22] [PASS] Open Register :: status=200
+[2026-03-31 08:23:23] [PASS] Register :: status=200 user=cusd_20260331082322143
+[2026-03-31 08:23:23] [PASS] Open Login :: status=200
+[2026-03-31 08:23:23] [PASS] Login :: user=cusd_20260331082322143
+[2026-03-31 08:23:24] [PASS] Select Branch/Table :: branch=1 table=2 display=2
+[2026-03-31 08:23:26] [PASS] Open Menu :: dishId=4
+[2026-03-31 08:23:27] [PASS] Add Item :: raw={"success":true}
+[2026-03-31 08:23:27] [PASS] Read Active Order :: orderId=2 itemId=2 status=PENDING
+[2026-03-31 08:23:27] [PASS] Update Quantity :: raw={"success":true}
+[2026-03-31 08:23:27] [PASS] Remove Item :: raw={"success":true} [json-fallback]
+[2026-03-31 08:23:27] [PASS] Add Item Again :: raw={"success":true}
+[2026-03-31 08:23:27] [PASS] Send To Kitchen :: raw={"success":true,"message":"\u0110\u00E3 g\u1EEDi y\u00EAu c\u1EA7u xu\u1ED1ng b\u1EBFp."} [json-fallback]
+[2026-03-31 08:23:28] [PASS] Check Order Status :: statusCode=PENDING
+[2026-03-31 08:23:29] [PASS] Update Profile :: status=200
+[2026-03-31 08:23:34] [PASS] Forgot Password :: status=200
+[2026-03-31 08:23:34] [PASS] Get Reset Token :: ok
+[2026-03-31 08:23:35] [PASS] Reset Password :: status=200
+[2026-03-31 08:23:35] [PASS] Login With New Password :: message=Ðang nh?p thành công!
+[2026-03-31 08:23:35] SUMMARY: 18/18 PASS
+[2026-03-31 08:23:35] SUMMARY_JSON: C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\.runlogs\customer_detailed_new_summary_20260331_082322.json

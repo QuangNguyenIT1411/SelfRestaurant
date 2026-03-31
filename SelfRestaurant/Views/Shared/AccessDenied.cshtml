@@ -1,0 +1,91 @@
+﻿@{
+    ViewBag.Title = "Truy cập bị từ chối";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<style>
+    .access-denied-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 80vh;
+        padding: 2rem;
+    }
+
+    .access-denied-card {
+        text-align: center;
+        max-width: 600px;
+        padding: 3rem;
+    }
+
+    .access-denied-icon {
+        font-size: 6rem;
+        color: #d9534f;
+        margin-bottom: 2rem;
+    }
+
+    .access-denied-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 1rem;
+    }
+
+    .access-denied-message {
+        font-size: 1.1rem;
+        color: #6c757d;
+        margin-bottom: 2rem;
+    }
+
+    .btn-group-custom {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .btn-custom {
+        min-width: 150px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        border-radius: 8px;
+    }
+</style>
+
+<div class="access-denied-container">
+    <div class="access-denied-card">
+        <i class="fas fa-ban access-denied-icon"></i>
+
+        <h1 class="access-denied-title">Truy cập bị từ chối</h1>
+
+        <p class="access-denied-message">
+            Xin lỗi, bạn không có quyền truy cập trang này.<br />
+            Vui lòng liên hệ quản trị viên nếu bạn nghĩ đây là lỗi.
+        </p>
+
+        <div class="btn-group-custom">
+            <a href="javascript:history.back()" class="btn btn-secondary btn-custom">
+                <i class="fas fa-arrow-left me-2"></i>
+                Quay lại
+            </a>
+            <a href="@Url.Action("Index", "Home")" class="btn btn-primary btn-custom">
+                <i class="fas fa-home me-2"></i>
+                Trang chủ
+            </a>
+            <a href="@Url.Action("LogOut", "Account")" class="btn btn-danger btn-custom">
+                <i class="fas fa-sign-out-alt me-2"></i>
+                Đăng xuất
+            </a>
+        </div>
+
+        @if (User.Identity.IsAuthenticated)
+        {
+            <div class="mt-4 p-3" style="background-color: #f8f9fa; border-radius: 8px;">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Bạn đang đăng nhập với tài khoản: <strong>@User.Identity.Name</strong>
+                </small>
+            </div>
+        }
+    </div>
+</div>

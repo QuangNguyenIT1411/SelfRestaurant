@@ -1,0 +1,69 @@
+﻿{
+    "timestamp":  "20260302_120254",
+    "total":  10,
+    "passed":  8,
+    "failed":  2,
+    "log":  "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\.runlogs\\admin_flow_test_20260302_120254.log",
+    "results":  [
+                    {
+                        "env":  "OLD",
+                        "feature":  "Admin-Login",
+                        "pass":  true,
+                        "detail":  "login success"
+                    },
+                    {
+                        "env":  "NEW",
+                        "feature":  "Admin-Login",
+                        "pass":  true,
+                        "detail":  "login success"
+                    },
+                    {
+                        "env":  "OLD",
+                        "feature":  "Admin-Customers",
+                        "pass":  false,
+                        "detail":  "Updated phone mismatch (0997439650 != 0999371911)"
+                    },
+                    {
+                        "env":  "NEW",
+                        "feature":  "Admin-Customers",
+                        "pass":  false,
+                        "detail":  "The term \u0027if\u0027 is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again."
+                    },
+                    {
+                        "env":  "OLD",
+                        "feature":  "Admin-Employees",
+                        "pass":  true,
+                        "detail":  "employeeId=10 phone 0901010101 -\u003e 0915598885 -\u003e 0901010101"
+                    },
+                    {
+                        "env":  "NEW",
+                        "feature":  "Admin-Employees",
+                        "pass":  true,
+                        "detail":  "employeeId=12 phone 0954744905 -\u003e 0932869576 -\u003e 0954744905"
+                    },
+                    {
+                        "env":  "OLD",
+                        "feature":  "Admin-Revenue",
+                        "pass":  true,
+                        "detail":  "Revenue + TopDishes pages loaded"
+                    },
+                    {
+                        "env":  "NEW",
+                        "feature":  "Admin-Revenue",
+                        "pass":  true,
+                        "detail":  "Revenue + TopDishes pages loaded"
+                    },
+                    {
+                        "env":  "OLD",
+                        "feature":  "Admin-Dishes",
+                        "pass":  true,
+                        "detail":  "dishId=27 name=AUTO_ADMIN_TEST_OLD_20260302_120301910_615 created then removed from list"
+                    },
+                    {
+                        "env":  "NEW",
+                        "feature":  "Admin-Dishes",
+                        "pass":  true,
+                        "detail":  "dishId=28 name=AUTO_ADMIN_TEST_NEW_20260302_120302995_119 created then deactivated"
+                    }
+                ]
+}

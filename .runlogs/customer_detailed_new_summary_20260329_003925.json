@@ -1,0 +1,98 @@
+﻿{
+    "timestamp":  "20260329_003925",
+    "passed":  14,
+    "total":  18,
+    "log":  "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\.runlogs\\customer_detailed_new_20260329_003925.log",
+    "results":  [
+                    {
+                        "Step":  "Open Register",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Register",
+                        "Pass":  true,
+                        "Detail":  "status=200 user=cusd_20260329003925308"
+                    },
+                    {
+                        "Step":  "Open Login",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Login",
+                        "Pass":  true,
+                        "Detail":  "user=cusd_20260329003925308"
+                    },
+                    {
+                        "Step":  "Select Branch/Table",
+                        "Pass":  true,
+                        "Detail":  "branch=1 table=1 display=1"
+                    },
+                    {
+                        "Step":  "Open Menu",
+                        "Pass":  true,
+                        "Detail":  "dishId=4"
+                    },
+                    {
+                        "Step":  "Add Item",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true}"
+                    },
+                    {
+                        "Step":  "Read Active Order",
+                        "Pass":  true,
+                        "Detail":  "orderId=13 itemId=13 status=PENDING"
+                    },
+                    {
+                        "Step":  "Update Quantity",
+                        "Pass":  false,
+                        "Detail":  "raw={\"success\":false,\"message\":\"The request was canceled due to the configured HttpClient.Timeout of 10 seconds elapsing.\"}"
+                    },
+                    {
+                        "Step":  "Remove Item",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true} [json-fallback]"
+                    },
+                    {
+                        "Step":  "Add Item Again",
+                        "Pass":  false,
+                        "Detail":  "raw={\"success\":false,\"message\":\"The request was canceled due to the configured HttpClient.Timeout of 10 seconds elapsing.\"}"
+                    },
+                    {
+                        "Step":  "Send To Kitchen",
+                        "Pass":  false,
+                        "Detail":  "raw={\"success\":false,\"message\":\"\\u0110\\u01A1n h\\u00E0ng tr\\u1ED1ng\"} [json-fallback]"
+                    },
+                    {
+                        "Step":  "Check Order Status",
+                        "Pass":  false,
+                        "Detail":  "statusCode="
+                    },
+                    {
+                        "Step":  "Update Profile",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Forgot Password",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Get Reset Token",
+                        "Pass":  true,
+                        "Detail":  "ok"
+                    },
+                    {
+                        "Step":  "Reset Password",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Login With New Password",
+                        "Pass":  true,
+                        "Detail":  "message=Đăng nhập thành công!"
+                    }
+                ]
+}

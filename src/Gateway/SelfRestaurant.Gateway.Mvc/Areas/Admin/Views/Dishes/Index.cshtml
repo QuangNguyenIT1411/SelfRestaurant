@@ -1,0 +1,174 @@
+@model SelfRestaurant.Gateway.Mvc.Areas.Admin.Models.AdminDishesIndexViewModel
+@{
+    ViewBag.Title = "Quản lý món ăn";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var items = Model?.Items ?? Array.Empty<SelfRestaurant.Gateway.Mvc.Models.AdminDishDto>();
+    var search = ViewBag.Search as string;
+    var categoryId = ViewBag.CategoryId as int?;
+    var onlyVegetarian = ViewBag.OnlyVegetarian as bool?;
+    int page = Model?.Page ?? 1;
+    int totalPages = Model?.TotalPages ?? 1;
+}
+
+<div class="container py-4">
+    <div class="row g-3">
+        <div class="col-lg-3">
+            @Html.Partial("~/Areas/Admin/Views/Shared/_AdminSidebar.cshtml")
+        </div>
+        <div class="col-lg-9">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="mb-0">Quản lý món ăn</h2>
+                <a href="@Url.Action("Create", "Dishes", new { area = "Admin" })" class="btn btn-primary">
+                    <i class="bi bi-plus-lg me-1"></i>Thêm món mới
+                </a>
+            </div>
+
+            @if (ViewBag.SuccessMessage != null)
+            {
+                <div class="alert alert-success">@ViewBag.SuccessMessage</div>
+            }
+            @if (ViewBag.ErrorMessage != null)
+            {
+                <div class="alert alert-danger">@ViewBag.ErrorMessage</div>
+            }
+
+            <form method="get" class="row g-2 mb-3">
+                <div class="col-md-4">
+                    <input type="text" name="search" value="@ViewBag.Search" class="form-control" placeholder="Tìm theo tên hoặc mô tả..." />
+                </div>
+                <div class="col-md-3">
+                    @Html.DropDownList("categoryId", (SelectList)ViewBag.Categories, "-- Tất cả danh mục --", new { @class = "form-select" })
+                </div>
+                <div class="col-md-3 d-flex align-items-center">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="true" id="onlyVegetarian" name="onlyVegetarian"
+                               @(ViewBag.OnlyVegetarian == null || ViewBag.OnlyVegetarian == false ? "" : "checked") />
+                        <label class="form-check-label" for="onlyVegetarian">Chỉ món chay</label>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-outline-primary w-100">
+                        <i class="bi bi-search me-1"></i>Lọc
+                    </button>
+                </div>
+            </form>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Hình</th>
+                            <th>Tên món</th>
+                            <th>Danh mục</th>
+                            <th>Giá</th>
+                            <th>Tình trạng</th>
+                            <th class="text-end">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!items.Any())
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">Chưa có món ăn nào.</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            foreach (var dish in items)
+                            {
+                                var isInactive = !dish.IsActive;
+                                <tr class="@(isInactive ? "table-secondary" : "")">
+                                    <td style="width:70px">
+                                        <img src="@(string.IsNullOrEmpty(dish.Image) ? "https://placehold.co/60x60?text=No+Img" : Url.Content(dish.Image))"
+                                             class="rounded" style="width:60px;height:60px;object-fit:cover;" />
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold">
+                                            @dish.Name
+                                            @if (dish.IsVegetarian)
+                                            {
+                                                <span class="badge bg-success ms-1">Chay</span>
+                                            }
+                                        </div>
+                                        <div class="small text-muted text-truncate" style="max-width:260px;">
+                                            @dish.Description
+                                        </div>
+                                    </td>
+                                    <td>@(string.IsNullOrWhiteSpace(dish.CategoryName) ? "-" : dish.CategoryName)</td>
+                                    <td>@dish.Price.ToString("N0") đ</td>
+                                    <td>
+                                        @if (isInactive || !dish.Available)
+                                        {
+                                            <span class="badge bg-secondary">Ngừng bán</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-success">Đang bán</span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="btn-group" role="group">
+                                            <a href="@Url.Action("Edit", "Dishes", new { area = "Admin", id = dish.DishId })" class="btn btn-sm btn-outline-primary">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </a>
+                                            <a href="@Url.Action("Ingredients", "Dishes", new { area = "Admin", id = dish.DishId })" class="btn btn-sm btn-outline-info">
+                                                <i class="bi bi-basket3"></i>
+                                            </a>
+                                            @if (isInactive || !dish.Available)
+                                            {
+                                                using (Html.BeginForm("ToggleAvailability", "Dishes", new { area = "Admin", id = dish.DishId, available = true }, FormMethod.Post, false, new { @class = "d-inline" }))
+                                                {
+                                                    @Html.AntiForgeryToken()
+                                                    <button type="submit" class="btn btn-sm btn-outline-success" title="Mở bán lại" onclick="return confirm('Mở bán lại món @dish.Name?');">
+                                                        <i class="bi bi-play-circle"></i>
+                                                    </button>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                using (Html.BeginForm("ToggleAvailability", "Dishes", new { area = "Admin", id = dish.DishId, available = false }, FormMethod.Post, false, new { @class = "d-inline" }))
+                                                {
+                                                    @Html.AntiForgeryToken()
+                                                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Tạm ngưng bán" onclick="return confirm('Tạm ngưng bán món @dish.Name?');">
+                                                        <i class="bi bi-pause-circle"></i>
+                                                    </button>
+                                                }
+                                            }
+                                            @using (Html.BeginForm("Delete", "Dishes", new { area = "Admin", id = dish.DishId }, FormMethod.Post, false, new { @class = "d-inline", onsubmit = "return confirm('Bạn chắc chắn muốn xóa hoàn toàn món này khỏi hệ thống? Hành động này không thể hoàn tác.');" }))
+                                            {
+                                                @Html.AntiForgeryToken()
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa khỏi database">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (totalPages > 1)
+            {
+                <nav class="mt-3">
+                    <ul class="pagination">
+                        <li class="page-item @(page <= 1 ? "disabled" : "")">
+                            <a class="page-link" href="@Url.Action("Index", "Dishes", new { area = "Admin", page = page - 1, search = search, categoryId = categoryId, onlyVegetarian = onlyVegetarian })">«</a>
+                        </li>
+                        @for (int p = 1; p <= totalPages; p++)
+                        {
+                            <li class="page-item @(p == page ? "active" : "")">
+                                <a class="page-link" href="@Url.Action("Index", "Dishes", new { area = "Admin", page = p, search = search, categoryId = categoryId, onlyVegetarian = onlyVegetarian })">@p</a>
+                            </li>
+                        }
+                        <li class="page-item @(page >= totalPages ? "disabled" : "")">
+                            <a class="page-link" href="@Url.Action("Index", "Dishes", new { area = "Admin", page = page + 1, search = search, categoryId = categoryId, onlyVegetarian = onlyVegetarian })">»</a>
+                        </li>
+                    </ul>
+                </nav>
+            }
+        </div>
+    </div>
+</div>

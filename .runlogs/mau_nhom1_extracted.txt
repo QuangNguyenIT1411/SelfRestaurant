@@ -1,0 +1,60 @@
+﻿=== SHEET: Sheet1 ===
+ROWS=57 COLS=5
+BẢNG THU THẬP YÊU CẦU CỦA CÁC BÊN LIÊN QUAN				
+TÊN DỰ ÁN: Xây dựng phần mềm quản lý nhà hàng thông minh trên nền tảng web				
+STT	BÊN LIÊN QUAN	TÊN YÊU CẦU	ĐỒ ƯU TIÊN (Cao, Trung bình, thấp)	GHI CHÚ
+1	Admin, quản lý	Quản trị tài khoản nhân viên (Tạo mới, phân quyền, khóa,...)	Cao	
+2	Bộ công thương	Hiển thị được các chứng chỉ của bộ công thương	Thấp	
+3	Đầu bếp	Cập nhật tình trạng nguyên liệu/món ăn (Hết hàng/Sẵn sàng)	Cao	
+4	Đầu bếp	Có khả năng xem danh sách order theo thứ tự ưu tiên/thời gian	Cao	
+5	Đầu bếp	Phân loại order (Mang về/Tại chỗ)	Cao	
+6	Đầu bếp	Thông báo cho bếp khi có order mới	Cao	
+7	Đầu bếp, quản lí	Có khả năng ngưng bán, tạm ẩn món	Cao	
+8	Đầu bếp, quản lí	Phải có quản lý kho (Nhập, Xuất, Tồn,...)	Cao	
+9	Khách hàng	Có thể gửi khiếu nại và theo dõi trạng thái xử lý	Trung bình	
+10	Khách hàng	Phải có tìm kiếm món theo danh mục, theo tên,…	Trung bình	
+11	Khách hàng	Có khả năng áp dụng mã giảm giá cho hóa đơn	Trung bình	
+12	Khách hàng	Phải có thống kê chi tiêu cá nhân	Thấp	
+13	Khách hàng	Phải có thông tin món(giá, dinh dưỡng, thành phần…)	Cao	
+14	Khách hàng	Phải có thanh toán online(Vnpay, momo,…)	Cao	
+15	Khách hàng	Phải có phần bình luận, đánh giá về sản phẩm	Trung bình	
+16	Khách hàng	Phải có phần giỏ hàng	Cao	
+17	Khách hàng	Phải có chính sách về quyền riêng tư và bảo mật	Cao	
+18	Khách hàng	Phải có hỗ trợ khách hàng	Trung bình	
+19	Khách hàng	Phải có gợi ý món nổi bật	Trung bình	
+20	Khách hàng	Có thể chọn phương thức thanh toán	Cao	
+21	Khách hàng	Có khả năng hủy món đã đặt	Trung bình	
+22	Khách hàng	Có khả năng xem lịch sử đặt món	Trung bình	
+23	Khách hàng	Có khả năng nhận thông báo khi món hoàn thành(đầu bếp đã làm xong món)	Trung bình	
+24	Khách hàng	Có thể thay đổi số lượng món khi đã thêm vào giỏ hàng	Trung bình	
+25	Khách hàng	Có thể cập nhật thông tin cá nhân	Trung bình	
+26	Khách hàng	Phải xem được món ăn phục vụ trong ngày của các chi nhánh trên website	Trung bình	
+27	Khách hàng	Phải có quên mật khẩu và đăng kí tài khoản	Cao	
+28	Khách hàng	Có khả năng xem được thành phần món ăn	Cao	
+29	Khách hàng	Có khả năng đặt bàn trước	Trung bình	
+30	Khách hàng	Có khả năng quét mã QR từ bàn để đặt món	Trung bình	
+31	Khách hàng, quản lí, đầu bếp	Phải có theo dõi món	Cao	
+32	Khách hàng, quản lí, thu ngân, đầu bếp	Phải có các chương trình khuyến mãi, tích điểm	Trung bình	
+33	Khách hàng, quản lí, thu ngân, đầu bếp	Phải hỗ trợ đa ngôn ngữ	Thấp	
+34	Khách hàng, quản lí, thu ngân, đầu bếp	Phải có trang bán hàng phải ổn định, tải nhanh, mượt	Cao	
+35	Khách hàng, quản lí, thu ngân, đầu bếp, Admin	Phải có chức năng đăng nhập vào hệ thống	Cao	
+36	Khách hàng, thu ngân	Phải có in hóa đơn món(tổng tiền, số lượng, giảm giá...)	Cao	
+37	Quản lí	Có thể thống kê số lượng khách hàng	Trung bình	
+38	Quản lí	Phải có xem rõ tổng tiền thanh toán	Cao	
+39	Quản lí	Phải hiển thị được logo, thông tin về cửa hàng	Cao	
+40	Quản lí	Có khả năng phản hồi về đánh giá của khách hàng	Trung bình	
+41	Quản lí	Phải quản lí được thông tin nhân viên	Trung bình	
+42	Quản lí	Báo cáo món bán chạy/ế	Trung bình	
+43	Quản lí	Quản lý nhà cung cấp	Trung bình	
+44	Quản lí	Phải quản lí được thông tin về các loại danh mục	Trung bình	
+45	Quản lí, Admin	Có khả năng xóa/chặn người dùng khi vi phạm	Trung bình	
+46	Quản lí	Phải có thêm/xóa/sửa món ăn	Cao	
+47	Thu ngân	Có khả năng xử lý các phương thức thanh toán tại quầy(tiền mặt, chuyển khoản)	Cao	
+48	Thu ngân	Xem lịch sử giao dịch	Trung bình	
+49	Thu ngân	Quản lí ca làm việc và đối soát tiền cuối ca	Cao	
+50	Thu ngân	Có khả năng xuất báo cáo(Excel/PDF)	Trung bình	
+51	Thu ngân	Có khả năng tra cứu mã bàn để thực hiện thanh toán cho khách hàng	Cao	
+52	Thu ngân	Có khả năng nhận thông báo khi khách hàng muốn thanh toán hóa đơn	Cao	
+53	Thu ngân, quản lí	Phải có thống kê doanh thu	Trung bình	
+54	Thu ngân, quản lí	Quản lý sơ đồ bàn ăn (Thêm bàn, trạng thái bàn)	Cao	
+

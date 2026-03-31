@@ -1,0 +1,73 @@
+﻿{
+    "timestamp":  "20260302_191701",
+    "passed":  9,
+    "total":  13,
+    "log":  "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\.runlogs\\customer_detailed_old_20260302_191701.log",
+    "results":  [
+                    {
+                        "Step":  "Start OLD IIS",
+                        "Pass":  true,
+                        "Detail":  "pid=23584"
+                    },
+                    {
+                        "Step":  "Login",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true,\"message\":\"Đăng nhập thành công!\",\"redirectUrl\":\"/\",\"name\":\"Nguyễn Thị Lan\"}"
+                    },
+                    {
+                        "Step":  "Select Table",
+                        "Pass":  true,
+                        "Detail":  "branch=1 table=1"
+                    },
+                    {
+                        "Step":  "Open Menu",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Reset Table",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Add Item",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true,\"message\":\"Đã thêm món vào giỏ hàng\",\"orderId\":1}"
+                    },
+                    {
+                        "Step":  "Read Order Items",
+                        "Pass":  true,
+                        "Detail":  "orderId=1 itemId=79"
+                    },
+                    {
+                        "Step":  "Update Quantity",
+                        "Pass":  false,
+                        "Detail":  "raw={\"success\":false,\"message\":\"Không thể cập nhật món đã gửi bếp\"}"
+                    },
+                    {
+                        "Step":  "Remove Item",
+                        "Pass":  false,
+                        "Detail":  "raw={\"success\":false,\"message\":\"Không thể xóa món đã gửi bếp\"}"
+                    },
+                    {
+                        "Step":  "Add Item Again",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true,\"message\":\"Đã thêm món vào giỏ hàng\",\"orderId\":1}"
+                    },
+                    {
+                        "Step":  "Send To Kitchen",
+                        "Pass":  false,
+                        "Detail":  "raw={\"success\":false,\"message\":\"Đơn hàng đã được gửi\"}"
+                    },
+                    {
+                        "Step":  "Check Order Status",
+                        "Pass":  true,
+                        "Detail":  "statusCode=READY"
+                    },
+                    {
+                        "Step":  "Update Profile",
+                        "Pass":  false,
+                        "Detail":  "No anti-forgery token"
+                    }
+                ]
+}

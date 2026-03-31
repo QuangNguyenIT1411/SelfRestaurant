@@ -1,0 +1,2145 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>B&#x1EBF;p - Self Restaurant</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          crossorigin="anonymous" />
+
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
+          rel="stylesheet" />
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+          crossorigin="anonymous"
+          referrerpolicy="no-referrer" />
+
+    <!-- Google Font (Inter) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet" />
+
+    
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --primary-dark: #0a58ca;
+            --primary-light: #6ea8fe;
+            --success-color: #198754;
+            --warning-color: #ffc107;
+            --info-color: #0dcaf0;
+            --danger-color: #dc3545;
+        }
+
+        body {
+            background-color: #f8f9fa;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .header {
+            background: white;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #dee2e6;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .header-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-dark);
+            margin: 0;
+        }
+
+        .kanban-board {
+            display: flex;
+            gap: 1.5rem;
+            overflow-x: auto;
+            padding-bottom: 1rem;
+            min-height: calc(100vh - 200px);
+        }
+
+        .kanban-column {
+            flex: 1;
+            min-width: 320px;
+            background: #f1f5f9;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .kanban-header {
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #cbd5e1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .order-card {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-left: 4px solid transparent;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+            .order-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+
+            .order-card.priority-high {
+                border-left-color: var(--danger-color);
+            }
+
+            .order-card.priority-normal {
+                border-left-color: var(--primary-color);
+            }
+
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
+        .table-badge {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        .order-time {
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .order-items {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .order-item {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+            .order-item:last-child {
+                border-bottom: none;
+            }
+
+        .item-qty {
+            background: #e9ecef;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-weight: 700;
+            font-size: 0.8rem;
+            margin-right: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .item-name {
+            font-weight: 600;
+            color: #212529;
+            flex-grow: 1;
+        }
+
+        .item-note {
+            font-size: 0.8rem;
+            color: var(--danger-color);
+            font-style: italic;
+            margin-top: 0.25rem;
+            display: block;
+        }
+
+        .btn-action {
+            width: 100%;
+            margin-top: 0.75rem;
+            border-radius: 0.25rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            padding: 0.5rem;
+        }
+
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .dish-card {
+            background: white;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+        }
+
+            .dish-card:hover {
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+
+        .dish-img {
+            height: 150px;
+            width: 100%;
+            object-fit: cover;
+            background-color: #e9ecef;
+        }
+
+        .dish-body {
+            padding: 1rem;
+        }
+
+        .dish-title {
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .dish-price {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .badge-special {
+            background: #f97316;
+            color: #fff;
+        }
+
+        .nav-pills .nav-link.active {
+            background-color: var(--primary-color);
+        }
+    </style>
+
+</head>
+<body>
+    <div b-7t7rp274vo>
+        
+
+
+<div class="header">
+    <div class="d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-fire fs-2 text-danger me-3"></i>
+            <div>
+                <h1 class="header-title">Bếp & Chế Biến</h1>
+                <div class="text-muted small">
+                    Chi nh&#xE1;nh Qu&#x1EAD;n 1 - Nhân viên bếp: &#x110;&#x1EA7;u b&#x1EBF;p H&#xF9;ng
+                </div>
+            </div>
+        </div>
+        <div class="d-flex gap-3">
+            <ul class="nav nav-pills" id="chefTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="orders-tab" data-bs-toggle="tab" data-bs-target="#orders" type="button" role="tab">
+                        <i class="bi bi-kanban me-2"></i>Đơn Hàng
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="menu-tab" data-bs-toggle="tab" data-bs-target="#menu" type="button" role="tab">
+                        <i class="bi bi-journal-text me-2"></i>Thực Đơn
+                    </button>
+                </li>
+            </ul>
+            <div class="vr"></div>
+            <button class="btn btn-outline-info me-2" type="button" onclick="openIngredientStockModal()">
+                <i class="bi bi-box-seam me-1"></i>Kho nguyên liệu
+            </button>
+            <a href="/Staff/Chef/History"
+               class="btn btn-outline-primary">
+                <i class="bi bi-clock-history me-1"></i>Lịch sử &amp; Tài khoản
+            </a>
+            <button class="btn btn-outline-danger" onclick="handleLogout()">
+                <i class="bi bi-box-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid px-4">
+    <div class="tab-content" id="chefTabContent">
+        <!-- Orders Tab -->
+        <div class="tab-pane fade show active" id="orders" role="tabpanel">
+            <div class="kanban-board">
+                <!-- Pending Column -->
+                <div class="kanban-column">
+                    <div class="kanban-header text-secondary">
+                        <span><i class="bi bi-hourglass-split me-2"></i>Chờ Chế Biến</span>
+                        <span class="badge bg-secondary rounded-pill">5</span>
+                    </div>
+                    <div id="pending-orders">
+                            <div class="order-card priority-normal" id="order-16">
+                                <div class="order-header">
+                                    <span class="table-badge">QR-Q1-B02</span>
+                                    <span class="order-time"><i class="bi bi-clock me-1"></i>01:19</span>
+                                </div>
+                                <div class="mb-2 text-muted small">#ORD-20260304011941401-756</div>
+                                <ul class="order-items">
+                                        <li class="order-item">
+                                            <div class="d-flex w-100">
+                                                <span class="item-qty">1</span>
+                                                <div class="flex-grow-1">
+                                                    <div class="item-name">
+                                                        B&#xE1;nh Flan
+                                                        <button type="button"
+                                                                class="btn btn-xs btn-outline-secondary ms-1"
+                                                                style="padding:0 6px;font-size:11px;border-radius:999px;"
+                                                                onclick="openOrderItemIngredients(16)">
+                                                            Thành phần
+                                                        </button>
+                                                    </div>
+                                                        <span class="item-note">Note: role-chef</span>
+                                                </div>
+                                            </div>
+                                        </li>
+                                </ul>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-primary btn-action" onclick="updateStatus(16, 'PREPARING')">
+                                        <i class="bi bi-play-fill me-1"></i>Bắt đầu nấu
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-action" onclick="openCancelOrderModal(16)">
+                                        <i class="bi bi-x-circle me-1"></i>Hủy đơn
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="order-card priority-normal" id="order-17">
+                                <div class="order-header">
+                                    <span class="table-badge">QR-Q1-B03</span>
+                                    <span class="order-time"><i class="bi bi-clock me-1"></i>01:19</span>
+                                </div>
+                                <div class="mb-2 text-muted small">#ORD-20260304011941546-757</div>
+                                <ul class="order-items">
+                                        <li class="order-item">
+                                            <div class="d-flex w-100">
+                                                <span class="item-qty">1</span>
+                                                <div class="flex-grow-1">
+                                                    <div class="item-name">
+                                                        B&#xE1;nh Flan
+                                                        <button type="button"
+                                                                class="btn btn-xs btn-outline-secondary ms-1"
+                                                                style="padding:0 6px;font-size:11px;border-radius:999px;"
+                                                                onclick="openOrderItemIngredients(17)">
+                                                            Thành phần
+                                                        </button>
+                                                    </div>
+                                                        <span class="item-note">Note: cashier-insufficient</span>
+                                                </div>
+                                            </div>
+                                        </li>
+                                </ul>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-primary btn-action" onclick="updateStatus(17, 'PREPARING')">
+                                        <i class="bi bi-play-fill me-1"></i>Bắt đầu nấu
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-action" onclick="openCancelOrderModal(17)">
+                                        <i class="bi bi-x-circle me-1"></i>Hủy đơn
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="order-card priority-normal" id="order-1002">
+                                <div class="order-header">
+                                    <span class="table-badge">QR-Q1-B04</span>
+                                    <span class="order-time"><i class="bi bi-clock me-1"></i>09:13</span>
+                                </div>
+                                <div class="mb-2 text-muted small">#ORD-20260304091356222-615</div>
+                                <ul class="order-items">
+                                        <li class="order-item">
+                                            <div class="d-flex w-100">
+                                                <span class="item-qty">1</span>
+                                                <div class="flex-grow-1">
+                                                    <div class="item-name">
+                                                        Ph&#x1EDF; B&#xF2; &#x110;&#x1EB7;c Bi&#x1EC7;t
+                                                        <button type="button"
+                                                                class="btn btn-xs btn-outline-secondary ms-1"
+                                                                style="padding:0 6px;font-size:11px;border-radius:999px;"
+                                                                onclick="openOrderItemIngredients(1002)">
+                                                            Thành phần
+                                                        </button>
+                                                    </div>
+                                                        <span class="item-note">Note: test-submit</span>
+                                                </div>
+                                            </div>
+                                        </li>
+                                </ul>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-primary btn-action" onclick="updateStatus(1002, 'PREPARING')">
+                                        <i class="bi bi-play-fill me-1"></i>Bắt đầu nấu
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-action" onclick="openCancelOrderModal(1002)">
+                                        <i class="bi bi-x-circle me-1"></i>Hủy đơn
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="order-card priority-normal" id="order-1003">
+                                <div class="order-header">
+                                    <span class="table-badge">QR-Q1-B04</span>
+                                    <span class="order-time"><i class="bi bi-clock me-1"></i>09:14</span>
+                                </div>
+                                <div class="mb-2 text-muted small">#ORD-20260304091403490-155</div>
+                                <ul class="order-items">
+                                        <li class="order-item">
+                                            <div class="d-flex w-100">
+                                                <span class="item-qty">1</span>
+                                                <div class="flex-grow-1">
+                                                    <div class="item-name">
+                                                        B&#xE1;nh Flan
+                                                        <button type="button"
+                                                                class="btn btn-xs btn-outline-secondary ms-1"
+                                                                style="padding:0 6px;font-size:11px;border-radius:999px;"
+                                                                onclick="openOrderItemIngredients(1003)">
+                                                            Thành phần
+                                                        </button>
+                                                    </div>
+                                                        <span class="item-note">Note: role-chef</span>
+                                                </div>
+                                            </div>
+                                        </li>
+                                </ul>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-primary btn-action" onclick="updateStatus(1003, 'PREPARING')">
+                                        <i class="bi bi-play-fill me-1"></i>Bắt đầu nấu
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-action" onclick="openCancelOrderModal(1003)">
+                                        <i class="bi bi-x-circle me-1"></i>Hủy đơn
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="order-card priority-normal" id="order-1004">
+                                <div class="order-header">
+                                    <span class="table-badge">QR-Q1-B05</span>
+                                    <span class="order-time"><i class="bi bi-clock me-1"></i>09:14</span>
+                                </div>
+                                <div class="mb-2 text-muted small">#ORD-20260304091415803-502</div>
+                                <ul class="order-items">
+                                        <li class="order-item">
+                                            <div class="d-flex w-100">
+                                                <span class="item-qty">1</span>
+                                                <div class="flex-grow-1">
+                                                    <div class="item-name">
+                                                        B&#xE1;nh Flan
+                                                        <button type="button"
+                                                                class="btn btn-xs btn-outline-secondary ms-1"
+                                                                style="padding:0 6px;font-size:11px;border-radius:999px;"
+                                                                onclick="openOrderItemIngredients(1004)">
+                                                            Thành phần
+                                                        </button>
+                                                    </div>
+                                                        <span class="item-note">Note: chef-e2e</span>
+                                                </div>
+                                            </div>
+                                        </li>
+                                </ul>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-primary btn-action" onclick="updateStatus(1004, 'PREPARING')">
+                                        <i class="bi bi-play-fill me-1"></i>Bắt đầu nấu
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-action" onclick="openCancelOrderModal(1004)">
+                                        <i class="bi bi-x-circle me-1"></i>Hủy đơn
+                                    </button>
+                                </div>
+                            </div>
+                    </div>
+                </div>
+
+                <!-- Preparing Column -->
+                <div class="kanban-column">
+                    <div class="kanban-header text-primary">
+                        <span><i class="bi bi-fire me-2"></i>Đang Chế Biến</span>
+                        <span class="badge bg-primary rounded-pill">0</span>
+                    </div>
+                    <div id="preparing-orders">
+                    </div>
+                </div>
+
+                <!-- Ready Column -->
+                <div class="kanban-column">
+                    <div class="kanban-header text-success">
+                        <span><i class="bi bi-bell me-2"></i>Sẵn Sàng</span>
+                        <span class="badge bg-success rounded-pill">0</span>
+                    </div>
+                    <div id="ready-orders">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Menu Tab -->
+        <div class="tab-pane fade" id="menu" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="mb-0">Thực đơn hôm nay (04/03/2026)</h4>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addDishModal">
+                    <i class="bi bi-plus-lg me-2"></i>Thêm Món Mới
+                </button>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-4 mb-2">
+                    <input type="text" class="form-control" id="dishSearchInput" placeholder="Tìm món theo tên..." oninput="renderMenuGrid()" />
+                </div>
+                <div class="col-md-4 mb-2">
+                    <select class="form-select" id="dishStatusFilter" onchange="renderMenuGrid()">
+                        <option value="ALL">Tất cả trạng thái</option>
+                        <option value="AVAILABLE">Đang bán</option>
+                        <option value="PAUSED">Tạm ngưng bán</option>
+                    </select>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <select class="form-select" id="dishSpecialFilter" onchange="renderMenuGrid()">
+                        <option value="ALL">Tất cả loại</option>
+                        <option value="SPECIAL">Món đặc biệt</option>
+                        <option value="NORMAL">Món thường</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="menu-grid">
+                    <div class="dish-card"
+                         data-dish-id="12"
+                         data-name="b&#xE1;nh flan"
+                         data-available="true"
+                         data-special="false">
+                        <img src="/Images/dish_20251203014919825.jpg" class="dish-img" alt="B&#xE1;nh Flan">
+                        <div class="dish-body">
+                            <h5 class="dish-title" title="B&#xE1;nh Flan">
+                                B&#xE1;nh Flan
+                            </h5>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="dish-price">30,000 đ</span>
+                                <span class="badge bg-light text-dark border">C&#xE1;i</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <span class="badge bg-success">
+                                    &#x110;ang b&#xE1;n
+                                </span>
+                                <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="setDishAvailability(12, false)">
+                                            <i class="bi bi-pause-circle"></i> Tạm ngưng bán
+                                        </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="openDishIngredients(12)">
+                                        <i class="bi bi-list-ul"></i> Thành phần
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-end">
+                                <button class="btn btn-sm btn-outline-primary" onclick="openEditDishModal(12)">
+                                    <i class="bi bi-pencil-square"></i> Sửa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dish-card"
+                         data-dish-id="11"
+                         data-name="ch&#xE8; kh&#xFA;c b&#x1EA1;ch"
+                         data-available="true"
+                         data-special="false">
+                        <img src="/Images/dish_20251203014934154.jpg" class="dish-img" alt="Ch&#xE8; Kh&#xFA;c B&#x1EA1;ch">
+                        <div class="dish-body">
+                            <h5 class="dish-title" title="Ch&#xE8; Kh&#xFA;c B&#x1EA1;ch">
+                                Ch&#xE8; Kh&#xFA;c B&#x1EA1;ch
+                            </h5>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="dish-price">35,000 đ</span>
+                                <span class="badge bg-light text-dark border">Ly</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <span class="badge bg-success">
+                                    &#x110;ang b&#xE1;n
+                                </span>
+                                <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="setDishAvailability(11, false)">
+                                            <i class="bi bi-pause-circle"></i> Tạm ngưng bán
+                                        </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="openDishIngredients(11)">
+                                        <i class="bi bi-list-ul"></i> Thành phần
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-end">
+                                <button class="btn btn-sm btn-outline-primary" onclick="openEditDishModal(11)">
+                                    <i class="bi bi-pencil-square"></i> Sửa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dish-card"
+                         data-dish-id="13"
+                         data-name="ch&#xE8; th&#xE1;i"
+                         data-available="true"
+                         data-special="false">
+                        <img src="/Images/dish_20251203014944820.jpg" class="dish-img" alt="Ch&#xE8; Th&#xE1;i">
+                        <div class="dish-body">
+                            <h5 class="dish-title" title="Ch&#xE8; Th&#xE1;i">
+                                Ch&#xE8; Th&#xE1;i
+                            </h5>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="dish-price">40,000 đ</span>
+                                <span class="badge bg-light text-dark border">Ly</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <span class="badge bg-success">
+                                    &#x110;ang b&#xE1;n
+                                </span>
+                                <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="setDishAvailability(13, false)">
+                                            <i class="bi bi-pause-circle"></i> Tạm ngưng bán
+                                        </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="openDishIngredients(13)">
+                                        <i class="bi bi-list-ul"></i> Thành phần
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-end">
+                                <button class="btn btn-sm btn-outline-primary" onclick="openEditDishModal(13)">
+                                    <i class="bi bi-pencil-square"></i> Sửa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dish-card"
+                         data-dish-id="16"
+                         data-name="c&#xE0; ph&#xEA; s&#x1EEF;a &#x111;&#xE1;"
+                         data-available="true"
+                         data-special="false">
+                        <img src="/Images/dish_20251203014151691.jpg" class="dish-img" alt="C&#xE0; Ph&#xEA; S&#x1EEF;a &#x110;&#xE1;">
+                        <div class="dish-body">
+                            <h5 class="dish-title" title="C&#xE0; Ph&#xEA; S&#x1EEF;a &#x110;&#xE1;">
+                                C&#xE0; Ph&#xEA; S&#x1EEF;a &#x110;&#xE1;
+                            </h5>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="dish-price">40,000 đ</span>
+                                <span class="badge bg-light text-dark border">Ly</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <span class="badge bg-success">
+                                    &#x110;ang b&#xE1;n
+                                </span>
+                                <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="setDishAvailability(16, false)">
+                                            <i class="bi bi-pause-circle"></i> Tạm ngưng bán
+                                        </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="openDishIngredients(16)">
+                                        <i class="bi bi-list-ul"></i> Thành phần
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-end">
+                                <button class="btn btn-sm btn-outline-primary" onclick="openEditDishModal(16)">
+                                    <i class="bi bi-pencil-square"></i> Sửa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dish-card"
+                         data-dish-id="14"
+                         data-name="n&#x1B0;&#x1EDB;c cam v&#x1EAF;t"
+                         data-available="true"
+                         data-special="false">
+                        <img src="/Images/dish_20251203014217645.jpg" class="dish-img" alt="N&#x1B0;&#x1EDB;c Cam V&#x1EAF;t">
+                        <div class="dish-body">
+                            <h5 class="dish-title" title="N&#x1B0;&#x1EDB;c Cam V&#x1EAF;t">
+                                N&#x1B0;&#x1EDB;c Cam V&#x1EAF;t
+                            </h5>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="dish-price">40,000 đ</span>
+                                <span class="badge bg-light text-dark border">Ly</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <span class="badge bg-success">
+                                    &#x110;ang b&#xE1;n
+                                </span>
+                                <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="setDishAvailability(14, false)">
+                                            <i class="bi bi-pause-circle"></i> Tạm ngưng bán
+                                        </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="openDishIngredients(14)">
+                                        <i class="bi bi-list-ul"></i> Thành phần
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-end">
+                                <button class="btn btn-sm btn-outline-primary" onclick="openEditDishModal(14)">
+                                    <i class="bi bi-pencil-square"></i> Sửa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dish-card"
+                         data-dish-id="17"
+                         data-name="sinh t&#x1ED1; b&#x1A1;"
+                         data-available="true"
+                         data-special="false">
+                        <img src="/Images/dish_20251203014230039.jpg" class="dish-img" alt="Sinh T&#x1ED1; B&#x1A1;">
+                        <div class="dish-body">
+                            <h5 class="dish-title" title="Sinh T&#x1ED1; B&#x1A1;">
+                                Sinh T&#x1ED1; B&#x1A1;
+                            </h5>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="dish-price">45,000 đ</span>
+                                <span class="badge bg-light text-dark border">Ly</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <span class="badge bg-success">
+                                    &#x110;ang b&#xE1;n
+                                </span>
+                                <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="setDishAvailability(17, false)">
+                                            <i class="bi bi-pause-circle"></i> Tạm ngưng bán
+                                        </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="openDishIngredients(17)">
+                                        <i class="bi bi-list-ul"></i> Thành phần
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-end">
+                                <button class="btn btn-sm btn-outline-primary" onclick="openEditDishModal(17)">
+                                    <i class="bi bi-pencil-square"></i> Sửa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dish-card"
+                         data-dish-id="15"
+                         data-name="tr&#xE0; &#x111;&#xE1;"
+                         data-available="true"
+                         data-special="false">
+                        <img src="/Images/dish_20251203014327609.jpg" class="dish-img" alt="Tr&#xE0; &#x110;&#xE1;">
+                        <div class="dish-body">
+                            <h5 class="dish-title" title="Tr&#xE0; &#x110;&#xE1;">
+                                Tr&#xE0; &#x110;&#xE1;
+                            </h5>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="dish-price">10,000 đ</span>
+                                <span class="badge bg-light text-dark border">Ly</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <span class="badge bg-success">
+                                    &#x110;ang b&#xE1;n
+                                </span>
+                                <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="setDishAvailability(15, false)">
+                                            <i class="bi bi-pause-circle"></i> Tạm ngưng bán
+                                        </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="openDishIngredients(15)">
+                                        <i class="bi bi-list-ul"></i> Thành phần
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-end">
+                                <button class="btn btn-sm btn-outline-primary" onclick="openEditDishModal(15)">
+                                    <i class="bi bi-pencil-square"></i> Sửa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dish-card"
+                         data-dish-id="22"
+                         data-name="ch&#x1EA3; c&#xE1;"
+                         data-available="true"
+                         data-special="true">
+                        <img src="/Images/dish_20251203014738222.jpg" class="dish-img" alt="Ch&#x1EA3; C&#xE1;">
+                        <div class="dish-body">
+                            <h5 class="dish-title" title="Ch&#x1EA3; C&#xE1;">
+                                Ch&#x1EA3; C&#xE1;
+                                    <span class="badge badge-special ms-2">Đặc biệt</span>
+                            </h5>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="dish-price">15,000 đ</span>
+                                <span class="badge bg-light text-dark border">D&#x129;a</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <span class="badge bg-success">
+                                    &#x110;ang b&#xE1;n
+                                </span>
+                                <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="setDishAvailability(22, false)">
+                                            <i class="bi bi-pause-circle"></i> Tạm ngưng bán
+                                        </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="openDishIngredients(22)">
+                                        <i class="bi bi-list-ul"></i> Thành phần
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-end">
+                                <button class="btn btn-sm btn-outline-primary" onclick="openEditDishModal(22)">
+                                    <i class="bi bi-pencil-square"></i> Sửa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dish-card"
+                         data-dish-id="9"
+                         data-name="g&#x1ECF;i cu&#x1ED1;n"
+                         data-available="true"
+                         data-special="false">
+                        <img src="/Images/dish_20251203014835783.jpg" class="dish-img" alt="G&#x1ECF;i Cu&#x1ED1;n">
+                        <div class="dish-body">
+                            <h5 class="dish-title" title="G&#x1ECF;i Cu&#x1ED1;n">
+                                G&#x1ECF;i Cu&#x1ED1;n
+                            </h5>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="dish-price">35,000 đ</span>
+                                <span class="badge bg-light text-dark border">Ph&#x1EA7;n</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <span class="badge bg-success">
+                                    &#x110;ang b&#xE1;n
+                                </span>
+                                <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="setDishAvailability(9, false)">
+                                            <i class="bi bi-pause-circle"></i> Tạm ngưng bán
+                                        </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="openDishIngredients(9)">
+                                        <i class="bi bi-list-ul"></i> Thành phần
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-end">
+                                <button class="btn btn-sm btn-outline-primary" onclick="openEditDishModal(9)">
+                                    <i class="bi bi-pencil-square"></i> Sửa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dish-card"
+                         data-dish-id="8"
+                         data-name="nem r&#xE1;n"
+                         data-available="true"
+                         data-special="false">
+                        <img src="/Images/dish_20251203014851937.jpg" class="dish-img" alt="Nem R&#xE1;n">
+                        <div class="dish-body">
+                            <h5 class="dish-title" title="Nem R&#xE1;n">
+                                Nem R&#xE1;n
+                            </h5>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="dish-price">40,000 đ</span>
+                                <span class="badge bg-light text-dark border">Ph&#x1EA7;n</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <span class="badge bg-success">
+                                    &#x110;ang b&#xE1;n
+                                </span>
+                                <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="setDishAvailability(8, false)">
+                                            <i class="bi bi-pause-circle"></i> Tạm ngưng bán
+                                        </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="openDishIngredients(8)">
+                                        <i class="bi bi-list-ul"></i> Thành phần
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-end">
+                                <button class="btn btn-sm btn-outline-primary" onclick="openEditDishModal(8)">
+                                    <i class="bi bi-pencil-square"></i> Sửa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dish-card"
+                         data-dish-id="10"
+                         data-name="salad rau c&#x1EE7;"
+                         data-available="true"
+                         data-special="false">
+                        <img src="/Images/dish_20251203014903144.jpg" class="dish-img" alt="Salad Rau C&#x1EE7;">
+                        <div class="dish-body">
+                            <h5 class="dish-title" title="Salad Rau C&#x1EE7;">
+                                Salad Rau C&#x1EE7;
+                            </h5>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="dish-price">30,000 đ</span>
+                                <span class="badge bg-light text-dark border">Ph&#x1EA7;n</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <span class="badge bg-success">
+                                    &#x110;ang b&#xE1;n
+                                </span>
+                                <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="setDishAvailability(10, false)">
+                                            <i class="bi bi-pause-circle"></i> Tạm ngưng bán
+                                        </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="openDishIngredients(10)">
+                                        <i class="bi bi-list-ul"></i> Thành phần
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-end">
+                                <button class="btn btn-sm btn-outline-primary" onclick="openEditDishModal(10)">
+                                    <i class="bi bi-pencil-square"></i> Sửa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dish-card"
+                         data-dish-id="4"
+                         data-name="b&#xFA;n b&#xF2; hu&#x1EBF;"
+                         data-available="true"
+                         data-special="false">
+                        <img src="/Images/dish_20251203014409795.jpg" class="dish-img" alt="B&#xFA;n B&#xF2; Hu&#x1EBF;">
+                        <div class="dish-body">
+                            <h5 class="dish-title" title="B&#xFA;n B&#xF2; Hu&#x1EBF;">
+                                B&#xFA;n B&#xF2; Hu&#x1EBF;
+                            </h5>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="dish-price">55,000 đ</span>
+                                <span class="badge bg-light text-dark border">T&#xF4;</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <span class="badge bg-success">
+                                    &#x110;ang b&#xE1;n
+                                </span>
+                                <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="setDishAvailability(4, false)">
+                                            <i class="bi bi-pause-circle"></i> Tạm ngưng bán
+                                        </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="openDishIngredients(4)">
+                                        <i class="bi bi-list-ul"></i> Thành phần
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-end">
+                                <button class="btn btn-sm btn-outline-primary" onclick="openEditDishModal(4)">
+                                    <i class="bi bi-pencil-square"></i> Sửa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dish-card"
+                         data-dish-id="2"
+                         data-name="b&#xFA;n ch&#x1EA3; h&#xE0; n&#x1ED9;i"
+                         data-available="true"
+                         data-special="true">
+                        <img src="/Images/dish_20251203014435075.jpg" class="dish-img" alt="B&#xFA;n Ch&#x1EA3; H&#xE0; N&#x1ED9;i">
+                        <div class="dish-body">
+                            <h5 class="dish-title" title="B&#xFA;n Ch&#x1EA3; H&#xE0; N&#x1ED9;i">
+                                B&#xFA;n Ch&#x1EA3; H&#xE0; N&#x1ED9;i
+                                    <span class="badge badge-special ms-2">Đặc biệt</span>
+                            </h5>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="dish-price">60,000 đ</span>
+                                <span class="badge bg-light text-dark border">Ph&#x1EA7;n</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <span class="badge bg-success">
+                                    &#x110;ang b&#xE1;n
+                                </span>
+                                <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="setDishAvailability(2, false)">
+                                            <i class="bi bi-pause-circle"></i> Tạm ngưng bán
+                                        </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="openDishIngredients(2)">
+                                        <i class="bi bi-list-ul"></i> Thành phần
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-end">
+                                <button class="btn btn-sm btn-outline-primary" onclick="openEditDishModal(2)">
+                                    <i class="bi bi-pencil-square"></i> Sửa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dish-card"
+                         data-dish-id="3"
+                         data-name="c&#x1A1;m s&#x1B0;&#x1EDD;n b&#xEC; ch&#x1EA3;"
+                         data-available="true"
+                         data-special="false">
+                        <img src="/Images/dish_20251203014504150.jpg" class="dish-img" alt="C&#x1A1;m S&#x1B0;&#x1EDD;n B&#xEC; Ch&#x1EA3;">
+                        <div class="dish-body">
+                            <h5 class="dish-title" title="C&#x1A1;m S&#x1B0;&#x1EDD;n B&#xEC; Ch&#x1EA3;">
+                                C&#x1A1;m S&#x1B0;&#x1EDD;n B&#xEC; Ch&#x1EA3;
+                            </h5>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="dish-price">65,000 đ</span>
+                                <span class="badge bg-light text-dark border">Ph&#x1EA7;n</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <span class="badge bg-success">
+                                    &#x110;ang b&#xE1;n
+                                </span>
+                                <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="setDishAvailability(3, false)">
+                                            <i class="bi bi-pause-circle"></i> Tạm ngưng bán
+                                        </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="openDishIngredients(3)">
+                                        <i class="bi bi-list-ul"></i> Thành phần
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-end">
+                                <button class="btn btn-sm btn-outline-primary" onclick="openEditDishModal(3)">
+                                    <i class="bi bi-pencil-square"></i> Sửa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dish-card"
+                         data-dish-id="5"
+                         data-name="h&#x1EE7; ti&#x1EBF;u nam vang"
+                         data-available="true"
+                         data-special="false">
+                        <img src="/Images/dish_20251203014518088.jpg" class="dish-img" alt="H&#x1EE7; Ti&#x1EBF;u Nam Vang">
+                        <div class="dish-body">
+                            <h5 class="dish-title" title="H&#x1EE7; Ti&#x1EBF;u Nam Vang">
+                                H&#x1EE7; Ti&#x1EBF;u Nam Vang
+                            </h5>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="dish-price">50,000 đ</span>
+                                <span class="badge bg-light text-dark border">T&#xF4;</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <span class="badge bg-success">
+                                    &#x110;ang b&#xE1;n
+                                </span>
+                                <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="setDishAvailability(5, false)">
+                                            <i class="bi bi-pause-circle"></i> Tạm ngưng bán
+                                        </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="openDishIngredients(5)">
+                                        <i class="bi bi-list-ul"></i> Thành phần
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-end">
+                                <button class="btn btn-sm btn-outline-primary" onclick="openEditDishModal(5)">
+                                    <i class="bi bi-pencil-square"></i> Sửa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dish-card"
+                         data-dish-id="6"
+                         data-name="m&#xEC; x&#xE0;o b&#xF2;"
+                         data-available="true"
+                         data-special="false">
+                        <img src="/Images/dish_20251203014537428.jpg" class="dish-img" alt="M&#xEC; X&#xE0;o B&#xF2;">
+                        <div class="dish-body">
+                            <h5 class="dish-title" title="M&#xEC; X&#xE0;o B&#xF2;">
+                                M&#xEC; X&#xE0;o B&#xF2;
+                            </h5>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="dish-price">60,000 đ</span>
+                                <span class="badge bg-light text-dark border">Ph&#x1EA7;n</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <span class="badge bg-success">
+                                    &#x110;ang b&#xE1;n
+                                </span>
+                                <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="setDishAvailability(6, false)">
+                                            <i class="bi bi-pause-circle"></i> Tạm ngưng bán
+                                        </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="openDishIngredients(6)">
+                                        <i class="bi bi-list-ul"></i> Thành phần
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-end">
+                                <button class="btn btn-sm btn-outline-primary" onclick="openEditDishModal(6)">
+                                    <i class="bi bi-pencil-square"></i> Sửa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dish-card"
+                         data-dish-id="1"
+                         data-name="ph&#x1EDF; b&#xF2; &#x111;&#x1EB7;c bi&#x1EC7;t"
+                         data-available="true"
+                         data-special="true">
+                        <img src="/Images/dish_20251203014802250.jpg" class="dish-img" alt="Ph&#x1EDF; B&#xF2; &#x110;&#x1EB7;c Bi&#x1EC7;t">
+                        <div class="dish-body">
+                            <h5 class="dish-title" title="Ph&#x1EDF; B&#xF2; &#x110;&#x1EB7;c Bi&#x1EC7;t">
+                                Ph&#x1EDF; B&#xF2; &#x110;&#x1EB7;c Bi&#x1EC7;t
+                                    <span class="badge badge-special ms-2">Đặc biệt</span>
+                            </h5>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="dish-price">75,000 đ</span>
+                                <span class="badge bg-light text-dark border">T&#xF4;</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <span class="badge bg-success">
+                                    &#x110;ang b&#xE1;n
+                                </span>
+                                <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="setDishAvailability(1, false)">
+                                            <i class="bi bi-pause-circle"></i> Tạm ngưng bán
+                                        </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="openDishIngredients(1)">
+                                        <i class="bi bi-list-ul"></i> Thành phần
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-end">
+                                <button class="btn btn-sm btn-outline-primary" onclick="openEditDishModal(1)">
+                                    <i class="bi bi-pencil-square"></i> Sửa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+            </div>
+        </div>
+    </div>
+<!-- Modal Sửa Món -->
+<div class="modal fade" id="editDishModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Sửa Món</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editDishForm">
+                    <input type="hidden" id="editDishId" name="dishId" />
+                    <div class="mb-3">
+                        <label class="form-label">Tên món</label>
+                        <input type="text" class="form-control" id="editName" name="name" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Giá</label>
+                            <input type="number" class="form-control" id="editPrice" name="price" required min="0">
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Đơn vị</label>
+                            <input type="text" class="form-control" id="editUnit" name="unit" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Danh mục</label>
+                        <input type="text" class="form-control" id="editCategoryName" disabled />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mô tả</label>
+                        <textarea class="form-control" id="editDescription" name="description" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Hình ảnh món ăn</label>
+                        <input type="file" class="form-control" id="editDishImageFile" accept="image/*" />
+                        <div class="form-text">Chọn file hình mới nếu muốn thay đổi.</div>
+                        <div class="mt-2">
+                            <img id="editDishImagePreview" src="https://placehold.co/120x80?text=Preview" style="max-width: 200px; max-height: 150px; border-radius: 6px; object-fit: cover;" />
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6 form-check">
+                            <input class="form-check-input" type="checkbox" id="editIsVegetarian" name="isVegetarian">
+                            <label class="form-check-label" for="editIsVegetarian">Món chay</label>
+                        </div>
+                        <div class="col-md-6 form-check">
+                            <input class="form-check-input" type="checkbox" id="editIsSpecial" name="isDailySpecial">
+                            <label class="form-check-label" for="editIsSpecial">Món đặc biệt trong ngày</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-primary" onclick="submitEditDish()">Lưu thay đổi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Add Dish Modal -->
+<div class="modal fade" id="addDishModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Thêm Món Mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addDishForm">
+                    <div class="mb-3">
+                        <label class="form-label">Tên món</label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Giá</label>
+                            <input type="number" class="form-control" name="price" required min="0">
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Đơn vị</label>
+                            <input type="text" class="form-control" name="unit" required placeholder="Dĩa, Tô...">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Danh mục</label>
+                        <select class="form-select" name="categoryId" id="dishCategory" required>
+                                    <option value="3">AUTO_CAT_FULL_20260304004707_EDIT</option>
+                                    <option value="4">AUTO_CAT_FULL_20260304004732_EDIT</option>
+                                    <option value="2">AUTO_CAT_FULL_20260304011928_EDIT</option>
+                                    <option value="1">DBG_CAT_20260304004350_EDIT</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mô tả</label>
+                        <textarea class="form-control" name="description" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Hình ảnh món ăn</label>
+                        <input type="file" class="form-control" id="dishImageFile" accept="image/*" />
+                        <div class="form-text">Chọn file hình trên máy (jpg, png, gif, webp).</div>
+                        <div class="mt-2">
+                            <img id="dishImagePreview" src="https://placehold.co/120x80?text=Preview" style="max-width: 200px; max-height: 150px; border-radius: 6px; object-fit: cover;" />
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4 form-check">
+                            <input class="form-check-input" type="checkbox" name="available" id="dishAvailable" checked>
+                            <label class="form-check-label" for="dishAvailable">Đang bán</label>
+                        </div>
+                        <div class="col-md-4 form-check">
+                            <input class="form-check-input" type="checkbox" name="isVegetarian" id="isVeg">
+                            <label class="form-check-label" for="isVeg">Món chay</label>
+                        </div>
+                        <div class="col-md-4 form-check">
+                            <input class="form-check-input" type="checkbox" name="isDailySpecial" id="isSpecial">
+                            <label class="form-check-label" for="isSpecial">Món đặc biệt trong ngày</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" onclick="resetAddDishForm()">Reset</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-primary" onclick="submitAddDish()">Thêm Món</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Modal hủy đơn -->
+<div class="modal fade" id="cancelOrderModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Hủy đơn hàng</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="cancelOrderId" />
+                <div class="alert alert-warning small">
+                    Vui lòng nhập lý do hủy đơn. Thông tin này sẽ được lưu lại trong lịch sử đơn hàng.
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Lý do hủy đơn</label>
+                    <textarea id="cancelReason" class="form-control" rows="3" maxlength="500" placeholder="Ví dụ: Khách yêu cầu hủy, món hết nguyên liệu..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-danger" onclick="confirmCancelOrder()">
+                    <i class="bi bi-x-circle me-1"></i>Xác nhận hủy
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Dish Ingredients Modal (Chef) -->
+<div class="modal fade" id="dishIngredientsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    Thành phần món: <span id="dishIngredientsTitle"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="ingredientsDishId" />
+
+                <div class="alert alert-info py-2 mb-3">
+                    Quản lý thành phần cho từng phần ăn. Số lượng là lượng nguyên liệu sử dụng cho 1 phần món.
+                </div>
+
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm table-bordered align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 40%">Nguyên liệu</th>
+                                <th style="width: 25%">Số lượng / 1 phần</th>
+                                <th style="width: 20%">Đơn vị</th>
+                                <th style="width: 15%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="dishIngredientsTableBody">
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">Chưa khai báo thành phần cho món ăn này.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="border-top pt-3">
+                    <h6 class="mb-3">Thêm / cập nhật thành phần</h6>
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-6">
+                            <label class="form-label">Nguyên liệu</label>
+                            <select class="form-select" id="ingredientSelect">
+                                <option value="">-- Chọn nguyên liệu --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Số lượng / 1 phần</label>
+                            <input type="number" class="form-control" id="ingredientQuantity" min="0" step="0.01" placeholder="0.1">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label d-block">Đơn vị</label>
+                            <span id="ingredientUnitLabel" class="fw-semibold text-muted">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-primary" onclick="saveDishIngredient()">Lưu thành phần</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Ingredient Stock Modal -->
+<div class="modal fade" id="ingredientStockModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    Tồn kho nguyên liệu
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info py-2 small">
+                    Thông tin tồn kho hiện tại để bếp cân đối khi nhận đơn. Những nguyên liệu dưới ngưỡng sẽ được tô đỏ.
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <input type="text"
+                               class="form-control"
+                               id="ingredientStockSearch"
+                               placeholder="Tìm kiếm theo tên nguyên liệu..."
+                               oninput="renderIngredientStockTable()" />
+                    </div>
+                    <div class="col-md-6 d-flex align-items-center">
+                        <div class="form-check">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   id="onlyLowStock"
+                                   onchange="renderIngredientStockTable()" />
+                            <label class="form-check-label" for="onlyLowStock">
+                                Chỉ hiện nguyên liệu sắp hết
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Tên nguyên liệu</th>
+                                <th style="width: 20%">Đơn vị</th>
+                                <th style="width: 20%">Tồn hiện tại</th>
+                                <th style="width: 20%">Ngưỡng cảnh báo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ingredientStockTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Order Item Ingredients Modal (per order) -->
+<div class="modal fade" id="orderItemIngredientsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    Thành phần cho đơn: <span id="orderItemDishTitle"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="orderItemIdInput" />
+
+                <div class="alert alert-info py-2 mb-3 small">
+                    Điều chỉnh thành phần chỉ áp dụng cho món trong đơn này. Công thức gốc của món ăn không thay đổi.
+                </div>
+
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm table-bordered align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nguyên liệu</th>
+                                <th style="width: 20%">Số lượng</th>
+                                <th style="width: 15%">Đơn vị</th>
+                                <th style="width: 15%">Bỏ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orderItemIngredientsTableBody">
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">Đang tải...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="small text-muted">
+                    Ví dụ: khách ghi chú "không đường" thì chọn bỏ nguyên liệu đường hoặc đặt số lượng về 0 cho món này.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-primary" onclick="saveOrderItemIngredients()">Lưu cho đơn này</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+    </div>
+
+    <!-- ===== QUAN TRỌNG: PHẢI LOAD JQUERY TRƯỚC ===== -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+            integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+            crossorigin="anonymous"></script>
+
+    <!-- Bootstrap 5 JS Bundle (includes Popper) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+            crossorigin="anonymous"></script>
+
+    <!-- Custom Scripts từ các trang -->
+    
+    <script>
+        var chefMenu = [{"id":12,"name":"B\u00E1nh Flan","price":30000.00,"unit":"C\u00E1i","categoryId":3,"categoryName":"AUTO_CAT_FULL_20260304004707_EDIT","available":true,"image":"/Images/dish_20251203014919825.jpg","description":"B\u00E1nh flan caramen ng\u1ECDt ng\u00E0o","isVegetarian":true,"isDailySpecial":false},{"id":11,"name":"Ch\u00E8 Kh\u00FAc B\u1EA1ch","price":35000.00,"unit":"Ly","categoryId":3,"categoryName":"AUTO_CAT_FULL_20260304004707_EDIT","available":true,"image":"/Images/dish_20251203014934154.jpg","description":"Ch\u00E8 kh\u00FAc b\u1EA1ch m\u00E1t l\u1EA1nh","isVegetarian":true,"isDailySpecial":false},{"id":13,"name":"Ch\u00E8 Th\u00E1i","price":40000.00,"unit":"Ly","categoryId":3,"categoryName":"AUTO_CAT_FULL_20260304004707_EDIT","available":true,"image":"/Images/dish_20251203014944820.jpg","description":"Ch\u00E8 Th\u00E1i nhi\u1EC1u m\u00E0u s\u1EAFc","isVegetarian":true,"isDailySpecial":false},{"id":16,"name":"C\u00E0 Ph\u00EA S\u1EEFa \u0110\u00E1","price":40000.00,"unit":"Ly","categoryId":4,"categoryName":"AUTO_CAT_FULL_20260304004732_EDIT","available":true,"image":"/Images/dish_20251203014151691.jpg","description":"C\u00E0 ph\u00EA s\u1EEFa \u0111\u00E1 \u0111\u1EADm \u0111\u00E0","isVegetarian":true,"isDailySpecial":false},{"id":14,"name":"N\u01B0\u1EDBc Cam V\u1EAFt","price":40000.00,"unit":"Ly","categoryId":4,"categoryName":"AUTO_CAT_FULL_20260304004732_EDIT","available":true,"image":"/Images/dish_20251203014217645.jpg","description":"N\u01B0\u1EDBc cam t\u01B0\u01A1i v\u1EAFt tay","isVegetarian":true,"isDailySpecial":false},{"id":17,"name":"Sinh T\u1ED1 B\u01A1","price":45000.00,"unit":"Ly","categoryId":4,"categoryName":"AUTO_CAT_FULL_20260304004732_EDIT","available":true,"image":"/Images/dish_20251203014230039.jpg","description":"Sinh t\u1ED1 b\u01A1 b\u00E9o ng\u1EADy","isVegetarian":true,"isDailySpecial":false},{"id":15,"name":"Tr\u00E0 \u0110\u00E1","price":10000.00,"unit":"Ly","categoryId":4,"categoryName":"AUTO_CAT_FULL_20260304004732_EDIT","available":true,"image":"/Images/dish_20251203014327609.jpg","description":"Tr\u00E0 \u0111\u00E1 mi\u1EC5n ph\u00ED","isVegetarian":true,"isDailySpecial":false},{"id":22,"name":"Ch\u1EA3 C\u00E1","price":15000.00,"unit":"D\u0129a","categoryId":2,"categoryName":"AUTO_CAT_FULL_20260304011928_EDIT","available":true,"image":"/Images/dish_20251203014738222.jpg","description":"Ch\u1EA3 C\u00E1 l\u00E0m t\u1EEB c\u00E1","isVegetarian":false,"isDailySpecial":true},{"id":9,"name":"G\u1ECFi Cu\u1ED1n","price":35000.00,"unit":"Ph\u1EA7n","categoryId":2,"categoryName":"AUTO_CAT_FULL_20260304011928_EDIT","available":true,"image":"/Images/dish_20251203014835783.jpg","description":"G\u1ECFi cu\u1ED1n t\u01B0\u01A1i ngon","isVegetarian":true,"isDailySpecial":false},{"id":8,"name":"Nem R\u00E1n","price":40000.00,"unit":"Ph\u1EA7n","categoryId":2,"categoryName":"AUTO_CAT_FULL_20260304011928_EDIT","available":true,"image":"/Images/dish_20251203014851937.jpg","description":"Nem r\u00E1n gi\u00F2n r\u1EE5m","isVegetarian":false,"isDailySpecial":false},{"id":10,"name":"Salad Rau C\u1EE7","price":30000.00,"unit":"Ph\u1EA7n","categoryId":2,"categoryName":"AUTO_CAT_FULL_20260304011928_EDIT","available":true,"image":"/Images/dish_20251203014903144.jpg","description":"Salad rau c\u1EE7 t\u01B0\u01A1i","isVegetarian":true,"isDailySpecial":false},{"id":4,"name":"B\u00FAn B\u00F2 Hu\u1EBF","price":55000.00,"unit":"T\u00F4","categoryId":1,"categoryName":"DBG_CAT_20260304004350_EDIT","available":true,"image":"/Images/dish_20251203014409795.jpg","description":"B\u00FAn b\u00F2 Hu\u1EBF cay n\u1ED3ng \u0111\u1EADm \u0111\u00E0","isVegetarian":false,"isDailySpecial":false},{"id":2,"name":"B\u00FAn Ch\u1EA3 H\u00E0 N\u1ED9i","price":60000.00,"unit":"Ph\u1EA7n","categoryId":1,"categoryName":"DBG_CAT_20260304004350_EDIT","available":true,"image":"/Images/dish_20251203014435075.jpg","description":"B\u00FAn ch\u1EA3 \u0111\u1EB7c s\u1EA3n H\u00E0 N\u1ED9i v\u1EDBi ch\u1EA3 n\u01B0\u1EDBng than h\u1ED3ng","isVegetarian":false,"isDailySpecial":true},{"id":3,"name":"C\u01A1m S\u01B0\u1EDDn B\u00EC Ch\u1EA3","price":65000.00,"unit":"Ph\u1EA7n","categoryId":1,"categoryName":"DBG_CAT_20260304004350_EDIT","available":true,"image":"/Images/dish_20251203014504150.jpg","description":"C\u01A1m s\u01B0\u1EDDn b\u00EC ch\u1EA3 truy\u1EC1n th\u1ED1ng S\u00E0i G\u00F2n","isVegetarian":false,"isDailySpecial":false},{"id":5,"name":"H\u1EE7 Ti\u1EBFu Nam Vang","price":50000.00,"unit":"T\u00F4","categoryId":1,"categoryName":"DBG_CAT_20260304004350_EDIT","available":true,"image":"/Images/dish_20251203014518088.jpg","description":"H\u1EE7 ti\u1EBFu Nam Vang \u0111\u1EB7c bi\u1EC7t","isVegetarian":false,"isDailySpecial":false},{"id":6,"name":"M\u00EC X\u00E0o B\u00F2","price":60000.00,"unit":"Ph\u1EA7n","categoryId":1,"categoryName":"DBG_CAT_20260304004350_EDIT","available":true,"image":"/Images/dish_20251203014537428.jpg","description":"M\u00EC x\u00E0o b\u00F2 \u0111\u1EADm \u0111\u00E0 h\u01B0\u01A1ng v\u1ECB","isVegetarian":false,"isDailySpecial":false},{"id":1,"name":"Ph\u1EDF B\u00F2 \u0110\u1EB7c Bi\u1EC7t","price":75000.00,"unit":"T\u00F4","categoryId":1,"categoryName":"DBG_CAT_20260304004350_EDIT","available":true,"image":"/Images/dish_20251203014802250.jpg","description":"Ph\u1EDF b\u00F2 truy\u1EC1n th\u1ED1ng H\u00E0 N\u1ED9i v\u1EDBi n\u01B0\u1EDBc d\u00F9ng h\u1EA7m x\u01B0\u01A1ng 12 ti\u1EBFng","isVegetarian":false,"isDailySpecial":true}];
+        var chefIngredients = [{"id":39,"name":"AUTO_NOW_ING_20260302235418","unit":"kg","stock":20.00,"reorderLevel":5.00},{"id":36,"name":"B\u00E1nh \u0111a nem","unit":"kg","stock":5.00,"reorderLevel":1.00},{"id":21,"name":"B\u00E1nh ph\u1EDF","unit":"kg","stock":50.00,"reorderLevel":10.00},{"id":37,"name":"B\u00E1nh tr\u00E1ng","unit":"kg","stock":8.00,"reorderLevel":2.00},{"id":12,"name":"B\u1EAFp c\u1EA3i","unit":"kg","stock":12.00,"reorderLevel":3.00},{"id":28,"name":"B\u01A1","unit":"kg","stock":15.00,"reorderLevel":3.00},{"id":22,"name":"B\u00FAn","unit":"kg","stock":40.00,"reorderLevel":10.00},{"id":5,"name":"C\u00E1","unit":"kg","stock":15.00,"reorderLevel":5.00},{"id":29,"name":"C\u00E0 ph\u00EA","unit":"kg","stock":10.00,"reorderLevel":2.00},{"id":10,"name":"C\u00E0 r\u00F3t","unit":"kg","stock":8.00,"reorderLevel":2.00},{"id":27,"name":"Cam t\u01B0\u01A1i","unit":"kg","stock":20.00,"reorderLevel":5.00},{"id":14,"name":"D\u1EA7u \u0103n","unit":"l\u00EDt","stock":30.00,"reorderLevel":5.00},{"id":34,"name":"\u0110\u1EADu \u0111\u1ECF","unit":"kg","stock":8.00,"reorderLevel":2.00},{"id":11,"name":"D\u01B0a chu\u1ED9t","unit":"kg","stock":10.00,"reorderLevel":2.00},{"id":16,"name":"\u0110\u01B0\u1EDDng","unit":"kg","stock":15.00,"reorderLevel":3.00},{"id":25,"name":"G\u1EA1o","unit":"kg","stock":100.00,"reorderLevel":20.00},{"id":9,"name":"Gi\u00E1 \u0111\u1ED7","unit":"kg","stock":10.00,"reorderLevel":2.00},{"id":8,"name":"H\u00E0nh l\u00E1","unit":"kg","stock":5.00,"reorderLevel":1.00},{"id":19,"name":"H\u00E0nh t\u00EDm","unit":"kg","stock":5.00,"reorderLevel":1.00},{"id":24,"name":"H\u1EE7 ti\u1EBFu","unit":"kg","stock":25.00,"reorderLevel":5.00},{"id":35,"name":"Khoai m\u00F4n","unit":"kg","stock":10.00,"reorderLevel":2.00},{"id":23,"name":"M\u00EC tr\u1EE9ng","unit":"kg","stock":30.00,"reorderLevel":8.00},{"id":15,"name":"Mu\u1ED1i","unit":"kg","stock":10.00,"reorderLevel":2.00},{"id":33,"name":"N\u01B0\u1EDBc c\u1ED1t d\u1EEBa","unit":"l\u00EDt","stock":10.00,"reorderLevel":2.00},{"id":13,"name":"N\u01B0\u1EDBc m\u1EAFm","unit":"l\u00EDt","stock":20.00,"reorderLevel":5.00},{"id":7,"name":"Rau th\u01A1m","unit":"kg","stock":8.00,"reorderLevel":2.00},{"id":6,"name":"Rau x\u00E0 l\u00E1ch","unit":"kg","stock":10.00,"reorderLevel":2.00},{"id":20,"name":"S\u1EA3","unit":"kg","stock":3.00,"reorderLevel":1.00},{"id":30,"name":"S\u1EEFa \u0111\u1EB7c","unit":"lon","stock":50.00,"reorderLevel":10.00},{"id":32,"name":"Th\u1EA1ch","unit":"kg","stock":5.00,"reorderLevel":1.00},{"id":1,"name":"Th\u1ECBt b\u00F2","unit":"kg","stock":50.00,"reorderLevel":10.00},{"id":2,"name":"Th\u1ECBt g\u00E0","unit":"kg","stock":40.00,"reorderLevel":8.00},{"id":3,"name":"Th\u1ECBt heo","unit":"kg","stock":45.00,"reorderLevel":10.00},{"id":17,"name":"Ti\u00EAu","unit":"kg","stock":2.00,"reorderLevel":0.50},{"id":18,"name":"T\u1ECFi","unit":"kg","stock":5.00,"reorderLevel":1.00},{"id":4,"name":"T\u00F4m","unit":"kg","stock":20.00,"reorderLevel":5.00},{"id":31,"name":"Tr\u00E0","unit":"kg","stock":5.00,"reorderLevel":1.00},{"id":26,"name":"Tr\u1EE9ng g\u00E0","unit":"qu\u1EA3","stock":200.00,"reorderLevel":50.00}];
+        var currentIngredientsDishId = null;
+        var currentOrderItemId = null;
+
+        function updateStatus(orderId, status) {
+            if (!confirm('Xác nhận chuyển trạng thái đơn hàng?')) return;
+
+            $.post('/Staff/Chef/UpdateOrderStatus', {
+                orderId: orderId,
+                statusCode: status
+            })
+            .done(function(res) {
+                if (res.success) {
+                    // Reload to update UI
+                    window.location.reload();
+                } else {
+                    alert(res.message);
+                }
+            })
+            .fail(function() {
+                alert('Có lỗi xảy ra khi kết nối server');
+            });
+        }
+
+        // ===== Hủy đơn từ bếp =====
+        function openCancelOrderModal(orderId) {
+            document.getElementById('cancelOrderId').value = orderId;
+            document.getElementById('cancelReason').value = '';
+
+            var modal = new bootstrap.Modal(document.getElementById('cancelOrderModal'));
+            modal.show();
+        }
+
+        function confirmCancelOrder() {
+            var orderId = parseInt(document.getElementById('cancelOrderId').value);
+            var reason = (document.getElementById('cancelReason').value || '').trim();
+
+            if (!orderId || orderId <= 0) {
+                alert('Đơn hàng không hợp lệ.');
+                return;
+            }
+            if (!reason) {
+                alert('Vui lòng nhập lý do hủy đơn.');
+                return;
+            }
+
+            if (!confirm('Bạn chắc chắn muốn hủy đơn này?')) {
+                return;
+            }
+
+            $.post('/Staff/Chef/CancelOrder', {
+                orderId: orderId,
+                reason: reason
+            })
+                .done(function (res) {
+                    if (res && res.success) {
+                        alert(res.message || 'Đã hủy đơn hàng.');
+                        window.location.reload();
+                    } else {
+                        alert(res && res.message ? res.message : 'Không thể hủy đơn hàng.');
+                    }
+                })
+                .fail(function () {
+                    alert('Không kết nối được đến máy chủ.');
+                });
+        }
+
+        function setDishAvailability(dishId, isAvailable) {
+            var url = isAvailable
+                ? '/Staff/Chef/ShowDish'
+                : '/Staff/Chef/HideDish';
+
+            var confirmMessage = isAvailable
+                ? 'Bạn có chắc muốn mở bán lại món này?'
+                : 'Bạn có chắc muốn tạm ngưng bán món này?';
+
+            if (!confirm(confirmMessage)) return;
+
+            $.post(url, { dishId: dishId })
+                .done(function (res) {
+                    if (res.success) {
+                        alert(res.message);
+                        window.location.reload();
+                    } else {
+                        alert(res.message);
+                    }
+                });
+        }
+
+        function submitAddDish() {
+            var formData = new FormData(document.getElementById('addDishForm'));
+            var data = Object.fromEntries(formData.entries());
+
+            // ===== Client-side validation =====
+            var name = (data.name || '').trim();
+            var priceText = (data.price || '').trim();
+            var unit = (data.unit || '').trim();
+            var categoryId = parseInt(data.categoryId || '0');
+
+            if (!name) {
+                alert('Vui lòng nhập tên món ăn.');
+                return;
+            }
+
+            if (!priceText) {
+                alert('Vui lòng nhập giá món ăn.');
+                return;
+            }
+
+            if (isNaN(parseFloat(priceText))) {
+                alert('Giá món ăn phải là số và không được chứa chữ.');
+                return;
+            }
+
+            if (!unit) {
+                alert('Vui lòng nhập đơn vị (ví dụ: Dĩa, Tô...).');
+                return;
+            }
+
+            if (!categoryId || categoryId <= 0) {
+                alert('Vui lòng chọn danh mục hợp lệ.');
+                return;
+            }
+
+            // Convert checkboxes
+            data.isVegetarian = document.getElementById('isVeg').checked;
+            data.isDailySpecial = document.getElementById('isSpecial').checked;
+            data.available = document.getElementById('dishAvailable').checked;
+
+            // Xử lý upload hình: đọc file thành base64 và gửi chuỗi (đơn giản)
+            var fileInput = document.getElementById('dishImageFile');
+            if (fileInput.files && fileInput.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    data.image = e.target.result;
+                    postDishData(data);
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            } else {
+                postDishData(data);
+            }
+        }
+
+        function postDishData(data) {
+            $.post('/Staff/Chef/AddDish', data)
+                .done(function (res) {
+                    if (res.success) {
+                        var msg = res.message || ('Đã thêm món "' + (data.name || '') + '" vào menu hôm nay.');
+                        alert(msg);
+                        window.location.reload();
+                    } else {
+                        alert(res.message);
+                    }
+                });
+        }
+
+        // Preview dish image in Add Dish modal
+        document.getElementById('dishImageFile')?.addEventListener('change', function (e) {
+            var input = e.target;
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function (ev) {
+                    var img = document.getElementById('dishImagePreview');
+                    if (img) img.src = ev.target.result;
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        });
+
+        function handleLogout() {
+            if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+                window.location.href = '/Staff/Account/Logout';
+            }
+        }
+
+        function resetAddDishForm() {
+            var form = document.getElementById('addDishForm');
+            if (!form) return;
+            form.reset();
+            var img = document.getElementById('dishImagePreview');
+            if (img) {
+                img.src = 'https://placehold.co/120x80?text=Preview';
+            }
+        }
+
+        function openEditDishModal(dishId) {
+            var dish = (chefMenu || []).find(function (d) { return d.id === dishId; });
+            if (!dish) {
+                alert('Không tìm thấy thông tin món ăn.');
+                return;
+            }
+
+            document.getElementById('editDishId').value = dish.id;
+            document.getElementById('editName').value = dish.name || '';
+            document.getElementById('editPrice').value = dish.price || 0;
+            document.getElementById('editUnit').value = dish.unit || '';
+            document.getElementById('editCategoryName').value = dish.categoryName || '';
+            document.getElementById('editDescription').value = dish.description || '';
+            document.getElementById('editIsVegetarian').checked = !!dish.isVegetarian;
+            document.getElementById('editIsSpecial').checked = !!dish.isDailySpecial;
+
+            var img = document.getElementById('editDishImagePreview');
+            img.src = dish.image || 'https://placehold.co/120x80?text=Preview';
+
+            var modal = new bootstrap.Modal(document.getElementById('editDishModal'));
+            modal.show();
+        }
+
+        function submitEditDish() {
+            var data = {
+                dishId: parseInt(document.getElementById('editDishId').value),
+                name: document.getElementById('editName').value.trim(),
+                price: document.getElementById('editPrice').value.trim(),
+                unit: document.getElementById('editUnit').value.trim(),
+                description: document.getElementById('editDescription').value.trim(),
+                isVegetarian: document.getElementById('editIsVegetarian').checked,
+                isDailySpecial: document.getElementById('editIsSpecial').checked
+            };
+
+            if (!data.name) {
+                alert('Vui lòng nhập tên món ăn.');
+                return;
+            }
+            if (!data.price) {
+                alert('Vui lòng nhập giá món ăn.');
+                return;
+            }
+            if (isNaN(parseFloat(data.price))) {
+                alert('Giá món ăn phải là số và không được chứa chữ.');
+                return;
+            }
+            if (!data.unit) {
+                alert('Vui lòng nhập đơn vị (ví dụ: Dĩa, Tô...).');
+                return;
+            }
+
+            var fileInput = document.getElementById('editDishImageFile');
+            if (fileInput.files && fileInput.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    data.image = e.target.result;
+                    postEditDishData(data);
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            } else {
+                postEditDishData(data);
+            }
+        }
+
+        function postEditDishData(data) {
+            $.post('/Staff/Chef/EditDish', data)
+                .done(function (res) {
+                    if (res.success) {
+                        alert(res.message || 'Đã cập nhật thông tin món ăn.');
+                        window.location.reload();
+                    } else {
+                        alert(res.message);
+                    }
+                });
+        }
+
+        function renderMenuGrid() {
+            var search = (document.getElementById('dishSearchInput').value || '').toLowerCase();
+            var statusFilter = document.getElementById('dishStatusFilter').value;
+            var specialFilter = document.getElementById('dishSpecialFilter').value;
+
+            document.querySelectorAll('.menu-grid .dish-card').forEach(function (card) {
+                var name = (card.getAttribute('data-name') || '').toLowerCase();
+                var available = card.getAttribute('data-available') === 'true';
+                var isSpecial = card.getAttribute('data-special') === 'true';
+
+                var show = true;
+
+                if (search && name.indexOf(search) === -1) show = false;
+
+                if (statusFilter === 'AVAILABLE' && !available) show = false;
+                if (statusFilter === 'PAUSED' && available) show = false;
+
+                if (specialFilter === 'SPECIAL' && !isSpecial) show = false;
+                if (specialFilter === 'NORMAL' && isSpecial) show = false;
+
+                card.style.display = show ? '' : 'none';
+            });
+        }
+
+        // Gọi khi tải xong để đảm bảo filter áp dụng
+        document.addEventListener('DOMContentLoaded', function () {
+            renderMenuGrid();
+
+            // Khởi tạo danh sách nguyên liệu cho modal thành phần
+            var ingredientSelect = document.getElementById('ingredientSelect');
+            if (ingredientSelect && Array.isArray(chefIngredients)) {
+                chefIngredients.forEach(function (ing) {
+                    var opt = document.createElement('option');
+                    opt.value = ing.id;
+                    var stockText = typeof ing.stock === 'number' ? (' (còn: ' + ing.stock + ' ' + (ing.unit || '') + ')') : '';
+                    opt.textContent = ing.name + stockText;
+                    ingredientSelect.appendChild(opt);
+                });
+
+                ingredientSelect.addEventListener('change', function () {
+                    var selectedId = parseInt(this.value);
+                    var ing = chefIngredients.find(function (i) { return i.id === selectedId; });
+                    var label = document.getElementById('ingredientUnitLabel');
+                    if (ing) {
+                        var stockText = typeof ing.stock === 'number' ? (' - tồn: ' + ing.stock + ' ' + (ing.unit || '')) : '';
+                        label.textContent = (ing.unit || '--') + stockText;
+                    } else {
+                        label.textContent = '--';
+                    }
+                });
+            }
+        });
+
+        // ====== Quản lý thành phần món ăn (Chef) ======
+        function openDishIngredients(dishId) {
+            var dish = (chefMenu || []).find(function (d) { return d.id === dishId; });
+            if (!dish) {
+                alert('Không tìm thấy thông tin món ăn.');
+                return;
+            }
+
+            currentIngredientsDishId = dishId;
+            document.getElementById('ingredientsDishId').value = dishId;
+            document.getElementById('dishIngredientsTitle').textContent = dish.name;
+
+            // Reset form nhập
+            var qtyInput = document.getElementById('ingredientQuantity');
+            if (qtyInput) qtyInput.value = '';
+            var select = document.getElementById('ingredientSelect');
+            if (select) select.value = '';
+            document.getElementById('ingredientUnitLabel').textContent = '--';
+
+            // Tải danh sách thành phần hiện tại
+            $.get('/Staff/Chef/GetDishIngredients', { dishId: dishId })
+                .done(function (res) {
+                    if (res && res.success) {
+                        renderDishIngredientsTable(res.items || []);
+                    } else {
+                        alert(res && res.message ? res.message : 'Không tải được danh sách thành phần.');
+                    }
+                })
+                .fail(function () {
+                    alert('Không kết nối được đến máy chủ.');
+                });
+
+            var modal = new bootstrap.Modal(document.getElementById('dishIngredientsModal'));
+            modal.show();
+        }
+
+        function renderDishIngredientsTable(items) {
+            var tbody = document.getElementById('dishIngredientsTableBody');
+            if (!tbody) return;
+
+            tbody.innerHTML = '';
+
+            if (!items || !items.length) {
+                var tr = document.createElement('tr');
+                var td = document.createElement('td');
+                td.colSpan = 4;
+                td.className = 'text-center text-muted';
+                td.textContent = 'Chưa khai báo thành phần cho món ăn này.';
+                tr.appendChild(td);
+                tbody.appendChild(tr);
+                return;
+            }
+
+            items.forEach(function (item) {
+                var tr = document.createElement('tr');
+
+                var tdName = document.createElement('td');
+                tdName.textContent = item.ingredientName;
+                tr.appendChild(tdName);
+
+                var tdQty = document.createElement('td');
+                tdQty.textContent = item.quantity;
+                tr.appendChild(tdQty);
+
+                var tdUnit = document.createElement('td');
+                tdUnit.textContent = item.unit;
+                tr.appendChild(tdUnit);
+
+                var tdActions = document.createElement('td');
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-sm btn-outline-danger';
+                btn.textContent = 'Xóa';
+                btn.onclick = function () { removeDishIngredient(item.id); };
+                tdActions.appendChild(btn);
+                tr.appendChild(tdActions);
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        function saveDishIngredient() {
+            var dishId = currentIngredientsDishId || parseInt(document.getElementById('ingredientsDishId').value);
+            var ingredientId = parseInt(document.getElementById('ingredientSelect').value || '0');
+            var quantityText = (document.getElementById('ingredientQuantity').value || '').trim();
+
+            if (!dishId || dishId <= 0) {
+                alert('Món ăn không hợp lệ.');
+                return;
+            }
+            if (!ingredientId || ingredientId <= 0) {
+                alert('Vui lòng chọn nguyên liệu.');
+                return;
+            }
+            if (!quantityText) {
+                alert('Vui lòng nhập số lượng mỗi phần.');
+                return;
+            }
+            var quantity = parseFloat(quantityText.replace(',', '.'));
+            if (isNaN(quantity) || quantity <= 0) {
+                alert('Số lượng mỗi phần phải là số lớn hơn 0.');
+                return;
+            }
+
+            $.post('/Staff/Chef/AddDishIngredient', {
+                dishId: dishId,
+                ingredientId: ingredientId,
+                quantityPerDish: quantity
+            })
+                .done(function (res) {
+                    if (res && res.success) {
+                        // Reload danh sách thành phần
+                        $.get('/Staff/Chef/GetDishIngredients', { dishId: dishId })
+                            .done(function (r) {
+                                if (r && r.success) {
+                                    renderDishIngredientsTable(r.items || []);
+                                }
+                            });
+                        alert(res.message || 'Đã lưu thành phần món ăn.');
+                    } else {
+                        alert(res && res.message ? res.message : 'Không lưu được thành phần.');
+                    }
+                })
+                .fail(function (xhr, status, error) {
+                    console.error('Lỗi AddDishIngredient', status, error, xhr && xhr.responseText);
+                    alert('Không kết nối được đến máy chủ (AddDishIngredient).');
+                });
+        }
+
+        function removeDishIngredient(id) {
+            if (!confirm('Bạn có chắc chắn muốn xóa thành phần này khỏi món ăn?')) {
+                return;
+            }
+
+            $.post('/Staff/Chef/RemoveDishIngredient', { id: id })
+                .done(function (res) {
+                    if (res && res.success) {
+                        if (currentIngredientsDishId) {
+                            $.get('/Staff/Chef/GetDishIngredients', { dishId: currentIngredientsDishId })
+                                .done(function (r) {
+                                    if (r && r.success) {
+                                        renderDishIngredientsTable(r.items || []);
+                                    }
+                                });
+                        }
+                    } else {
+                        alert(res && res.message ? res.message : 'Không xóa được thành phần.');
+                    }
+                })
+                .fail(function (xhr, status, error) {
+                    console.error('Lỗi RemoveDishIngredient', status, error, xhr && xhr.responseText);
+                    alert('Không kết nối được đến máy chủ (RemoveDishIngredient).');
+                });
+        }
+
+        // ===== Thành phần cho từng món trong đơn (OrderItem) =====
+        function openOrderItemIngredients(orderItemId) {
+            currentOrderItemId = orderItemId;
+            document.getElementById('orderItemIdInput').value = orderItemId;
+
+            var tbody = document.getElementById('orderItemIngredientsTableBody');
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Đang tải...</td></tr>';
+            }
+
+            $.get('/Staff/Chef/GetOrderItemIngredients', { orderItemId: orderItemId })
+                .done(function (res) {
+                    if (res && res.success) {
+                        document.getElementById('orderItemDishTitle').textContent = res.dishName || '';
+                        renderOrderItemIngredientsTable(res.items || []);
+                    } else {
+                        alert(res && res.message ? res.message : 'Không tải được thành phần cho đơn này.');
+                    }
+                })
+                .fail(function () {
+                    alert('Không kết nối được đến máy chủ.');
+                });
+
+            var modal = new bootstrap.Modal(document.getElementById('orderItemIngredientsModal'));
+            modal.show();
+        }
+
+        function renderOrderItemIngredientsTable(items) {
+            var tbody = document.getElementById('orderItemIngredientsTableBody');
+            if (!tbody) return;
+
+            tbody.innerHTML = '';
+
+            if (!items || !items.length) {
+                var tr = document.createElement('tr');
+                var td = document.createElement('td');
+                td.colSpan = 4;
+                td.className = 'text-center text-muted';
+                td.textContent = 'Chưa có thành phần nào.';
+                tr.appendChild(td);
+                tbody.appendChild(tr);
+                return;
+            }
+
+            items.forEach(function (item, index) {
+                var tr = document.createElement('tr');
+                tr.setAttribute('data-ingredient-id', item.ingredientId);
+
+                var tdName = document.createElement('td');
+                tdName.textContent = item.ingredientName || ('Nguyên liệu #' + item.ingredientId);
+                tr.appendChild(tdName);
+
+                var tdQty = document.createElement('td');
+                var inputQty = document.createElement('input');
+                inputQty.type = 'number';
+                inputQty.className = 'form-control form-control-sm';
+                inputQty.min = '0';
+                inputQty.step = '0.01';
+                inputQty.value = item.quantity != null ? item.quantity : 0;
+                tdQty.appendChild(inputQty);
+                tr.appendChild(tdQty);
+
+                var tdUnit = document.createElement('td');
+                var unitText = item.unit || '';
+                var ingInfo = chefIngredients.find(function (i) { return i.id === item.ingredientId; });
+                if (ingInfo && typeof ingInfo.stock === 'number') {
+                    unitText += ' (tồn: ' + ingInfo.stock + ' ' + (ingInfo.unit || '') + ')';
+                }
+                tdUnit.textContent = unitText;
+                tr.appendChild(tdUnit);
+
+                var tdRemove = document.createElement('td');
+                var chk = document.createElement('input');
+                chk.type = 'checkbox';
+                chk.className = 'form-check-input';
+                chk.checked = !!item.isRemoved;
+                tdRemove.appendChild(chk);
+                tr.appendChild(tdRemove);
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        function saveOrderItemIngredients() {
+            var orderItemId = currentOrderItemId || parseInt(document.getElementById('orderItemIdInput').value);
+            if (!orderItemId || orderItemId <= 0) {
+                alert('Món trong đơn không hợp lệ.');
+                return;
+            }
+
+            var tbody = document.getElementById('orderItemIngredientsTableBody');
+            if (!tbody) return;
+
+            var rows = tbody.querySelectorAll('tr[data-ingredient-id]');
+            if (!rows.length) {
+                alert('Danh sách thành phần không hợp lệ.');
+                return;
+            }
+
+            var items = [];
+            rows.forEach(function (tr) {
+                var ingredientId = parseInt(tr.getAttribute('data-ingredient-id') || '0');
+                if (!ingredientId) return;
+
+                var qtyInput = tr.querySelector('input[type="number"]');
+                var removeChk = tr.querySelector('input[type="checkbox"]');
+                var qty = qtyInput ? parseFloat(qtyInput.value.replace(',', '.')) : 0;
+                if (isNaN(qty) || qty < 0) {
+                    qty = 0;
+                }
+
+                items.push({
+                    IngredientId: ingredientId,
+                    Quantity: qty,
+                    IsRemoved: removeChk ? removeChk.checked : false
+                });
+            });
+
+            $.ajax({
+                url: '/Staff/Chef/SaveOrderItemIngredients',
+                type: 'POST',
+                data: {
+                    orderItemId: orderItemId,
+                    itemsJson: JSON.stringify(items)
+                }
+            })
+                .done(function (res) {
+                    if (res && res.success) {
+                        alert(res.message || 'Đã lưu thành phần cho đơn này.');
+                        var modalEl = document.getElementById('orderItemIngredientsModal');
+                        var modal = bootstrap.Modal.getInstance(modalEl);
+                        if (modal) modal.hide();
+                    } else {
+                        alert(res && res.message ? res.message : 'Không lưu được thành phần.');
+                    }
+                })
+                .fail(function () {
+                    alert('Không kết nối được đến máy chủ.');
+                });
+        }
+
+        // ===== Xem tồn kho nguyên liệu =====
+        function openIngredientStockModal() {
+            // Reset bộ lọc
+            var searchInput = document.getElementById('ingredientStockSearch');
+            var chkLow = document.getElementById('onlyLowStock');
+            if (searchInput) searchInput.value = '';
+            if (chkLow) chkLow.checked = false;
+
+            renderIngredientStockTable();
+
+            var modal = new bootstrap.Modal(document.getElementById('ingredientStockModal'));
+            modal.show();
+        }
+
+        function renderIngredientStockTable() {
+            var tbody = document.getElementById('ingredientStockTableBody');
+            if (!tbody) return;
+
+            tbody.innerHTML = '';
+
+            if (!Array.isArray(chefIngredients) || !chefIngredients.length) {
+                var tr = document.createElement('tr');
+                var td = document.createElement('td');
+                td.colSpan = 4;
+                td.className = 'text-center text-muted';
+                td.textContent = 'Chưa có dữ liệu nguyên liệu.';
+                tr.appendChild(td);
+                tbody.appendChild(tr);
+                return;
+            }
+
+            var search = (document.getElementById('ingredientStockSearch')?.value || '').toLowerCase();
+            var onlyLow = document.getElementById('onlyLowStock')?.checked === true;
+
+            var filtered = chefIngredients.filter(function (ing) {
+                var nameMatch = !search || (ing.name || '').toLowerCase().indexOf(search) !== -1;
+                var stockVal = typeof ing.stock === 'number' ? ing.stock : 0;
+                var reorderVal = typeof ing.reorderLevel === 'number' ? ing.reorderLevel : 0;
+                var isLow = reorderVal > 0 && stockVal <= reorderVal;
+                var lowMatch = !onlyLow || isLow;
+                return nameMatch && lowMatch;
+            });
+
+            if (!filtered.length) {
+                var trEmpty = document.createElement('tr');
+                var tdEmpty = document.createElement('td');
+                tdEmpty.colSpan = 4;
+                tdEmpty.className = 'text-center text-muted';
+                tdEmpty.textContent = 'Không tìm thấy nguyên liệu phù hợp.';
+                trEmpty.appendChild(tdEmpty);
+                tbody.appendChild(trEmpty);
+                return;
+            }
+
+            filtered.forEach(function (ing) {
+                var tr = document.createElement('tr');
+
+                var tdName = document.createElement('td');
+                tdName.textContent = ing.name || '';
+                tr.appendChild(tdName);
+
+                var tdUnit = document.createElement('td');
+                tdUnit.textContent = ing.unit || '';
+                tr.appendChild(tdUnit);
+
+                var stockVal = typeof ing.stock === 'number' ? ing.stock : 0;
+                var tdStock = document.createElement('td');
+                tdStock.textContent = stockVal + (ing.unit ? ' ' + ing.unit : '');
+                tr.appendChild(tdStock);
+
+                var reorderVal = typeof ing.reorderLevel === 'number' ? ing.reorderLevel : 0;
+                var tdReorder = document.createElement('td');
+                tdReorder.textContent = reorderVal + (ing.unit ? ' ' + ing.unit : '');
+                tr.appendChild(tdReorder);
+
+                if (reorderVal > 0 && stockVal <= reorderVal) {
+                    tr.classList.add('table-danger');
+                }
+
+                tbody.appendChild(tr);
+            });
+        }
+    </script>
+
+</body>
+</html>

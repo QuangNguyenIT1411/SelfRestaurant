@@ -1,0 +1,17 @@
+﻿{
+    "Old":  null,
+    "New":  {
+                "Environment":  "NEW_MICROSERVICE",
+                "TableId":  1,
+                "OrderId":  3,
+                "ChefPageContainsOrder":  true,
+                "StatusAfterPreparing":  "PREPARING",
+                "StatusAfterReady":  "READY",
+                "CustomerConfirmedReceived":  true,
+                "ChefPageHiddenAfterConfirm":  true,
+                "Pass":  true
+            },
+    "BothPass":  true,
+    "SkipOld":  true,
+    "GeneratedAt":  "2026-03-25 09:42:06"
+}

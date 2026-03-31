@@ -1,0 +1,3 @@
+[2026-03-05 08:40:46] === START CASHIER <-> CUSTOMER FLOW TEST (OLD + NEW) ===
+[2026-03-05 08:40:46] Starting old IIS Express...
+[2026-03-05 08:42:43] TEST FAILED: Cannot start old IIS at http://localhost:5088

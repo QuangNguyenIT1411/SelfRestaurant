@@ -1,0 +1,164 @@
+@model SelfRestaurant.Gateway.Mvc.Areas.Admin.Models.AdminCustomersIndexViewModel
+@{
+    ViewBag.Title = "Quản lý khách hàng";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var customers = Model?.Items ?? Array.Empty<SelfRestaurant.Gateway.Mvc.Models.AdminCustomerDto>();
+    var searchTerm = Model?.Search ?? string.Empty;
+    int page = Model?.Page ?? 1;
+    int totalPages = Model?.TotalPages ?? 1;
+}
+
+<div class="container py-4">
+    <div class="row g-3">
+        <div class="col-lg-3">
+            @await Html.PartialAsync("~/Areas/Admin/Views/Shared/_AdminSidebar.cshtml")
+        </div>
+        <div class="col-lg-9">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+                <div>
+                    <h1 class="page-title mb-1">Quản lý khách hàng</h1>
+                    <p class="text-muted mb-0">Xem và cập nhật thông tin khách hàng.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="@Url.Action("Create", "Customers", new { area = "Admin" })" class="btn btn-primary btn-lg shadow-sm">
+                        <i class="bi bi-person-plus me-2"></i>Thêm khách
+                    </a>
+                </div>
+            </div>
+
+            @if (ViewBag.SuccessMessage != null)
+            {
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="bi bi-check-circle-fill me-2"></i>@ViewBag.SuccessMessage
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
+            @if (ViewBag.ErrorMessage != null)
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>@ViewBag.ErrorMessage
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
+
+            @using (Html.BeginForm("Index", "Customers", FormMethod.Get, new { area = "Admin", @class = "filter-card card-hero mb-4" }))
+            {
+                <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Từ khóa</label>
+                            <input type="text" name="search" value="@ViewBag.SearchTerm" class="form-control form-control-lg" placeholder="Tên, tài khoản, số điện thoại, email..." />
+                        </div>
+                        <div class="col-md-4 d-flex gap-2">
+                            <button type="submit" class="btn btn-dark btn-lg w-100">
+                                <i class="bi bi-funnel-fill me-1"></i>Lọc
+                            </button>
+                            <a href="@Url.Action("Index", "Customers", new { area = "Admin" })" class="btn btn-outline-secondary btn-lg w-100">
+                                <i class="bi bi-arrow-repeat me-1"></i>Xóa lọc
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <div class="card card-hero">
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Khách hàng</th>
+                                <th>Tài khoản</th>
+                                <th>Liên hệ</th>
+                                <th>Điểm</th>
+                                <th>Trạng thái</th>
+                                <th class="text-end">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!customers.Any())
+                            {
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-muted">
+                                        <i class="bi bi-emoji-neutral me-2"></i>Chưa có khách hàng nào.
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                foreach (var c in customers)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="fw-semibold">@c.Name</div>
+                                            <div class="small text-muted">ID: @c.CustomerId</div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary-subtle text-secondary">
+                                                <i class="bi bi-person-circle me-1"></i>@c.Username
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="small"><i class="bi bi-telephone me-1"></i>@(c.PhoneNumber ?? "-")</div>
+                                            <div class="small text-muted"><i class="bi bi-envelope me-1"></i>@(c.Email ?? "-")</div>
+                                            <div class="small text-muted"><i class="bi bi-geo-alt me-1"></i>@(c.Address ?? "-")</div>
+                                        </td>
+                                        <td>@c.LoyaltyPoints.ToString("n0")</td>
+                                        <td>
+                                            @if (c.IsActive)
+                                            {
+                                                <span class="badge badge-soft-success">
+                                                    <i class="bi bi-check2-circle me-1"></i>Hoạt động
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge badge-soft-danger">
+                                                    <i class="bi bi-slash-circle me-1"></i>Khóa
+                                                </span>
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            <a class="btn btn-sm btn-outline-primary me-2" href="@Url.Action("Edit", "Customers", new { area = "Admin", id = c.CustomerId })">
+                                                <i class="bi bi-pencil-square me-1"></i>Sửa
+                                            </a>
+                                            @if (c.IsActive)
+                                            {
+                                                @using (Html.BeginForm("Deactivate", "Customers", new { area = "Admin", id = c.CustomerId }, FormMethod.Post, false, new { onsubmit = "return confirm('Khóa khách hàng này?');", @class = "d-inline" }))
+                                                {
+                                                    @Html.AntiForgeryToken()
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                        <i class="bi bi-person-x me-1"></i>Khóa
+                                                    </button>
+                                                }
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            @if (totalPages > 1)
+            {
+                <nav class="mt-3">
+                    <ul class="pagination">
+                        <li class="page-item @(page <= 1 ? "disabled" : "")">
+                            <a class="page-link" href="@Url.Action("Index", "Customers", new { area = "Admin", page = page - 1, search = searchTerm })">«</a>
+                        </li>
+                        @for (int p = 1; p <= totalPages; p++)
+                        {
+                            <li class="page-item @(p == page ? "active" : "")">
+                                <a class="page-link" href="@Url.Action("Index", "Customers", new { area = "Admin", page = p, search = searchTerm })">@p</a>
+                            </li>
+                        }
+                        <li class="page-item @(page >= totalPages ? "disabled" : "")">
+                            <a class="page-link" href="@Url.Action("Index", "Customers", new { area = "Admin", page = page + 1, search = searchTerm })">»</a>
+                        </li>
+                    </ul>
+                </nav>
+            }
+        </div>
+    </div>
+</div>

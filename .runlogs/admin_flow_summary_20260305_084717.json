@@ -1,0 +1,45 @@
+﻿{
+    "timestamp":  "20260305_084717",
+    "total":  6,
+    "passed":  5,
+    "failed":  1,
+    "log":  "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\.runlogs\\admin_flow_test_20260305_084717.log",
+    "results":  [
+                    {
+                        "env":  "OLD",
+                        "feature":  "Admin-Login",
+                        "pass":  true,
+                        "detail":  "skipped by -SkipOld"
+                    },
+                    {
+                        "env":  "NEW",
+                        "feature":  "Admin-Login",
+                        "pass":  true,
+                        "detail":  "login success"
+                    },
+                    {
+                        "env":  "NEW",
+                        "feature":  "Admin-Customers",
+                        "pass":  true,
+                        "detail":  "customerId=1059 phone 0929157366 -\u003e 0951282666 -\u003e 0929157366 (created temp customer)"
+                    },
+                    {
+                        "env":  "NEW",
+                        "feature":  "Admin-Employees",
+                        "pass":  false,
+                        "detail":  "The remote server returned an error: (500) Internal Server Error."
+                    },
+                    {
+                        "env":  "NEW",
+                        "feature":  "Admin-Revenue",
+                        "pass":  true,
+                        "detail":  "Revenue + TopDishes pages loaded"
+                    },
+                    {
+                        "env":  "NEW",
+                        "feature":  "Admin-Dishes",
+                        "pass":  true,
+                        "detail":  "dishId=1048 name=AUTO_ADMIN_TEST_NEW_20260305_084720566_404 created then deactivated"
+                    }
+                ]
+}

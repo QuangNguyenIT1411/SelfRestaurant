@@ -1,0 +1,120 @@
+﻿@model SelfRestaurant.Gateway.Mvc.Areas.Admin.Models.AdminEmployeeHistoryViewModel
+@{
+    ViewBag.Title = "Lịch sử làm việc nhân viên";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var emp = Model.Employee;
+}
+
+<div class="container py-4">
+    <div class="row g-3">
+        <div class="col-lg-3">
+            @await Html.PartialAsync("~/Areas/Admin/Views/Shared/_AdminSidebar.cshtml")
+        </div>
+        <div class="col-lg-9">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                    <h2 class="mb-1">Lịch sử làm việc</h2>
+                    <div class="text-muted small">
+                        Nhân viên: <strong>@emp.EmployeeName</strong>
+                        (@(string.IsNullOrWhiteSpace(emp.RoleName) ? "-" : emp.RoleName))
+                        - Chi nhánh: @(string.IsNullOrWhiteSpace(emp.BranchName) ? "-" : emp.BranchName)
+                    </div>
+                </div>
+                <a href="@Url.Action("Index", "Employees", new { area = "Admin" })" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Quay lại danh sách
+                </a>
+            </div>
+
+            @if ((Model.ChefHistory == null || !Model.ChefHistory.Any()) &&
+                 (Model.CashierHistory == null || !Model.CashierHistory.Any()))
+            {
+                <div class="alert alert-info">
+                    Chưa có dữ liệu lịch sử cho nhân viên này (trong 90 ngày gần đây).
+                </div>
+            }
+
+            @if (Model.ChefHistory != null && Model.ChefHistory.Any())
+            {
+                <div class="card mb-4">
+                    <div class="card-header bg-danger text-white">
+                        <i class="bi bi-fire me-2"></i>Lịch sử đơn bếp (90 ngày gần đây)
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Thời gian</th>
+                                        <th>Mã đơn</th>
+                                        <th>Bàn</th>
+                                        <th>Chi nhánh</th>
+                                        <th>Món / ghi chú</th>
+                                        <th>Trạng thái</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in Model.ChefHistory)
+                                    {
+                                        <tr>
+                                            <td>@((item.CompletedTime ?? item.OrderTime).ToString("dd/MM HH:mm"))</td>
+                                            <td>@item.OrderCode</td>
+                                            <td>@item.TableName</td>
+                                            <td>@item.BranchName</td>
+                                            <td>@item.DishesSummary</td>
+                                            <td>
+                                                <span class="@item.StatusBadgeClass">@item.StatusName</span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        <small class="text-muted">Hiển thị tối đa 200 đơn gần nhất.</small>
+                    </div>
+                </div>
+            }
+
+            @if (Model.CashierHistory != null && Model.CashierHistory.Any())
+            {
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <i class="bi bi-cash-coin me-2"></i>Lịch sử bill thu ngân (90 ngày gần đây)
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Thời gian</th>
+                                        <th>Mã bill</th>
+                                        <th>Mã đơn</th>
+                                        <th>Bàn</th>
+                                        <th>Khách hàng</th>
+                                        <th class="text-end">Tổng tiền</th>
+                                        <th>Thanh toán</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var bill in Model.CashierHistory)
+                                    {
+                                        <tr>
+                                            <td>@bill.BillTime.ToString("dd/MM HH:mm")</td>
+                                            <td>@bill.BillCode</td>
+                                            <td>@bill.OrderCode</td>
+                                            <td>@bill.TableName</td>
+                                            <td>@(string.IsNullOrEmpty(bill.CustomerName) ? "-" : bill.CustomerName)</td>
+                                            <td class="text-end">@bill.TotalAmount.ToString("N0") đ</td>
+                                            <td>@(string.IsNullOrEmpty(bill.PaymentMethod) ? "-" : bill.PaymentMethod)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        <small class="text-muted">Hiển thị tối đa 200 bill gần nhất.</small>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>

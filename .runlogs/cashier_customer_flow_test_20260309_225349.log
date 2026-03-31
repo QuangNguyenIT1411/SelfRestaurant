@@ -1,0 +1,6 @@
+[2026-03-09 22:53:49] === START CASHIER <-> CUSTOMER FLOW TEST ===
+[2026-03-09 22:53:49] [OLD] skipped by -SkipOld
+[2026-03-09 22:53:49] [NEW] customer login...
+[2026-03-09 22:53:50] [NEW] points before payment: 38650
+[2026-03-09 22:53:50] [NEW] table=1
+[2026-03-09 22:53:51] TEST FAILED: [NEW] SendToKitchen failed: \u0110\u01A1n h\u00E0ng tr\u1ED1ng

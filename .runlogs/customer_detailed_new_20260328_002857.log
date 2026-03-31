@@ -1,0 +1,7 @@
+[2026-03-28 00:28:59] [PASS] Open Register :: status=200
+[2026-03-28 00:29:00] [PASS] Register :: status=200 user=cusd_20260328002857499
+[2026-03-28 00:29:00] [PASS] Open Login :: status=200
+[2026-03-28 00:29:00] [FAIL] Login :: message=Vui lòng nh?p d?y d? thông tin.
+[2026-03-28 00:29:00] [FAIL] Unhandled Error :: Login failed for both new account and fallback account
+[2026-03-28 00:29:00] SUMMARY: 3/5 PASS
+[2026-03-28 00:29:00] SUMMARY_JSON: C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\.runlogs\customer_detailed_new_summary_20260328_002857.json

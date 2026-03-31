@@ -1,0 +1,109 @@
+﻿{
+    "timestamp":  "2026-03-20 01:27:54",
+    "baseUrl":  "http://localhost:5100",
+    "total":  20,
+    "passed":  20,
+    "failed":  0,
+    "results":  [
+                    {
+                        "feature":  "Health",
+                        "pass":  true,
+                        "detail":  "all service endpoints reachable"
+                    },
+                    {
+                        "feature":  "Admin Login",
+                        "pass":  true,
+                        "detail":  "success=true"
+                    },
+                    {
+                        "feature":  "Dashboard Page",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "Dishes Page",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "Ingredients Page",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "Categories Page",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "Customers Page",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "Employees Page",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "Tables Page",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "Revenue Report Page",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "TopDishes Report Page",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "Settings Page",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "Admin View Render (TagHelper)",
+                        "pass":  true,
+                        "detail":  "no raw asp-* attributes in HTML"
+                    },
+                    {
+                        "feature":  "Categories CRUD",
+                        "pass":  true,
+                        "detail":  "categoryId=1"
+                    },
+                    {
+                        "feature":  "Dishes CRUD",
+                        "pass":  true,
+                        "detail":  "dishId=1073"
+                    },
+                    {
+                        "feature":  "Ingredients CRUD",
+                        "pass":  true,
+                        "detail":  "ingredientId=1049"
+                    },
+                    {
+                        "feature":  "Customers CRUD",
+                        "pass":  true,
+                        "detail":  "customerId=1117"
+                    },
+                    {
+                        "feature":  "Employees CRUD + History",
+                        "pass":  true,
+                        "detail":  "employeeId=1022,historyStatus=200"
+                    },
+                    {
+                        "feature":  "Tables CRUD",
+                        "pass":  true,
+                        "detail":  "tableId=1057"
+                    },
+                    {
+                        "feature":  "Settings Save Profile",
+                        "pass":  true,
+                        "detail":  "302 redirect"
+                    }
+                ]
+}

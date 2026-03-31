@@ -1,0 +1,38 @@
+﻿{
+    "timestamp":  "20260328_002957",
+    "passed":  5,
+    "total":  6,
+    "log":  "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\.runlogs\\customer_detailed_new_20260328_002957.log",
+    "results":  [
+                    {
+                        "Step":  "Open Register",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Register",
+                        "Pass":  true,
+                        "Detail":  "status=200 user=cusd_20260328002957230"
+                    },
+                    {
+                        "Step":  "Open Login",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Login",
+                        "Pass":  true,
+                        "Detail":  "user=cusd_20260328002957230"
+                    },
+                    {
+                        "Step":  "Select Branch/Table",
+                        "Pass":  true,
+                        "Detail":  "branch=1 table=1 display=1"
+                    },
+                    {
+                        "Step":  "Unhandled Error",
+                        "Pass":  false,
+                        "Detail":  "No anti-forgery token"
+                    }
+                ]
+}

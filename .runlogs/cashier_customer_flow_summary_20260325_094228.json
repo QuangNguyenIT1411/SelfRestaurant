@@ -1,0 +1,19 @@
+﻿{
+    "Old":  null,
+    "New":  {
+                "Environment":  "NEW_MICROSERVICE",
+                "TableId":  2,
+                "OrderId":  4,
+                "Subtotal":  0,
+                "StatusAfterPayment":  "COMPLETED",
+                "PointsBefore":  73150,
+                "PointsAfter":  74650,
+                "PointsEarnedFromPayment":  1500,
+                "CustomerPointsFromPayment":  74650,
+                "PointsIncreased":  true,
+                "Pass":  true
+            },
+    "BothPass":  true,
+    "SkipOld":  true,
+    "GeneratedAt":  "2026-03-25 09:42:32"
+}

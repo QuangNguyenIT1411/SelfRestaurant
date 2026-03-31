@@ -1,0 +1,6 @@
+[2026-03-02 19:13:40] [PASS] Open Register :: status=200
+[2026-03-02 19:13:40] [PASS] Register :: status=200 user=cusd_20260302191340315
+[2026-03-02 19:13:40] [PASS] Open Login :: status=200
+[2026-03-02 19:13:40] [FAIL] Unhandled Error :: A parameter cannot be found that matches parameter name 'Depth'.
+[2026-03-02 19:13:40] SUMMARY: 3/4 PASS
+[2026-03-02 19:13:40] SUMMARY_JSON: C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\.runlogs\customer_detailed_new_summary_20260302_191340.json

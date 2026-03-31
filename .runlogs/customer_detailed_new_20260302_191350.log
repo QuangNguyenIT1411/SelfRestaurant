@@ -1,0 +1,7 @@
+[2026-03-02 19:13:50] [PASS] Open Register :: status=200
+[2026-03-02 19:13:50] [PASS] Register :: status=200 user=cusd_20260302191350512
+[2026-03-02 19:13:50] [PASS] Open Login :: status=200
+[2026-03-02 19:13:50] [FAIL] Login :: message=Không th? k?t n?i d?ch v? dang nh?p. Invalid credentials.
+[2026-03-02 19:13:50] [FAIL] Unhandled Error :: No available table in branches: 1,2,3
+[2026-03-02 19:13:50] SUMMARY: 3/5 PASS
+[2026-03-02 19:13:50] SUMMARY_JSON: C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\.runlogs\customer_detailed_new_summary_20260302_191350.json

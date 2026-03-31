@@ -1,0 +1,33 @@
+﻿{
+    "timestamp":  "20260302_191350",
+    "passed":  3,
+    "total":  5,
+    "log":  "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\.runlogs\\customer_detailed_new_20260302_191350.log",
+    "results":  [
+                    {
+                        "Step":  "Open Register",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Register",
+                        "Pass":  true,
+                        "Detail":  "status=200 user=cusd_20260302191350512"
+                    },
+                    {
+                        "Step":  "Open Login",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Login",
+                        "Pass":  false,
+                        "Detail":  "message=Không thể kết nối dịch vụ đăng nhập. Invalid credentials."
+                    },
+                    {
+                        "Step":  "Unhandled Error",
+                        "Pass":  false,
+                        "Detail":  "No available table in branches: 1,2,3"
+                    }
+                ]
+}

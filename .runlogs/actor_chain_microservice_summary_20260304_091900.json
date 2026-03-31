@@ -1,0 +1,92 @@
+﻿{
+    "timestamp":  "2026-03-04 09:19:02",
+    "total":  16,
+    "passed":  15,
+    "failed":  0,
+    "orderId":  1006,
+    "tableId":  7,
+    "pointsBefore":  1200,
+    "pointsAfter":  1200,
+    "results":  [
+                    {
+                        "step":  "Health Check",
+                        "pass":  true,
+                        "detail":  "gateway + catalog + orders reachable"
+                    },
+                    {
+                        "step":  "Customer Login",
+                        "pass":  true,
+                        "detail":  "lan.nguyen"
+                    },
+                    {
+                        "step":  "Customer Points Before",
+                        "pass":  true,
+                        "detail":  "points=1200"
+                    },
+                    {
+                        "step":  "Pick Table",
+                        "pass":  true,
+                        "detail":  "branch=1 table=7"
+                    },
+                    {
+                        "step":  "Reset Table Before Flow",
+                        "pass":  true,
+                        "detail":  "tableId=7"
+                    },
+                    {
+                        "step":  "Pick Dish",
+                        "pass":  true,
+                        "detail":  "dishId=12"
+                    },
+                    {
+                        "step":  "Customer Create Order",
+                        "pass":  true,
+                        "detail":  "orderId=1006 tableId=7"
+                    },
+                    {
+                        "step":  "Customer Send To Kitchen",
+                        "pass":  true,
+                        "detail":  "orderId=1006"
+                    },
+                    {
+                        "step":  "Chef Login",
+                        "pass":  true,
+                        "detail":  "chef_hung"
+                    },
+                    {
+                        "step":  "Chef -\u003e Customer PREPARING",
+                        "pass":  true,
+                        "detail":  "status=PREPARING"
+                    },
+                    {
+                        "step":  "Chef -\u003e Customer READY",
+                        "pass":  true,
+                        "detail":  "status=READY"
+                    },
+                    {
+                        "step":  "Cashier Login",
+                        "pass":  true,
+                        "detail":  "cashier_lan"
+                    },
+                    {
+                        "step":  "Cashier Process Payment",
+                        "pass":  true,
+                        "detail":  "orderId=1006 pointsEarned=0"
+                    },
+                    {
+                        "step":  "Cashier -\u003e Customer COMPLETED",
+                        "pass":  true,
+                        "detail":  "status=COMPLETED"
+                    },
+                    {
+                        "step":  "Customer Points Increased After Payment",
+                        "pass":  false,
+                        "detail":  "before=1200 after=1200"
+                    },
+                    {
+                        "step":  "Reset Table After Flow",
+                        "pass":  true,
+                        "detail":  "tableId=7"
+                    }
+                ]
+}

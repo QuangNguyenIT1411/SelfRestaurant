@@ -1,0 +1,3 @@
+[2026-03-05 08:40:46] === BẮT ĐẦU TEST LUỒNG CHEF <-> KHÁCH HÀNG (CŨ & MỚI) ===
+[2026-03-05 08:40:46] Khởi động IIS Express cho bản cũ...
+[2026-03-05 08:42:47] TEST FAILED: Không thể khởi động bản cũ tại http://localhost:5088

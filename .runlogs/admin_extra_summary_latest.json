@@ -1,0 +1,53 @@
+﻿{
+    "timestamp":  "2026-03-04 00:40:40",
+    "total":  9,
+    "passed":  7,
+    "failed":  2,
+    "results":  [
+                    {
+                        "feature":  "Admin Login (Extra)",
+                        "pass":  true,
+                        "detail":  "success=true"
+                    },
+                    {
+                        "feature":  "Dashboard Page Extra",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "Revenue Report Page Extra",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "TopDishes Report Page Extra",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "Settings Page Extra",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "Settings Save Profile",
+                        "pass":  true,
+                        "detail":  "302 redirect"
+                    },
+                    {
+                        "feature":  "Categories CRUD (Extra)",
+                        "pass":  false,
+                        "detail":  "No category ids found"
+                    },
+                    {
+                        "feature":  "Employees CRUD + History (Extra)",
+                        "pass":  false,
+                        "detail":  "Operation is not valid due to the current state of the object."
+                    },
+                    {
+                        "feature":  "Tables CRUD (Extra)",
+                        "pass":  true,
+                        "detail":  "tableId=50"
+                    }
+                ]
+}

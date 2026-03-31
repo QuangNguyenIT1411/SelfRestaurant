@@ -1,0 +1,136 @@
+﻿@model SelfRestaurant.Gateway.Mvc.Areas.Admin.Models.AdminDishIngredientsViewModel
+@{
+    ViewBag.Title = "Thành phần món ăn";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container py-4">
+    <div class="row g-3">
+        <div class="col-lg-3">
+            @Html.Partial("~/Areas/Admin/Views/Shared/_AdminSidebar.cshtml")
+        </div>
+        <div class="col-lg-9">
+            <h2 class="mb-3">Thành phần món: @Model.Name</h2>
+
+            @if (TempData["SuccessMessage"] != null || ViewBag.SuccessMessage != null)
+            {
+                <div class="alert alert-success">@(TempData["SuccessMessage"] ?? ViewBag.SuccessMessage)</div>
+            }
+            @if (TempData["ErrorMessage"] != null || ViewBag.ErrorMessage != null)
+            {
+                <div class="alert alert-danger">@(TempData["ErrorMessage"] ?? ViewBag.ErrorMessage)</div>
+            }
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Danh sách thành phần</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Nguyên liệu</th>
+                                    <th class="text-end">Số lượng / 1 phần</th>
+                                    <th>Đơn vị</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (Model.DishIngredients == null || !Model.DishIngredients.Any())
+                                {
+                                    <tr>
+                                        <td colspan="4" class="text-center text-muted py-3">
+                                            Chưa khai báo thành phần cho món ăn này.
+                                        </td>
+                                    </tr>
+                                }
+                                else
+                                {
+                                    foreach (var di in Model.DishIngredients)
+                                    {
+                                        <tr>
+                                            <td>@di.Ingredients.Name</td>
+                                            <td class="text-end">@di.QuantityPerDish.ToString("N2")</td>
+                                            <td>@di.Ingredients.Unit</td>
+                                            <td class="text-end">
+                                                <a href="@Url.Action("RemoveIngredient", "Dishes", new { area = "Admin", id = di.DishIngredientID, dishId = Model.DishID })"
+                                                   class="btn btn-sm btn-outline-danger"
+                                                   onclick="return confirm('Bạn chắc chắn muốn xóa thành phần này?');">
+                                                    <i class="bi bi-trash"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Thêm / cập nhật thành phần</h5>
+                    @using (Html.BeginForm("AddIngredient", "Dishes", FormMethod.Post, new { area = "Admin" }))
+                    {
+                        @Html.AntiForgeryToken()
+                        @Html.Hidden("dishId", Model.DishID)
+
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-6">
+                                <label class="form-label">Nguyên liệu</label>
+                                <select id="ingredientSelect" name="ingredientId" class="form-select">
+                                    <option value="">-- Chọn nguyên liệu --</option>
+                                    @foreach (var ing in ViewBag.AllIngredients)
+                                    {
+                                        <option value="@ing.IngredientId" data-unit="@ing.Unit">@ing.Name</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">
+                                    Số lượng / 1 phần <span id="ingredientUnitLabel" class="text-muted"></span>
+                                </label>
+                                <input type="number" name="quantityPerDish" class="form-control" step="0.01" min="0.01" />
+                            </div>
+                            <div class="col-md-3 d-grid">
+                                <button type="submit" class="btn btn-primary">
+                                    Lưu thành phần
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
+                    Quay lại danh sách món ăn
+                </a>
+                <a href="@Url.Action("Edit", new { id = Model.DishID })" class="btn btn-outline-primary ms-2">
+                    Sửa thông tin món ăn
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        var select = document.getElementById("ingredientSelect");
+        var unitLabel = document.getElementById("ingredientUnitLabel");
+        if (!select || !unitLabel) return;
+
+        function updateUnit() {
+            var opt = select.options[select.selectedIndex];
+            if (!opt) {
+                unitLabel.textContent = "";
+                return;
+            }
+            var unit = opt.getAttribute("data-unit") || "";
+            unitLabel.textContent = unit ? ("(" + unit + ")") : "";
+        }
+
+        select.addEventListener("change", updateUnit);
+        updateUnit();
+    })();
+</script>

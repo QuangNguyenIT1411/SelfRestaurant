@@ -1,0 +1,7 @@
+[2026-03-29 01:07:21] [PASS] Open Register :: status=200
+[2026-03-29 01:07:24] [PASS] Register :: status=200 user=cusd_20260329010720866
+[2026-03-29 01:07:24] [PASS] Open Login :: status=200
+[2026-03-29 01:07:44] [FAIL] Login :: message=Không th? k?t n?i d?ch v? dang nh?p. The I/O operation has been aborted because of either a thread exit or an application request.
+[2026-03-29 01:07:44] [FAIL] Unhandled Error :: Login failed for both new account and fallback account
+[2026-03-29 01:07:44] SUMMARY: 3/5 PASS
+[2026-03-29 01:07:44] SUMMARY_JSON: C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\.runlogs\customer_detailed_new_summary_20260329_010720.json

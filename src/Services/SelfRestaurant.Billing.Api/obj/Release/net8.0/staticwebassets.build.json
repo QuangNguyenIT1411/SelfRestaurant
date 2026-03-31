@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "QhVxqoIy3aEZeNb3CucYYB9SB202Gb+1Xzjn9qm2I1k=",
+  "Source": "SelfRestaurant.Billing.Api",
+  "BasePath": "_content/SelfRestaurant.Billing.Api",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}

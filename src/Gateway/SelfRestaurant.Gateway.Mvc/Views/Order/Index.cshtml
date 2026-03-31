@@ -1,0 +1,433 @@
+﻿@model SelfRestaurant.Gateway.Mvc.Models.ActiveOrderResponse?
+@{
+    ViewBag.Title = "Hóa Đơn Tạm Tính";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var tableId = (int)(ViewBag.TableId ?? 0);
+    var tableNumber = (int)(ViewBag.TableNumber ?? tableId);
+    var currentOrder = Model;
+    var orderItems = currentOrder?.Items?.ToList() ?? new List<SelfRestaurant.Gateway.Mvc.Models.ActiveOrderItemDto>();
+    var orderStatus = currentOrder?.StatusCode ?? "PENDING";
+    var customerName = ViewBag.CustomerName?.ToString() ?? "";
+    var loyaltyPoints = (int)(ViewBag.LoyaltyPoints ?? 0);
+}
+
+@section css{
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .bill-title {
+            font-size: 2.25rem;
+            font-weight: 700;
+            color: #d9534f;
+        }
+
+        .price-col {
+            flex-basis: 100px;
+            text-align: right;
+            font-weight: bold;
+        }
+
+        .list-group {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            background-color: #ffffff;
+            overflow: hidden;
+        }
+
+        .list-group-item-custom {
+            padding: 1.25rem;
+        }
+
+        .total-amount {
+            font-size: 2.25rem;
+            font-weight: bold;
+            color: var(--bs-danger);
+        }
+
+        .badge.bg-success-subtle {
+            color: var(--bs-success-dark);
+            font-size: 0.9em;
+        }
+
+        .badge.bg-primary-subtle {
+            color: var(--bs-primary-dark);
+            font-size: 0.9em;
+        }
+
+        .badge.bg-warning-subtle {
+            color: var(--bs-warning-dark);
+            font-size: 0.9em;
+        }
+
+        .btn-remove-item {
+            cursor: pointer;
+        }
+
+        .empty-state {
+            padding: 3rem;
+            text-align: center;
+            color: #6c757d;
+        }
+
+            .empty-state i {
+                font-size: 4rem;
+                margin-bottom: 1rem;
+                opacity: 0.3;
+            }
+    </style>
+}
+
+<div class="container p-3">
+    <header class="p-3 mb-3 bg-white shadow-sm rounded d-flex justify-content-between align-items-center">
+        <div class="bill-title">
+            <i class="fas fa-receipt"></i>
+            Hóa Đơn Tạm Tính - <span id="table-number">Bàn @tableNumber</span>
+        </div>
+        <a href="@Url.Action("Index", "Menu", new { tableId = tableId, branchId = ViewBag.BranchId })" class="btn btn-outline-secondary">
+            <i class="fas fa-chevron-left me-2"></i> Quay lại Thực Đơn
+        </a>
+    </header>
+
+    <main>
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <h2 class="h4 mb-3">Các món đã gọi</h2>
+                <div class="bg-white rounded shadow-sm">
+                    <div class="list-group list-group-flush" id="item-list">
+                        @if (orderItems.Any())
+                        {
+                            foreach (var item in orderItems)
+                            {
+                                var isPending = orderStatus == "PENDING";
+                                var isReady = orderStatus == "READY" || orderStatus == "SERVING" || orderStatus == "COMPLETED";
+                                var isPreparing = orderStatus == "CONFIRMED" || orderStatus == "PREPARING";
+
+                                <div class="list-group-item list-group-item-custom"
+                                     data-item-id="@item.ItemId"
+                                     data-quantity="@item.Quantity"
+                                     data-price="@item.UnitPrice">
+                                    <div class="d-flex w-100 justify-content-between align-items-start">
+                                        <div>
+                                            <h5 class="mb-1">@item.DishName</h5>
+                                            <small class="text-muted">Số lượng: @item.Quantity × @string.Format("{0:N0}", item.UnitPrice) đ</small>
+                                            @if (!string.IsNullOrEmpty(item.Note))
+                                            {
+                                                <div><small class="text-info"><i class="fas fa-sticky-note me-1"></i>@item.Note</small></div>
+                                            }
+                                        </div>
+                                        <span class="price-col">@string.Format("{0:N0}", item.LineTotal) đ</span>
+                                    </div>
+                                    <div class="@(isPending ? "d-flex w-100 justify-content-between align-items-center" : "") mt-2">
+                                        @if (isReady)
+                                        {
+                                            <span class="badge rounded-pill bg-success-subtle text-success-emphasis p-2 status-badge">
+                                                <i class="fas fa-check-circle me-1"></i>
+                                                Đã sẵn sàng
+                                            </span>
+                                        }
+                                        else if (isPreparing)
+                                        {
+                                            <span class="badge rounded-pill bg-warning-subtle text-warning-emphasis p-2 status-badge">
+                                                <i class="fas fa-clock me-1"></i>
+                                                Đang chuẩn bị
+                                            </span>
+                                        }
+                                        else if (isPending)
+                                        {
+                                            <span class="badge rounded-pill bg-primary-subtle text-primary-emphasis p-2 status-badge"
+                                                  data-status="pending">
+                                                <i class="fas fa-paper-plane me-1"></i>
+                                                Chờ gửi
+                                            </span>
+                                            <a class="text-danger fs-5 btn-remove-item" data-item-id="@item.ItemId">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </a>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="empty-state">
+                                <i class="fas fa-utensils"></i>
+                                <p class="mb-0">Chưa có món nào được gọi</p>
+                                <small class="text-muted">Vui lòng quay lại thực đơn để chọn món</small>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <h2 class="h4 mb-3">Tạm Tính</h2>
+                <div class="card shadow-sm border-0">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between text-muted mb-2">
+                            <span id="tam-tinh-label">Tạm tính (0 món)</span>
+                            <span id="tam-tinh-price">0 đ</span>
+                        </div>
+                        <div class="d-flex justify-content-between text-muted">
+                            <span>Điểm thưởng (dự kiến)</span>
+                            <span id="diem-thuong">+ 0 điểm</span>
+                        </div>
+
+                        <hr class="my-3" />
+
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="h5 mb-0">Tổng cộng</span>
+                            <span class="total-amount" id="tong-cong-price">0 đ</span>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            @{
+                                var isPendingOrder = orderItems.Any() && orderStatus == "PENDING";
+                                var buttonDisabled = !isPendingOrder;
+                                var buttonText = orderStatus != "PENDING" && orderItems.Any()
+                                    ? "Đã gửi bếp"
+                                    : "Gửi Yêu Cầu Bếp";
+                            }
+                            <button class="btn btn-success btn-lg"
+                                    type="button"
+                                    id="btn-send-to-kitchen"
+                                    @(buttonDisabled ? "disabled" : "")>
+                                <i class="fas fa-paper-plane me-2"></i>
+                                <span>@buttonText</span>
+                            </button>
+                            <button class="btn btn-primary btn-lg" type="button" id="btn-scan-card">
+                                <i class="fas fa-credit-card me-2"></i> Quét Thẻ Tích Điểm
+                            </button>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(customerName))
+                        {
+                            <div class="alert alert-info mt-3 mb-0">
+                                <small>
+                                    <i class="fas fa-user me-1"></i>
+                                    <strong>@customerName</strong><br />
+                                    Điểm hiện tại: @loyaltyPoints điểm
+                                </small>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="alert alert-secondary d-flex align-items-center mt-3" role="alert">
+                    <i class="fa-solid fa-money-bill-1 me-3"></i>
+                    <div>
+                        Vui lòng thanh toán tại <strong>Quầy Thu Ngân</strong> khi dùng bữa xong.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+@section scripts{
+    <script>
+        const tableId = @tableId;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            // === HÀM TRỢ GIÚP ===
+            function formatVND(number) {
+                return number.toLocaleString("vi-VN") + " đ";
+            }
+
+            function showToast(message, type = 'success') {
+                const bgClass = type === 'success' ? 'bg-success' : 'bg-danger';
+                const icon = type === 'success' ? 'check-circle' : 'exclamation-triangle';
+
+                const toastHtml = `
+                    <div class="toast align-items-center text-white ${bgClass} border-0" role="alert">
+                        <div class="d-flex">
+                            <div class="toast-body">
+                                <i class="fas fa-${icon} me-2"></i>${message}
+                            </div>
+                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                        </div>
+                    </div>
+                `;
+
+                const container = document.querySelector('.toast-container') || (() => {
+                    const div = document.createElement('div');
+                    div.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+                    document.body.appendChild(div);
+                    return div;
+                })();
+
+                container.insertAdjacentHTML('beforeend', toastHtml);
+                const toastEl = container.lastElementChild;
+                const toast = new bootstrap.Toast(toastEl);
+                toast.show();
+
+                toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+            }
+
+            // === HÀM CHÍNH: CẬP NHẬT HÓA ĐƠN ===
+            function updateBill() {
+                let items = document.querySelectorAll("#item-list .list-group-item-custom");
+                let totalItems = 0;
+                let subtotal = 0;
+
+                items.forEach((item) => {
+                    let quantity = parseInt(item.dataset.quantity, 10);
+                    let price = parseInt(item.dataset.price, 10);
+
+                    totalItems += quantity;
+                    subtotal += quantity * price;
+                });
+
+                let rewardPoints = Math.floor(subtotal * 0.05); // 5% điểm thưởng
+
+                // Cập nhật lên giao diện
+                document.getElementById("tam-tinh-label").innerText = `Tạm tính (${totalItems} món)`;
+                document.getElementById("tam-tinh-price").innerText = formatVND(subtotal);
+                document.getElementById("diem-thuong").innerText = `+ ${rewardPoints.toLocaleString("vi-VN")} điểm`;
+                document.getElementById("tong-cong-price").innerText = formatVND(subtotal);
+            }
+
+            // === XÓA MÓN ĂN ===
+            function setupRemoveButtons() {
+                let removeButtons = document.querySelectorAll(".btn-remove-item");
+                removeButtons.forEach((button) => {
+                    button.addEventListener("click", function (event) {
+                        event.preventDefault();
+
+                        const itemId = this.dataset.itemId;
+
+                        if (confirm('Bạn có chắc muốn xóa món này?')) {
+                            // Gọi API xóa
+                            fetch('@Url.Action("RemoveItem", "Order")', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({ itemId: itemId })
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    // Xóa item khỏi giao diện
+                                    let itemToRemove = this.closest(".list-group-item-custom");
+                                    itemToRemove.remove();
+
+                                    // Cập nhật lại hóa đơn
+                                    updateBill();
+
+                                    // Kiểm tra nếu không còn món nào
+                                    if (document.querySelectorAll("#item-list .list-group-item-custom").length === 0) {
+                                        location.reload();
+                                    }
+
+                                    showToast(data.message || 'Đã xóa món thành công');
+                                } else {
+                                    showToast(data.message, 'error');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                showToast('Có lỗi xảy ra khi xóa món', 'error');
+                            });
+                        }
+                    });
+                });
+            }
+
+            // === GỬI YÊU CẦU BẾP ===
+            const sendButton = document.getElementById("btn-send-to-kitchen");
+            if (sendButton && !sendButton.disabled) {
+                sendButton.addEventListener("click", function () {
+                    const button = this;
+                    const pendingItems = document.querySelectorAll('.status-badge[data-status="pending"]');
+
+                    if (pendingItems.length === 0) {
+                        showToast('Không có món nào cần gửi', 'error');
+                        return;
+                    }
+
+                    if (confirm('Gửi yêu cầu đến bếp?')) {
+                        button.disabled = true;
+                        button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Đang gửi...';
+
+                        fetch('@Url.Action("SendToKitchen", "Order")', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ tableId: tableId })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                // Cập nhật trạng thái các món
+                                pendingItems.forEach((badge) => {
+                                    badge.innerHTML = '<i class="fas fa-clock me-1"></i> Đang chuẩn bị';
+                                    badge.classList.remove("bg-primary-subtle", "text-primary-emphasis");
+                                    badge.classList.add("bg-warning-subtle", "text-warning-emphasis");
+                                    badge.removeAttribute("data-status");
+
+                                    // Xóa nút thùng rác
+                                    let itemRow = badge.closest(".list-group-item-custom");
+                                    let removeButton = itemRow.querySelector(".btn-remove-item");
+                                    if (removeButton) {
+                                        removeButton.remove();
+                                    }
+                                });
+
+                                button.innerHTML = '<i class="fas fa-check me-2"></i> Đã gửi bếp';
+                                showToast(data.message || 'Đã gửi yêu cầu đến bếp');
+                            } else {
+                                button.disabled = false;
+                                button.innerHTML = '<i class="fas fa-paper-plane me-2"></i> Gửi Yêu Cầu Bếp';
+                                showToast(data.message, 'error');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            button.disabled = false;
+                            button.innerHTML = '<i class="fas fa-paper-plane me-2"></i> Gửi Yêu Cầu Bếp';
+                            showToast('Có lỗi xảy ra khi gửi yêu cầu', 'error');
+                        });
+                    }
+                });
+            }
+
+            // === QUÉT THẺ TÍCH ĐIỂM ===
+            document.getElementById("btn-scan-card").addEventListener("click", function () {
+                const phoneNumber = prompt('Nhập số điện thoại khách hàng:');
+
+                if (phoneNumber && phoneNumber.trim() !== '') {
+                    fetch('@Url.Action("ScanLoyaltyCard", "Order")', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            tableId: tableId,
+                            phoneNumber: phoneNumber.trim()
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showToast(`Đã quét thẻ: ${data.customer.name} - ${data.customer.currentPoints} điểm`);
+                            setTimeout(() => location.reload(), 1500);
+                        } else {
+                            showToast(data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showToast('Có lỗi xảy ra khi quét thẻ', 'error');
+                    });
+                }
+            });
+
+            // === KHỞI CHẠY LẦN ĐẦU ===
+            updateBill();
+            setupRemoveButtons();
+        });
+    </script>
+}

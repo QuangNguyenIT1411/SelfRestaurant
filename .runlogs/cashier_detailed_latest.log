@@ -1,0 +1,27 @@
+
+ChucNang                          Pass ChiTiet             
+--------                          ---- -------             
+Dang nhap Cashier                 True status=200          
+Mo trang thanh toan               True status=200          
+Mo trang lich su                  True status=200          
+Mo trang bao cao                  True status=200          
+Loc lich su theo ngay             True date=2026-03-04     
+Loc bao cao theo ngay             True date=2026-03-04     
+Lay mon de test checkout          True dishId=12           
+Lay ban de test checkout          True count=16            
+Checkout loi tien mat khong du    True orderId=1031        
+Checkout loi payment method sai   True orderId=1031        
+Checkout thanh cong CASH          True orderId=1031        
+Checkout thanh cong CARD          True orderId=1033        
+Checkout thanh cong TRANSFER      True orderId=1034        
+Lich su co hoa don sau checkout   True BILL marker         
+Bao cao hien thi du lieu          True report html         
+Cap nhat tai khoan Cashier        True name=Thu ngan Lan QA
+Doi mat khau sai xac nhan bi chan True mismatch blocked    
+Doi mat khau thanh cong           True temp pass set       
+Dang nhap bang mat khau moi       True status=200          
+Khoi phuc mat khau cu             True restored            
+
+
+
+SUMMARY: 20/20 PASS

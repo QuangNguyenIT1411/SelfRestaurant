@@ -1,0 +1,22 @@
+﻿{
+    "Old":  {
+                "Environment":  "OLD_MVC",
+                "TableId":  7,
+                "OrderId":  7,
+                "ChefPageContainsOrder":  true,
+                "StatusAfterPreparing":  "PREPARING",
+                "StatusAfterReady":  "READY",
+                "Pass":  true
+            },
+    "New":  {
+                "Environment":  "NEW_MICROSERVICE",
+                "TableId":  6,
+                "OrderId":  71,
+                "ChefPageContainsOrder":  true,
+                "StatusAfterPreparing":  "PREPARING",
+                "StatusAfterReady":  "READY",
+                "Pass":  true
+            },
+    "BothPass":  true,
+    "GeneratedAt":  "2026-03-02 19:39:54"
+}

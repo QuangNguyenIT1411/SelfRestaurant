@@ -1,0 +1,13 @@
+﻿{
+    "timestamp":  "20260327_012627",
+    "passed":  0,
+    "total":  1,
+    "log":  "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\.runlogs\\customer_detailed_new_20260327_012627.log",
+    "results":  [
+                    {
+                        "Step":  "Unhandled Error",
+                        "Pass":  false,
+                        "Detail":  "Unable to connect to the remote server"
+                    }
+                ]
+}

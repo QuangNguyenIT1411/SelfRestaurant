@@ -1,0 +1,4 @@
+[2026-03-27 01:26:26] === BẮT ĐẦU TEST LUỒNG CHEF <-> KHÁCH HÀNG ===
+[2026-03-27 01:26:26] [OLD] Bỏ qua theo cờ -SkipOld
+[2026-03-27 01:26:27] [NEW] Đăng nhập khách hàng...
+[2026-03-27 01:26:31] TEST FAILED: Unable to connect to the remote server

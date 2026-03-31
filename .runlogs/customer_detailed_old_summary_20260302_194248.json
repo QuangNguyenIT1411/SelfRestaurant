@@ -1,0 +1,73 @@
+﻿{
+    "timestamp":  "20260302_194248",
+    "passed":  13,
+    "total":  13,
+    "log":  "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\.runlogs\\customer_detailed_old_20260302_194248.log",
+    "results":  [
+                    {
+                        "Step":  "Start OLD IIS",
+                        "Pass":  true,
+                        "Detail":  "pid=20172"
+                    },
+                    {
+                        "Step":  "Login",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true,\"message\":\"Đăng nhập thành công!\",\"redirectUrl\":\"/\",\"name\":\"Nguyễn Thị Lan\"}"
+                    },
+                    {
+                        "Step":  "Select Table",
+                        "Pass":  true,
+                        "Detail":  "branch=1 table=2"
+                    },
+                    {
+                        "Step":  "Open Menu",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Reset Table",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Add Item",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true,\"message\":\"Đã thêm món vào giỏ hàng\",\"orderId\":12}"
+                    },
+                    {
+                        "Step":  "Read Order Items",
+                        "Pass":  true,
+                        "Detail":  "orderId=12 itemId=118"
+                    },
+                    {
+                        "Step":  "Update Quantity",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true,\"message\":\"Đã cập nhật số lượng\",\"newLineTotal\":150000.00}"
+                    },
+                    {
+                        "Step":  "Remove Item",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true,\"message\":\"Đã xóa món\",\"orderEmpty\":true}"
+                    },
+                    {
+                        "Step":  "Add Item Again",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true,\"message\":\"Đã thêm món vào giỏ hàng\",\"orderId\":13}"
+                    },
+                    {
+                        "Step":  "Send To Kitchen",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true,\"message\":\"Đã gửi yêu cầu đến bếp\"}"
+                    },
+                    {
+                        "Step":  "Check Order Status",
+                        "Pass":  true,
+                        "Detail":  "statusCode=CONFIRMED"
+                    },
+                    {
+                        "Step":  "Update Profile",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    }
+                ]
+}

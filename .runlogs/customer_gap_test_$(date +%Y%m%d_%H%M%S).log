@@ -1,0 +1,14 @@
+=== GAP TEST START ===
+[A0] Reset table 3: HTTP 204
+[A1] Add={"success":true}
+[A2] Submit={"success":true}
+[A3] UpdateQuantity after submit={"success":true}
+[A4] RemoveItem after submit={"success":true}
+[A5] Status payload={"success":true,"order":{"orderID":48,"orderCode":"ORD-20260302110122249-379","statusCode":"CONFIRMED","statusName":"\u0110\u00E3 x\u00E1c nh\u1EADn","items":[]}}...
+[B0] Reset table 5: HTTP 204
+[B1] Remove last item response={"success":true}
+[B2] Table 5 state after remove={"tableId":5,"branchId":1,"displayTableNumber":5,"numberOfSeats":2,"statusName":"Đang sử dụng","isAvailable":false}
+[C1] ScanLoyaltyCard (logged-in, phone provided) => {"success":true,"message":"\u0110\u00E3 nh\u1EADn di\u1EC7n th\u1EBB t\u00EDch \u0111i\u1EC3m c\u1EE7a Nguy\u1EC5n Th\u1ECB Lan.","customer":{"name":"Nguy\u1EC5n Th\u1ECB Lan","currentPoints":1200}}
+[C2] ScanLoyaltyCard (unauth) => {"success":false,"message":"B\u1EA1n c\u1EA7n \u0111\u0103ng nh\u1EADp t\u00E0i kho\u1EA3n kh\u00E1ch h\u00E0ng \u0111\u1EC3 qu\u00E9t th\u1EBB t\u00EDch \u0111i\u1EC3m."}
+LOG_FILE=.runlogs/customer_gap_test_$(date +%Y%m%d_%H%M%S).log
+=== GAP TEST DONE ===

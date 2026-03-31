@@ -1,0 +1,15 @@
+[2026-03-02 19:42:28] [PASS] Start OLD IIS :: pid=10780
+[2026-03-02 19:42:29] [PASS] Login :: raw={"success":true,"message":"Ðang nh?p thành công!","redirectUrl":"/","name":"Nguy?n Th? Lan"}
+[2026-03-02 19:42:30] [PASS] Select Table :: branch=1 table=1
+[2026-03-02 19:42:31] [PASS] Open Menu :: status=200
+[2026-03-02 19:42:32] [PASS] Reset Table :: status=200
+[2026-03-02 19:42:33] [PASS] Add Item :: raw={"success":true,"message":"Ðã thêm món vào gi? hàng","orderId":10}
+[2026-03-02 19:42:34] [PASS] Read Order Items :: orderId=10 itemId=116
+[2026-03-02 19:42:34] [PASS] Update Quantity :: raw={"success":true,"message":"Ðã c?p nh?t s? lu?ng","newLineTotal":150000.00}
+[2026-03-02 19:42:34] [PASS] Remove Item :: raw={"success":true,"message":"Ðã xóa món","orderEmpty":true}
+[2026-03-02 19:42:34] [PASS] Add Item Again :: raw={"success":true,"message":"Ðã thêm món vào gi? hàng","orderId":11}
+[2026-03-02 19:42:34] [PASS] Send To Kitchen :: raw={"success":true,"message":"Ðã g?i yêu c?u d?n b?p"}
+[2026-03-02 19:42:34] [FAIL] Check Order Status :: statusCode=
+[2026-03-02 19:42:35] [PASS] Update Profile :: status=200
+[2026-03-02 19:42:35] SUMMARY: 12/13 PASS
+[2026-03-02 19:42:35] SUMMARY_JSON: C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\.runlogs\customer_detailed_old_summary_20260302_194218.json

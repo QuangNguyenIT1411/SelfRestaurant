@@ -1,0 +1,13 @@
+health.catalog=200
+health.orders=200
+health.customers=200
+health.identity=200
+health.billing=200
+home=200
+staff.chef.index=302
+staff.cashier.index=302
+admin.dashboard=302
+legacy.order.getitems=200
+legacy.staff.chef.update=302
+legacy.staff.cashier.pay=302
+legacy.admin.renameunit=302

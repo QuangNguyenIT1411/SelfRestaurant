@@ -1,0 +1,21 @@
+﻿{
+    "timestamp":  "20260305_083553",
+    "total":  2,
+    "passed":  1,
+    "failed":  1,
+    "log":  "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\.runlogs\\admin_flow_test_20260305_083553.log",
+    "results":  [
+                    {
+                        "env":  "OLD",
+                        "feature":  "Admin-Login",
+                        "pass":  true,
+                        "detail":  "login success"
+                    },
+                    {
+                        "env":  "SYSTEM",
+                        "feature":  "Unhandled",
+                        "pass":  false,
+                        "detail":  "The remote server returned an error: (500) Internal Server Error."
+                    }
+                ]
+}

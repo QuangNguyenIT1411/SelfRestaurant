@@ -1,0 +1,7 @@
+﻿@model SelfRestaurant.Gateway.Mvc.Areas.Admin.Models.AdminTableFormViewModel
+@{
+    ViewData["Title"] = "Cập nhật bàn & mã QR";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@await Html.PartialAsync("~/Areas/Admin/Views/Tables/Edit.cshtml", Model)

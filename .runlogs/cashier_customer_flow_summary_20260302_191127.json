@@ -1,0 +1,28 @@
+﻿{
+    "Old":  {
+                "Environment":  "OLD_MVC",
+                "TableId":  6,
+                "OrderId":  6,
+                "Subtotal":  0,
+                "StatusAfterPayment":  "COMPLETED",
+                "PointsBefore":  4200,
+                "PointsAfter":  5700,
+                "PointsIncreased":  true,
+                "Pass":  true
+            },
+    "New":  {
+                "Environment":  "NEW_MICROSERVICE",
+                "TableId":  1,
+                "OrderId":  63,
+                "Subtotal":  0,
+                "StatusAfterPayment":  "COMPLETED",
+                "PointsBefore":  3850,
+                "PointsAfter":  5350,
+                "PointsEarnedFromPayment":  1500,
+                "CustomerPointsFromPayment":  5350,
+                "PointsIncreased":  true,
+                "Pass":  true
+            },
+    "BothPass":  true,
+    "GeneratedAt":  "2026-03-02 19:11:34"
+}

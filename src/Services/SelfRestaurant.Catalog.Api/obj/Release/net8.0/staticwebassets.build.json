@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "kCuYQ6mySCOvs+7YpM7wFJgaXvRfAFlZDRrvzZgRSFw=",
+  "Source": "SelfRestaurant.Catalog.Api",
+  "BasePath": "_content/SelfRestaurant.Catalog.Api",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}

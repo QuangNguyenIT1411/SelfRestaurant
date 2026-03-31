@@ -1,0 +1,60 @@
+﻿<!-- Modal Sửa Món -->
+<div class="modal fade" id="editDishModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Sửa Món</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editDishForm">
+                    <input type="hidden" id="editDishId" name="dishId" />
+                    <div class="mb-3">
+                        <label class="form-label">Tên món</label>
+                        <input type="text" class="form-control" id="editName" name="name" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Giá</label>
+                            <input type="number" class="form-control" id="editPrice" name="price" required min="0">
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Đơn vị</label>
+                            <input type="text" class="form-control" id="editUnit" name="unit" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Danh mục</label>
+                        <input type="text" class="form-control" id="editCategoryName" disabled />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mô tả</label>
+                        <textarea class="form-control" id="editDescription" name="description" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Hình ảnh món ăn</label>
+                        <input type="file" class="form-control" id="editDishImageFile" accept="image/*" />
+                        <div class="form-text">Chọn file hình mới nếu muốn thay đổi.</div>
+                        <div class="mt-2">
+                            <img id="editDishImagePreview" src="https://placehold.co/120x80?text=Preview" style="max-width: 200px; max-height: 150px; border-radius: 6px; object-fit: cover;" />
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6 form-check">
+                            <input class="form-check-input" type="checkbox" id="editIsVegetarian" name="isVegetarian">
+                            <label class="form-check-label" for="editIsVegetarian">Món chay</label>
+                        </div>
+                        <div class="col-md-6 form-check">
+                            <input class="form-check-input" type="checkbox" id="editIsSpecial" name="isDailySpecial">
+                            <label class="form-check-label" for="editIsSpecial">Món đặc biệt trong ngày</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-primary" onclick="submitEditDish()">Lưu thay đổi</button>
+            </div>
+        </div>
+    </div>
+</div>

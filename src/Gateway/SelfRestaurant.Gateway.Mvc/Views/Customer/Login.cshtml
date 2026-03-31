@@ -1,0 +1,364 @@
+﻿@{
+    ViewBag.Title = "Đăng Nhập Khách Hàng";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@section css{
+    <style>
+        .auth-wrapper {
+            min-height: calc(100vh - 120px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem 0;
+        }
+
+        .login-container {
+            background-color: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+            max-width: 420px;
+            width: 100%;
+            padding: 2rem 1.75rem;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+            .login-header .logo {
+                font-size: 3rem;
+                color: #d9534f;
+                margin-bottom: 0.5rem;
+            }
+
+            .login-header h1 {
+                font-size: 1.75rem;
+                font-weight: 700;
+                color: #333;
+                margin: 0.5rem 0;
+            }
+
+            .login-header p {
+                color: #6c757d;
+                font-size: 0.95rem;
+            }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+            .form-group label {
+                font-weight: 500;
+                color: #333;
+                margin-bottom: 0.5rem;
+                display: block;
+            }
+
+            .form-group input {
+                border-radius: 8px;
+                border: 2px solid #e0e0e0;
+                padding: 0.75rem 1rem;
+                font-size: 1rem;
+                transition: border-color 0.3s ease;
+            }
+
+                .form-group input:focus {
+                    border-color: #d9534f;
+                    box-shadow: 0 0 0 0.2rem rgba(217, 83, 79, 0.25);
+                    outline: none;
+                }
+
+        .form-check {
+            margin-bottom: 0;
+        }
+
+            .form-check input {
+                margin-right: 0.5rem;
+            }
+
+            .form-check label {
+                margin-bottom: 0;
+            }
+
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .forgot-password a {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+            .forgot-password a:hover {
+                text-decoration: underline;
+                color: #5568d3;
+            }
+
+        .btn-login {
+            background-color: #d9534f;
+            border: none;
+            padding: 0.75rem;
+            font-weight: 600;
+            border-radius: 8px;
+            transition: background-color 0.3s ease;
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+
+            .btn-login:hover {
+                background-color: #c9423f;
+            }
+
+            .btn-login:disabled {
+                background-color: #d3d3d3;
+                cursor: not-allowed;
+            }
+
+        .register-link {
+            text-align: center;
+            color: #6c757d;
+            font-size: 0.95rem;
+        }
+
+            .register-link a {
+                color: #d9534f;
+                text-decoration: none;
+                font-weight: 600;
+            }
+
+                .register-link a:hover {
+                    text-decoration: underline;
+                }
+
+        .alert {
+            border-radius: 8px;
+            border: none;
+            margin-bottom: 1.5rem;
+        }
+
+        .invalid-feedback {
+            display: block;
+            color: #dc3545;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        .password-toggle {
+            position: relative;
+        }
+
+        .password-toggle-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #6c757d;
+        }
+
+            .password-toggle-icon:hover {
+                color: #343a40;
+            }
+
+        @@media (max-width: 576px) {
+            .auth-wrapper {
+                min-height: calc(100vh - 80px);
+            }
+
+            .login-container {
+                border-radius: 0;
+                box-shadow: none;
+                max-width: 100%;
+                padding: 1.5rem 1.25rem;
+            }
+        }
+    </style>
+}
+
+<div class="auth-wrapper">
+<div class="login-container">
+    <div class="login-header">
+        <div class="logo">
+            <i class="fas fa-utensils"></i>
+        </div>
+        <h1>Self Restaurant</h1>
+        <p>Đăng nhập tài khoản khách hàng</p>
+    </div>
+
+    <form id="login-form">
+        @Html.AntiForgeryToken()
+        <input type="hidden" id="returnUrl" name="returnUrl" value="@Convert.ToString(ViewBag.ReturnUrl)" />
+
+        <div class="form-group">
+            <label for="username">
+                <i class="fas fa-user me-2"></i>Tên Đăng Nhập
+            </label>
+            <input type="text"
+                   class="form-control"
+                   id="username"
+                   name="username"
+                   placeholder="Nhập tên đăng nhập"
+                   required>
+            <div class="invalid-feedback" id="username-error"></div>
+        </div>
+
+        <div class="form-group">
+            <label for="password">
+                <i class="fas fa-lock me-2"></i>Mật Khẩu
+            </label>
+            <div class="password-toggle">
+                <input type="password"
+                       class="form-control"
+                       id="password"
+                       name="password"
+                       placeholder="Nhập mật khẩu"
+                       required>
+                <i class="fas fa-eye password-toggle-icon" id="toggleCustomerPassword"></i>
+            </div>
+            <div class="invalid-feedback" id="password-error"></div>
+        </div>
+
+        <div class="form-options">
+            <div class="form-check">
+                <input class="form-check-input"
+                       type="checkbox"
+                       id="rememberMe"
+                       name="rememberMe"
+                       @(Convert.ToBoolean(ViewBag.RememberMe) ? "checked" : null)>
+                <label class="form-check-label" for="rememberMe">
+                    Nhớ tôi
+                </label>
+            </div>
+            <div class="forgot-password">
+                <a href="@Url.Action("ForgotPassword", "Customer")">
+                    <i class="fas fa-key me-1"></i>Quên mật khẩu?
+                </a>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-login btn-danger">
+            <i class="fas fa-sign-in-alt me-2"></i>
+            <span id="btn-text">Đăng Nhập</span>
+        </button>
+
+        <div class="register-link">
+            Chưa có tài khoản? <a href="@Url.Action("Register", "Customer")">Đăng ký ngay</a>
+        </div>
+    </form>
+
+    <div id="alert-message"></div>
+</div>
+</div>
+
+@section scripts{
+    <script>
+        document.getElementById('login-form').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const rememberMe = document.getElementById('rememberMe').checked ? 'true' : 'false';
+            const returnUrl = document.getElementById('returnUrl').value || '';
+            const btnSubmit = document.querySelector('button[type="submit"]');
+            const btnText = document.getElementById('btn-text');
+            const alertDiv = document.getElementById('alert-message');
+
+            // Clear previous errors
+            document.getElementById('username-error').textContent = '';
+            document.getElementById('password-error').textContent = '';
+            alertDiv.innerHTML = '';
+
+            // Validation
+            if (!username) {
+                document.getElementById('username-error').textContent = 'Vui lòng nhập tên đăng nhập';
+                return;
+            }
+
+            if (!password) {
+                document.getElementById('password-error').textContent = 'Vui lòng nhập mật khẩu';
+                return;
+            }
+
+            // Disable button
+            btnSubmit.disabled = true;
+            btnText.innerHTML = 'Đang đăng nhập...';
+
+            // Get CSRF token
+            const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+
+            // Send FormData instead of JSON
+            const formData = new FormData();
+            formData.append('username', username);
+            formData.append('password', password);
+            formData.append('rememberMe', rememberMe);
+            formData.append('returnUrl', returnUrl);
+            formData.append('__RequestVerificationToken', token);
+
+            fetch('@Url.Action("Login", "Customer")', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
+            })
+            .then(response => {
+                console.log("Response status:", response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log("Response data:", data);
+
+                if (data.success) {
+                    alertDiv.innerHTML = `
+                        <div class="alert alert-success" role="alert">
+                            <i class="fas fa-check-circle me-2"></i>
+                            ${data.message}
+                        </div>
+                    `;
+                    setTimeout(() => {
+                        window.location.href = data.redirectUrl;
+                    }, 1000);
+                } else {
+                    alertDiv.innerHTML = `
+                        <div class="alert alert-danger" role="alert">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            ${data.message}
+                        </div>
+                    `;
+                    btnSubmit.disabled = false;
+                    btnText.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>Đăng Nhập';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alertDiv.innerHTML = `
+                    <div class="alert alert-danger" role="alert">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Có lỗi xảy ra: ${error.message}
+                    </div>
+                `;
+                btnSubmit.disabled = false;
+                btnText.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>Đăng Nhập';
+            });
+        });
+
+        // Toggle password visibility
+        (function () {
+            const input = document.getElementById('password');
+            const toggle = document.getElementById('toggleCustomerPassword');
+            if (!input || !toggle) return;
+
+            toggle.addEventListener('click', function () {
+                const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+                input.setAttribute('type', type);
+                this.classList.toggle('fa-eye');
+                this.classList.toggle('fa-eye-slash');
+            });
+        })();
+    </script>
+}

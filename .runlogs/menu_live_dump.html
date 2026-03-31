@@ -1,0 +1,1944 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Th&#x1EF1;c &#x110;&#x1A1;n - Self Restaurant</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          crossorigin="anonymous" />
+
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
+          rel="stylesheet" />
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+          crossorigin="anonymous"
+          referrerpolicy="no-referrer" />
+
+    <!-- Google Font (Inter) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet" />
+
+    
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --primary-hover: #0b5ed7;
+        }
+
+        body {
+            background: linear-gradient(to bottom right, #e7f1ff, #f0f5ff);
+            min-height: 100vh;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .header {
+            background: linear-gradient(to right, #0d6efd, #3d8bfd);
+            color: white;
+            padding: 1.5rem 0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .category-tab {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            border: none;
+            background: #e9ecef;
+            color: #495057;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin: 0.25rem;
+        }
+
+            .category-tab:hover {
+                background: #dee2e6;
+            }
+
+            .category-tab.active {
+                background: var(--primary-color);
+                color: white;
+                box-shadow: 0 4px 6px rgba(13, 110, 253, 0.3);
+                transform: scale(1.05);
+            }
+
+        .veg-toggle-btn {
+            border-radius: 999px;
+            font-weight: 600;
+        }
+
+        .dish-card {
+            border: none;
+            border-radius: 1rem;
+            overflow: hidden;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            height: 100%;
+        }
+
+            .dish-card:hover {
+                box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+                transform: translateY(-5px);
+            }
+
+        .dish-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+
+        .badge-special {
+            background: var(--primary-color);
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+        }
+
+        .badge-vegetarian {
+            background: #198754;
+            position: absolute;
+            top: 0.5rem;
+            left: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+        }
+
+        .badge-top-seller {
+            background: #fd7e14;
+            position: absolute;
+            bottom: 0.5rem;
+            right: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+        }
+
+        .price {
+            color: var(--primary-color);
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .btn-add {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+            .btn-add:hover {
+                background: var(--primary-hover);
+                box-shadow: 0 4px 8px rgba(13, 110, 253, 0.3);
+            }
+
+        .cart-sidebar {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            position: sticky;
+            top: 1rem;
+        }
+
+        .cart-item {
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+        }
+
+            .cart-item:last-child {
+                border-bottom: none;
+            }
+
+            .cart-item.ready {
+                background: #d1e7dd;
+                padding: 0.75rem;
+                border-radius: 0.5rem;
+                border-bottom: none;
+                margin-bottom: 0.5rem;
+            }
+
+        .quantity-control {
+            background: #e9ecef;
+            border-radius: 0.5rem;
+            display: inline-flex;
+            align-items: center;
+        }
+
+            .quantity-control button {
+                background: transparent;
+                border: none;
+                padding: 0.5rem;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+
+                .quantity-control button:hover {
+                    background: #dee2e6;
+                }
+
+        .btn-checkout {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            font-size: 1.1rem;
+            font-weight: 700;
+            transition: all 0.3s;
+            width: 100%;
+        }
+
+            .btn-checkout:hover {
+                background: var(--primary-hover);
+                box-shadow: 0 6px 12px rgba(13, 110, 253, 0.3);
+            }
+
+        .btn-view-bill {
+            background: white;
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+            padding: 0.75rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+            .btn-view-bill:hover {
+                background: var(--primary-color);
+                color: white;
+            }
+
+        .loyalty-card {
+            background: linear-gradient(to bottom right, #0d6efd, #3d8bfd);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            color: white;
+            margin-top: 1rem;
+        }
+
+        .notification-area {
+            position: fixed;
+            top: 6rem;
+            right: 1rem;
+            z-index: 9998;
+            max-width: 350px;
+        }
+
+        .notification-item {
+            background: white;
+            border-left: 4px solid #198754;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            animation: slideInRight 0.3s ease;
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .empty-cart {
+            text-align: center;
+            padding: 3rem 0;
+            color: #adb5bd;
+        }
+
+            .empty-cart i {
+                font-size: 3rem;
+                opacity: 0.3;
+                margin-bottom: 1rem;
+            }
+
+        .cart-badge {
+            background: var(--primary-color);
+            color: white;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+        }
+
+        .bill-modal .modal-content {
+            border-radius: 1rem;
+        }
+
+        .bill-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 1rem 1rem 0 0;
+        }
+
+        .bill-item {
+            border-bottom: 1px solid #e9ecef;
+            padding: 0.75rem 0;
+        }
+
+            .bill-item:last-child {
+                border-bottom: 2px solid var(--primary-color);
+            }
+
+        .bill-total {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .note-input {
+            font-size: 0.85rem;
+            background-color: #f8f9fa;
+            border: 1px dashed #ced4da;
+            transition: all 0.2s;
+        }
+
+            .note-input:focus {
+                background-color: #fff;
+                border-color: var(--primary-color);
+                box-shadow: none;
+            }
+
+        .item-note-display {
+            font-size: 0.8rem;
+            color: #dc3545;
+            font-style: italic;
+            display: block;
+            margin-top: 2px;
+        }
+
+        .confirm-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            background: #f8f9fa;
+        }
+
+        .confirm-item {
+            background: white;
+            border-left: 3px solid var(--primary-color);
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.9rem;
+        }
+
+            .confirm-item:last-child {
+                margin-bottom: 0;
+            }
+    </style>
+
+</head>
+<body>
+    <div b-7t7rp274vo>
+        <input name="__RequestVerificationToken" type="hidden" value="CfDJ8OgSn209wwhClc_GrVmhEISMl4zFHdMLAP5Y4hc3p2575fQ7sWfdFKGlrzWPfKw0NjsjrhTPoA7A4EByZ3l89OTpFAI0t_AF6rBT1rmMwo1H6_145clmURkdDTs3jlOixJaR5_gR-1iDJ2ZRjTcQSd4" />
+
+
+<!-- Notification Area -->
+<div id="notificationArea" class="notification-area"></div>
+
+<!-- Header -->
+<div class="header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-6">
+                <h1 class="mb-0 h3">Self Restaurant</h1>
+                <small class="opacity-75 d-block mb-1">Chi nhánh Chi nh&#xE1;nh Qu&#x1EAD;n 1</small>
+                <a href="/" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-house-door me-1"></i>Quay lại trang chủ
+                </a>
+            </div>
+            <div class="col-6 text-end">
+                <div class="small opacity-75">Bàn số</div>
+                <div class="display-5 fw-bold">1</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Content -->
+<div class="container">
+    <div class="row">
+        <!-- Menu Section -->
+        <div class="col-lg-8 mb-4">
+            <!-- Top Sellers -->
+            <div id="topDishesWrapper" class="mb-4 d-none">
+                <div class="bg-white rounded-3 shadow-sm p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="mb-0">
+                            <i class="bi bi-star-fill text-warning me-1"></i>
+                            Món bán chạy
+                        </h5>
+                        <small class="text-muted">Trong chi nhánh này</small>
+                    </div>
+                    <div class="row g-3" id="topDishesSection"></div>
+                </div>
+            </div>
+
+            <!-- Category Tabs + Search -->
+            <div class="bg-white rounded-3 shadow-sm p-3 mb-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div class="d-flex flex-wrap flex-grow-1 gap-2">
+                        <div class="d-flex flex-wrap" id="categoryTabs"></div>
+                        <div class="flex-grow-1">
+                            <input type="text"
+                                   id="dishSearchInput"
+                                   class="form-control form-control-sm"
+                                   placeholder="Tìm món theo tên..."
+                                   oninput="renderDishes()" />
+                        </div>
+                    </div>
+                    <button type="button"
+                            id="vegFilterBtn"
+                            class="btn btn-outline-success btn-sm veg-toggle-btn">
+                        <i class="bi bi-leaf me-1"></i>
+                        Chỉ hiện món chay
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dishes Grid -->
+            <div class="row g-3" id="dishesGrid"></div>
+        </div>
+
+        <!-- Cart Section -->
+        <div class="col-lg-4">
+            <div class="cart-sidebar">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h4 class="mb-0">
+                        <i class="bi bi-cart3" style="color: var(--primary-color)"></i>
+                        Giỏ hàng
+                    </h4>
+                    <span class="cart-badge" id="cartBadge">0</span>
+                </div>
+
+                <div id="cartItems"></div>
+
+                <div id="cartSummary" class="d-none">
+                    <hr />
+
+                    <button class="btn-view-bill" onclick="viewBill()">
+                        <i class="bi bi-receipt me-2"></i>
+                        Xem hóa đơn tạm tính
+                    </button>
+
+                    <div class="d-flex justify-content-between mb-3">
+                        <span class="h5 fw-bold">Tổng cộng:</span>
+                        <span class="h4 fw-bold"
+                              style="color: var(--primary-color)"
+                              id="totalAmount">0đ</span>
+                    </div>
+
+                    <div id="loyaltyInfo"
+                         class="bg-warning bg-opacity-10 border border-warning rounded p-3 mb-3 d-none">
+                        <div class="d-flex align-items-center small">
+                            <i class="bi bi-person-circle me-2"></i>
+                            <span class="fw-bold" id="customerName"></span>
+                        </div>
+                        <div class="text-muted small">
+                            Điểm tích lũy: +<span id="loyaltyPoints">0</span> điểm
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <button class="btn btn-success w-100 py-3"
+                                onclick="showSendKitchenConfirm()"
+                                id="btnSendKitchen"
+                                disabled>
+                            <i class="bi bi-check-circle me-2"></i>
+                            Gửi đơn cho bếp
+                        </button>
+                        <div class="text-center text-muted small mt-1">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Gửi món trước khi thanh toán
+                        </div>
+                    </div>
+
+                    <button class="btn-checkout" onclick="checkout()">
+                        <i class="bi bi-credit-card me-2"></i>
+                        Thanh toán
+                    </button>
+
+                    <div class="text-center text-muted small mt-2">
+                        <i class="bi bi-clock me-1"></i>
+                        Vui lòng đến quầy thu ngân để thanh toán
+                    </div>
+
+                    <button type="button"
+                            class="btn btn-outline-danger w-100 mt-3"
+                            data-bs-toggle="modal"
+                            data-bs-target="#resetTableModal">
+                        <i class="bi bi-arrow-repeat me-2"></i>
+                        Reset bàn
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Xác nhận gửi đơn cho bếp -->
+<div class="modal fade" id="confirmSendKitchenModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle text-warning me-2"></i>Xác nhận gửi đơn cho bếp
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3 text-muted">
+                    Vui lòng xác nhận các món sau sẽ được gửi cho bếp:
+                </p>
+                <div class="confirm-list" id="confirmItemsList"></div>
+                <div class="alert alert-info mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <small>Hành động này không thể hoàn tác. Vui lòng kiểm tra kỹ trước khi xác nhận.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-2"></i>Hủy
+                </button>
+                <button type="button" class="btn btn-success" id="btnConfirmSend" onclick="confirmSendKitchen()">
+                    <i class="bi bi-check-circle me-2"></i>Xác nhận gửi
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Hóa đơn tạm tính -->
+<div class="modal fade" id="billModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="bill-header text-center">
+                <h3 class="mb-1"><i class="bi bi-receipt"></i> HÓA ĐƠN TẠM TÍNH</h3>
+                <p class="mb-0 small opacity-75">Bàn số 1 - Chi nhánh Chi nh&#xE1;nh Qu&#x1EAD;n 1</p>
+                <p class="mb-0 small opacity-75" id="billTime"></p>
+            </div>
+            <div class="modal-body">
+                <div id="billItems"></div>
+
+                <div class="bill-total">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Tổng món:</span>
+                        <span id="billTotalItems">0 món</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Tạm tính:</span>
+                        <span id="billSubtotal">0đ</span>
+                    </div>
+                    <hr />
+                    <div class="d-flex justify-content-between">
+                        <span class="fw-bold h5 mb-0">Tổng cộng:</span>
+                        <span class="fw-bold h4 mb-0"
+                              style="color: var(--primary-color)"
+                              id="billTotal">0đ</span>
+                    </div>
+                    <div class="text-muted small mt-2 text-center">
+                        <i class="bi bi-star-fill text-warning"></i>
+                        Điểm thưởng: +<span id="billPoints">0</span> điểm
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3 mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <small>Vui lòng đến quầy thu ngân để thanh toán khi hoàn tất.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button"
+                        class="btn btn-secondary"
+                        data-bs-dismiss="modal">
+                    Đóng
+                </button>
+                <button type="button"
+                        class="btn btn-primary"
+                        style="background: var(--primary-color); border: none"
+                        onclick="checkout()"
+                        data-bs-dismiss="modal">
+                    <i class="bi bi-credit-card me-2"></i>Thanh toán
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Thanh toán -->
+<div class="modal fade"
+     id="checkoutNotificationModal"
+     tabindex="-1"
+     aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content text-center p-4">
+            <div class="modal-body">
+                <div class="mb-3">
+                    <i class="bi bi-cash-coin text-primary"
+                       style="font-size: 4rem"></i>
+                </div>
+
+                <h4 class="fw-bold mb-3">Yêu cầu thanh toán đã gửi!</h4>
+                <p class="text-muted mb-4">
+                    Vui lòng đến quầy thu ngân để hoàn tất thanh toán.
+                </p>
+
+                <div class="bg-light rounded-3 p-3 mb-4 border border-primary border-opacity-25">
+                    <small class="text-uppercase text-muted fw-bold">Mã bàn của bạn</small>
+                    <div class="display-4 fw-bold text-primary mt-1">1</div>
+                </div>
+
+                <button type="button"
+                        class="btn btn-primary w-100 py-2 fw-bold"
+                        data-bs-dismiss="modal"
+                        onclick="finishPaymentProcess()">
+                    <i class="bi bi-check-lg me-2"></i>Đã hiểu
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Xác nhận nhận món -->
+<div class="modal fade" id="orderReadyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title">
+                    <i class="bi bi-bell-fill text-success me-2"></i>Món ăn đã sẵn sàng
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">
+                    Bếp đã hoàn thành món ăn cho bàn <strong>1</strong>.
+                    Vui lòng đến quầy lấy món. Sau khi đã nhận món, hãy nhấn
+                    <strong>"Tôi đã nhận món"</strong> để xác nhận.
+                </p>
+                <div class="alert alert-success small mb-0">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Việc xác nhận giúp hệ thống ẩn đơn khỏi màn hình bếp và chuẩn bị cho lần đặt món tiếp theo.
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    Để sau
+                </button>
+                <button type="button" class="btn btn-success" id="btnConfirmOrderReceived" onclick="confirmOrderReceived()">
+                    <i class="bi bi-check2-circle me-1"></i>Tôi đã nhận món
+                </button>
+            </div>
+        </div>
+    </div>
+    </div>
+
+<!-- Modal Reset Bàn -->
+<div class="modal fade" id="resetTableModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle text-warning me-2"></i>Xác nhận reset bàn</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">
+                    Bạn có chắc chắn muốn reset bàn <strong>1</strong>?
+                    Hành động này sẽ xóa tất cả đơn hàng chưa được xử lý.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Hủy
+                </button>
+                <button type="button" class="btn btn-danger" onclick="confirmResetTable()">
+                    <i class="bi bi-arrow-repeat me-2"></i>Xác nhận reset
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+    </div>
+
+    <!-- ===== QUAN TRỌNG: PHẢI LOAD JQUERY TRƯỚC ===== -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+            integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+            crossorigin="anonymous"></script>
+
+    <!-- Bootstrap 5 JS Bundle (includes Popper) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+            crossorigin="anonymous"></script>
+
+    <!-- Custom Scripts từ các trang -->
+    
+    <script src="/js/menu-microservice-hooks.js"></script>
+    <script>
+        // Dữ liệu từ Razor View
+        const categories = [{"CategoryID":1,"CategoryName":"M\u00F3n ch\u00EDnh","Dishes":[{"DishID":4,"Name":"B\u00FAn B\u00F2 Hu\u1EBF","Price":55000.00,"Image":"/images/placeholder-dish.svg","Description":"B\u00FAn b\u00F2 Hu\u1EBF cay n\u1ED3ng \u0111\u1EADm \u0111\u00E0","Unit":"T\u00F4","IsVegetarian":false,"IsDailySpecial":false,"Available":true,"Ingredients":[{"Name":"B\u00E1nh \u0111a nem","Quantity":1.23,"Unit":"kg"}]},{"DishID":2,"Name":"B\u00FAn Ch\u1EA3 H\u00E0 N\u1ED9i","Price":60000.00,"Image":"/images/placeholder-dish.svg","Description":"B\u00FAn ch\u1EA3 \u0111\u1EB7c s\u1EA3n H\u00E0 N\u1ED9i v\u1EDBi ch\u1EA3 n\u01B0\u1EDBng than h\u1ED3ng","Unit":"Ph\u1EA7n","IsVegetarian":false,"IsDailySpecial":true,"Available":true,"Ingredients":[{"Name":"Th\u1ECBt heo","Quantity":0.15,"Unit":"kg"},{"Name":"B\u00FAn","Quantity":0.30,"Unit":"kg"},{"Name":"Rau th\u01A1m","Quantity":0.08,"Unit":"kg"},{"Name":"D\u01B0a chu\u1ED9t","Quantity":0.05,"Unit":"kg"},{"Name":"N\u01B0\u1EDBc m\u1EAFm","Quantity":0.03,"Unit":"l\u00EDt"}]},{"DishID":3,"Name":"C\u01A1m S\u01B0\u1EDDn B\u00EC Ch\u1EA3","Price":65000.00,"Image":"/images/placeholder-dish.svg","Description":"C\u01A1m s\u01B0\u1EDDn b\u00EC ch\u1EA3 truy\u1EC1n th\u1ED1ng S\u00E0i G\u00F2n","Unit":"Ph\u1EA7n","IsVegetarian":false,"IsDailySpecial":false,"Available":true,"Ingredients":[{"Name":"Th\u1ECBt heo","Quantity":0.15,"Unit":"kg"},{"Name":"G\u1EA1o","Quantity":0.25,"Unit":"kg"},{"Name":"Tr\u1EE9ng g\u00E0","Quantity":1.00,"Unit":"qu\u1EA3"},{"Name":"D\u01B0a chu\u1ED9t","Quantity":0.05,"Unit":"kg"},{"Name":"D\u1EA7u \u0103n","Quantity":0.02,"Unit":"l\u00EDt"}]},{"DishID":5,"Name":"H\u1EE7 Ti\u1EBFu Nam Vang","Price":50000.00,"Image":"/images/placeholder-dish.svg","Description":"H\u1EE7 ti\u1EBFu Nam Vang \u0111\u1EB7c bi\u1EC7t","Unit":"T\u00F4","IsVegetarian":false,"IsDailySpecial":false,"Available":true,"Ingredients":[{"Name":"Th\u1ECBt heo","Quantity":0.10,"Unit":"kg"},{"Name":"T\u00F4m","Quantity":0.08,"Unit":"kg"},{"Name":"H\u1EE7 ti\u1EBFu","Quantity":0.30,"Unit":"kg"},{"Name":"Rau th\u01A1m","Quantity":0.05,"Unit":"kg"},{"Name":"Gi\u00E1 \u0111\u1ED7","Quantity":0.05,"Unit":"kg"}]},{"DishID":6,"Name":"M\u00EC X\u00E0o B\u00F2","Price":60000.00,"Image":"/images/placeholder-dish.svg","Description":"M\u00EC x\u00E0o b\u00F2 \u0111\u1EADm \u0111\u00E0 h\u01B0\u01A1ng v\u1ECB","Unit":"Ph\u1EA7n","IsVegetarian":false,"IsDailySpecial":false,"Available":true,"Ingredients":[{"Name":"Th\u1ECBt b\u00F2","Quantity":0.15,"Unit":"kg"},{"Name":"M\u00EC tr\u1EE9ng","Quantity":0.25,"Unit":"kg"},{"Name":"B\u1EAFp c\u1EA3i","Quantity":0.08,"Unit":"kg"},{"Name":"C\u00E0 r\u00F3t","Quantity":0.05,"Unit":"kg"},{"Name":"D\u1EA7u \u0103n","Quantity":0.03,"Unit":"l\u00EDt"}]},{"DishID":1,"Name":"Ph\u1EDF B\u00F2 \u0110\u1EB7c Bi\u1EC7t","Price":75000.00,"Image":"/images/placeholder-dish.svg","Description":"Ph\u1EDF b\u00F2 truy\u1EC1n th\u1ED1ng H\u00E0 N\u1ED9i v\u1EDBi n\u01B0\u1EDBc d\u00F9ng h\u1EA7m x\u01B0\u01A1ng 12 ti\u1EBFng","Unit":"T\u00F4","IsVegetarian":false,"IsDailySpecial":true,"Available":true,"Ingredients":[{"Name":"B\u00E1nh \u0111a nem","Quantity":0.25,"Unit":"kg"}]}]},{"CategoryID":2,"CategoryName":"M\u00F3n ph\u1EE5","Dishes":[{"DishID":22,"Name":"Ch\u1EA3 C\u00E1","Price":15000.00,"Image":"/images/placeholder-dish.svg","Description":"Ch\u1EA3 C\u00E1 l\u00E0m t\u1EEB c\u00E1","Unit":"D\u0129a","IsVegetarian":false,"IsDailySpecial":true,"Available":true,"Ingredients":[{"Name":"C\u00E1","Quantity":0.20,"Unit":"kg"},{"Name":"Rau x\u00E0 l\u00E1ch","Quantity":0.05,"Unit":"kg"},{"Name":"Rau th\u01A1m","Quantity":0.03,"Unit":"kg"},{"Name":"N\u01B0\u1EDBc m\u1EAFm","Quantity":0.02,"Unit":"l\u00EDt"}]},{"DishID":9,"Name":"G\u1ECFi Cu\u1ED1n","Price":35000.00,"Image":"/images/placeholder-dish.svg","Description":"G\u1ECFi cu\u1ED1n t\u01B0\u01A1i ngon","Unit":"Ph\u1EA7n","IsVegetarian":true,"IsDailySpecial":false,"Available":true,"Ingredients":[{"Name":"T\u00F4m","Quantity":0.08,"Unit":"kg"},{"Name":"B\u00E1nh tr\u00E1ng","Quantity":0.05,"Unit":"kg"},{"Name":"Rau x\u00E0 l\u00E1ch","Quantity":0.05,"Unit":"kg"},{"Name":"Rau th\u01A1m","Quantity":0.03,"Unit":"kg"}]},{"DishID":8,"Name":"Nem R\u00E1n","Price":40000.00,"Image":"/images/placeholder-dish.svg","Description":"Nem r\u00E1n gi\u00F2n r\u1EE5m","Unit":"Ph\u1EA7n","IsVegetarian":false,"IsDailySpecial":false,"Available":true,"Ingredients":[{"Name":"Th\u1ECBt heo","Quantity":0.10,"Unit":"kg"},{"Name":"B\u00E1nh \u0111a nem","Quantity":0.05,"Unit":"kg"},{"Name":"Tr\u1EE9ng g\u00E0","Quantity":0.50,"Unit":"qu\u1EA3"},{"Name":"D\u1EA7u \u0103n","Quantity":0.05,"Unit":"l\u00EDt"}]},{"DishID":10,"Name":"Salad Rau C\u1EE7","Price":30000.00,"Image":"/images/placeholder-dish.svg","Description":"Salad rau c\u1EE7 t\u01B0\u01A1i","Unit":"Ph\u1EA7n","IsVegetarian":true,"IsDailySpecial":false,"Available":true,"Ingredients":[{"Name":"Rau x\u00E0 l\u00E1ch","Quantity":0.10,"Unit":"kg"},{"Name":"D\u01B0a chu\u1ED9t","Quantity":0.05,"Unit":"kg"},{"Name":"C\u00E0 r\u00F3t","Quantity":0.05,"Unit":"kg"},{"Name":"B\u1EAFp c\u1EA3i","Quantity":0.05,"Unit":"kg"}]}]},{"CategoryID":3,"CategoryName":"Tr\u00E1ng mi\u1EC7ng","Dishes":[{"DishID":12,"Name":"B\u00E1nh Flan","Price":30000.00,"Image":"/images/placeholder-dish.svg","Description":"B\u00E1nh flan caramen ng\u1ECDt ng\u00E0o","Unit":"C\u00E1i","IsVegetarian":true,"IsDailySpecial":false,"Available":true,"Ingredients":[{"Name":"\u0110\u01B0\u1EDDng","Quantity":1.23,"Unit":"kg"},{"Name":"S\u1EEFa \u0111\u1EB7c","Quantity":0.10,"Unit":"lon"},{"Name":"Tr\u1EE9ng g\u00E0","Quantity":2.00,"Unit":"qu\u1EA3"}]},{"DishID":11,"Name":"Ch\u00E8 Kh\u00FAc B\u1EA1ch","Price":35000.00,"Image":"/images/placeholder-dish.svg","Description":"Ch\u00E8 kh\u00FAc b\u1EA1ch m\u00E1t l\u1EA1nh","Unit":"Ly","IsVegetarian":true,"IsDailySpecial":false,"Available":true,"Ingredients":[{"Name":"N\u01B0\u1EDBc c\u1ED1t d\u1EEBa","Quantity":0.10,"Unit":"l\u00EDt"},{"Name":"Th\u1EA1ch","Quantity":0.05,"Unit":"kg"},{"Name":"\u0110\u01B0\u1EDDng","Quantity":0.03,"Unit":"kg"}]},{"DishID":13,"Name":"Ch\u00E8 Th\u00E1i","Price":40000.00,"Image":"/images/placeholder-dish.svg","Description":"Ch\u00E8 Th\u00E1i nhi\u1EC1u m\u00E0u s\u1EAFc","Unit":"Ly","IsVegetarian":true,"IsDailySpecial":false,"Available":true,"Ingredients":[{"Name":"Th\u1EA1ch","Quantity":0.08,"Unit":"kg"},{"Name":"N\u01B0\u1EDBc c\u1ED1t d\u1EEBa","Quantity":0.12,"Unit":"l\u00EDt"},{"Name":"\u0110\u01B0\u1EDDng","Quantity":0.04,"Unit":"kg"},{"Name":"\u0110\u1EADu \u0111\u1ECF","Quantity":0.05,"Unit":"kg"}]}]},{"CategoryID":4,"CategoryName":"\u0110\u1ED3 u\u1ED1ng","Dishes":[{"DishID":16,"Name":"C\u00E0 Ph\u00EA S\u1EEFa \u0110\u00E1","Price":40000.00,"Image":"/images/placeholder-dish.svg","Description":"C\u00E0 ph\u00EA s\u1EEFa \u0111\u00E1 \u0111\u1EADm \u0111\u00E0","Unit":"Ly","IsVegetarian":true,"IsDailySpecial":false,"Available":true,"Ingredients":[{"Name":"C\u00E0 ph\u00EA","Quantity":0.02,"Unit":"kg"},{"Name":"S\u1EEFa \u0111\u1EB7c","Quantity":0.05,"Unit":"lon"},{"Name":"\u0110\u01B0\u1EDDng","Quantity":0.02,"Unit":"kg"}]},{"DishID":14,"Name":"N\u01B0\u1EDBc Cam V\u1EAFt","Price":40000.00,"Image":"/images/placeholder-dish.svg","Description":"N\u01B0\u1EDBc cam t\u01B0\u01A1i v\u1EAFt tay","Unit":"Ly","IsVegetarian":true,"IsDailySpecial":false,"Available":true,"Ingredients":[{"Name":"Cam t\u01B0\u01A1i","Quantity":0.15,"Unit":"kg"},{"Name":"\u0110\u01B0\u1EDDng","Quantity":0.02,"Unit":"kg"}]},{"DishID":17,"Name":"Sinh T\u1ED1 B\u01A1","Price":45000.00,"Image":"/images/placeholder-dish.svg","Description":"Sinh t\u1ED1 b\u01A1 b\u00E9o ng\u1EADy","Unit":"Ly","IsVegetarian":true,"IsDailySpecial":false,"Available":true,"Ingredients":[{"Name":"B\u01A1","Quantity":0.20,"Unit":"kg"},{"Name":"S\u1EEFa \u0111\u1EB7c","Quantity":0.08,"Unit":"lon"},{"Name":"\u0110\u01B0\u1EDDng","Quantity":0.03,"Unit":"kg"}]},{"DishID":15,"Name":"Tr\u00E0 \u0110\u00E1","Price":10000.00,"Image":"/images/placeholder-dish.svg","Description":"Tr\u00E0 \u0111\u00E1 mi\u1EC5n ph\u00ED","Unit":"Ly","IsVegetarian":true,"IsDailySpecial":false,"Available":true,"Ingredients":[{"Name":"Tr\u00E0","Quantity":0.01,"Unit":"kg"},{"Name":"\u0110\u01B0\u1EDDng","Quantity":0.01,"Unit":"kg"}]}]}];
+        const tableNumber = 1;
+        const tableID = 1;
+        const branchId = 1;
+        // Trạng thái đăng nhập khách hàng (bool)
+        const isCustomerLoggedIn = true;
+        const customerLoginUrl = '/Customer/Login';
+        const customerName = "Nguyễn Thị Lan";
+        const customerEmail = "lan.nguyen@gmail.com";
+        const customerPhone = "0912345678";
+        const loyaltyPoints = 2700;
+        const dishIngredients = [{"dishId":4,"name":"B\u00E1nh \u0111a nem","quantity":1.23,"unit":"kg"},{"dishId":2,"name":"Th\u1ECBt heo","quantity":0.15,"unit":"kg"},{"dishId":2,"name":"B\u00FAn","quantity":0.30,"unit":"kg"},{"dishId":2,"name":"Rau th\u01A1m","quantity":0.08,"unit":"kg"},{"dishId":2,"name":"D\u01B0a chu\u1ED9t","quantity":0.05,"unit":"kg"},{"dishId":2,"name":"N\u01B0\u1EDBc m\u1EAFm","quantity":0.03,"unit":"l\u00EDt"},{"dishId":3,"name":"Th\u1ECBt heo","quantity":0.15,"unit":"kg"},{"dishId":3,"name":"G\u1EA1o","quantity":0.25,"unit":"kg"},{"dishId":3,"name":"Tr\u1EE9ng g\u00E0","quantity":1.00,"unit":"qu\u1EA3"},{"dishId":3,"name":"D\u01B0a chu\u1ED9t","quantity":0.05,"unit":"kg"},{"dishId":3,"name":"D\u1EA7u \u0103n","quantity":0.02,"unit":"l\u00EDt"},{"dishId":5,"name":"Th\u1ECBt heo","quantity":0.10,"unit":"kg"},{"dishId":5,"name":"T\u00F4m","quantity":0.08,"unit":"kg"},{"dishId":5,"name":"H\u1EE7 ti\u1EBFu","quantity":0.30,"unit":"kg"},{"dishId":5,"name":"Rau th\u01A1m","quantity":0.05,"unit":"kg"},{"dishId":5,"name":"Gi\u00E1 \u0111\u1ED7","quantity":0.05,"unit":"kg"},{"dishId":6,"name":"Th\u1ECBt b\u00F2","quantity":0.15,"unit":"kg"},{"dishId":6,"name":"M\u00EC tr\u1EE9ng","quantity":0.25,"unit":"kg"},{"dishId":6,"name":"B\u1EAFp c\u1EA3i","quantity":0.08,"unit":"kg"},{"dishId":6,"name":"C\u00E0 r\u00F3t","quantity":0.05,"unit":"kg"},{"dishId":6,"name":"D\u1EA7u \u0103n","quantity":0.03,"unit":"l\u00EDt"},{"dishId":1,"name":"B\u00E1nh \u0111a nem","quantity":0.25,"unit":"kg"},{"dishId":22,"name":"C\u00E1","quantity":0.20,"unit":"kg"},{"dishId":22,"name":"Rau x\u00E0 l\u00E1ch","quantity":0.05,"unit":"kg"},{"dishId":22,"name":"Rau th\u01A1m","quantity":0.03,"unit":"kg"},{"dishId":22,"name":"N\u01B0\u1EDBc m\u1EAFm","quantity":0.02,"unit":"l\u00EDt"},{"dishId":9,"name":"T\u00F4m","quantity":0.08,"unit":"kg"},{"dishId":9,"name":"B\u00E1nh tr\u00E1ng","quantity":0.05,"unit":"kg"},{"dishId":9,"name":"Rau x\u00E0 l\u00E1ch","quantity":0.05,"unit":"kg"},{"dishId":9,"name":"Rau th\u01A1m","quantity":0.03,"unit":"kg"},{"dishId":8,"name":"Th\u1ECBt heo","quantity":0.10,"unit":"kg"},{"dishId":8,"name":"B\u00E1nh \u0111a nem","quantity":0.05,"unit":"kg"},{"dishId":8,"name":"Tr\u1EE9ng g\u00E0","quantity":0.50,"unit":"qu\u1EA3"},{"dishId":8,"name":"D\u1EA7u \u0103n","quantity":0.05,"unit":"l\u00EDt"},{"dishId":10,"name":"Rau x\u00E0 l\u00E1ch","quantity":0.10,"unit":"kg"},{"dishId":10,"name":"D\u01B0a chu\u1ED9t","quantity":0.05,"unit":"kg"},{"dishId":10,"name":"C\u00E0 r\u00F3t","quantity":0.05,"unit":"kg"},{"dishId":10,"name":"B\u1EAFp c\u1EA3i","quantity":0.05,"unit":"kg"},{"dishId":12,"name":"\u0110\u01B0\u1EDDng","quantity":1.23,"unit":"kg"},{"dishId":12,"name":"S\u1EEFa \u0111\u1EB7c","quantity":0.10,"unit":"lon"},{"dishId":12,"name":"Tr\u1EE9ng g\u00E0","quantity":2.00,"unit":"qu\u1EA3"},{"dishId":11,"name":"N\u01B0\u1EDBc c\u1ED1t d\u1EEBa","quantity":0.10,"unit":"l\u00EDt"},{"dishId":11,"name":"Th\u1EA1ch","quantity":0.05,"unit":"kg"},{"dishId":11,"name":"\u0110\u01B0\u1EDDng","quantity":0.03,"unit":"kg"},{"dishId":13,"name":"Th\u1EA1ch","quantity":0.08,"unit":"kg"},{"dishId":13,"name":"N\u01B0\u1EDBc c\u1ED1t d\u1EEBa","quantity":0.12,"unit":"l\u00EDt"},{"dishId":13,"name":"\u0110\u01B0\u1EDDng","quantity":0.04,"unit":"kg"},{"dishId":13,"name":"\u0110\u1EADu \u0111\u1ECF","quantity":0.05,"unit":"kg"},{"dishId":16,"name":"C\u00E0 ph\u00EA","quantity":0.02,"unit":"kg"},{"dishId":16,"name":"S\u1EEFa \u0111\u1EB7c","quantity":0.05,"unit":"lon"},{"dishId":16,"name":"\u0110\u01B0\u1EDDng","quantity":0.02,"unit":"kg"},{"dishId":14,"name":"Cam t\u01B0\u01A1i","quantity":0.15,"unit":"kg"},{"dishId":14,"name":"\u0110\u01B0\u1EDDng","quantity":0.02,"unit":"kg"},{"dishId":17,"name":"B\u01A1","quantity":0.20,"unit":"kg"},{"dishId":17,"name":"S\u1EEFa \u0111\u1EB7c","quantity":0.08,"unit":"lon"},{"dishId":17,"name":"\u0110\u01B0\u1EDDng","quantity":0.03,"unit":"kg"},{"dishId":15,"name":"Tr\u00E0","quantity":0.01,"unit":"kg"},{"dishId":15,"name":"\u0110\u01B0\u1EDDng","quantity":0.01,"unit":"kg"}];
+        const topDishIds = [];
+
+        let dishes = [];
+        let cart = [];
+        let selectedCategory = null;
+        let pendingItems = [];
+        // Lấy OrderId hiện có (nếu đã có đơn cho bàn này)
+        let currentOrderId = 0;
+        if (!currentOrderId || currentOrderId === 0) {
+            currentOrderId = null;
+        }
+        let orderStatusTimer = null;
+        let readyNotificationTimer = null;
+        let readyPromptedOrderIds = {};
+        let confirmingOrderReceived = false;
+        let isClearingTableContext = false;
+        let activeReadyNotificationId = null;
+
+        const cartStorageKey = `menuCart-${tableID}-${branchId}`;
+        const localPlaceholderDishImage = "/images/placeholder-dish.svg";
+        const getReadyNotificationsUrl = '/Menu/GetReadyNotifications?tableId=';
+
+        // Initialize
+        document.addEventListener("DOMContentLoaded", function () {
+            cleanupOtherStoredMenuCarts();
+            loadCartFromStorage();
+            initializeMenu();
+            setupCategoryTabs();
+            setupVegFilter();
+            renderTopDishes();
+            renderDishes();
+            initializeLoyaltyInfo();
+            renderCart();
+            updateSendButton();
+            renderReadyNotifications([]);
+
+            // Luôn theo dõi trạng thái theo bàn để không bỏ sót order READY.
+            startOrderStatusWatcher();
+            // Nếu localStorage không có dữ liệu thì phục hồi giỏ hàng từ đơn hiện có
+            if (currentOrderId && (!pendingItems || pendingItems.length === 0) && (!cart || cart.length === 0)) {
+                restoreCartFromExistingOrder();
+            }
+        });
+
+        let showOnlyVegetarian = false;
+
+        // Initialize Menu từ Razor Data
+        function initializeMenu() {
+            if (categories && categories.length > 0) {
+                // Flatten tất cả dishes từ categories
+                categories.forEach(cat => {
+                    if (cat.Dishes && cat.Dishes.length > 0) {
+                        dishes = dishes.concat(cat.Dishes.map(d => ({
+                            ...d,
+                            categoryId: cat.CategoryID,
+                            categoryName: cat.CategoryName,
+                            isVegetarian: d.IsVegetarian === true,
+                            Image: resolveDishImage(d),
+                            Unit: d.Unit || ""
+                        })));
+                    }
+                });
+
+                // Set selected category to first category
+                if (categories.length > 0) {
+                    selectedCategory = categories[0].CategoryID;
+                }
+            }
+        }
+
+        // Setup Category Tabs
+        function setupCategoryTabs() {
+            const tabsContainer = document.getElementById("categoryTabs");
+            tabsContainer.innerHTML = categories.map(cat => `
+                <button class="category-tab ${selectedCategory === cat.CategoryID ? 'active' : ''}"
+                        data-category="${cat.CategoryID}"
+                        onclick="selectCategory(${cat.CategoryID})">
+                    ${cat.CategoryName}
+                </button>
+            `).join("");
+        }
+
+        // Select Category
+        function selectCategory(categoryId) {
+            selectedCategory = categoryId;
+            const tabs = document.querySelectorAll(".category-tab");
+            tabs.forEach(tab => {
+                tab.classList.remove("active");
+                if (parseInt(tab.dataset.category) === categoryId) {
+                    tab.classList.add("active");
+                }
+            });
+            renderDishes();
+        }
+
+        function setupVegFilter() {
+            const btn = document.getElementById("vegFilterBtn");
+            if (!btn) return;
+
+            btn.addEventListener("click", function () {
+                showOnlyVegetarian = !showOnlyVegetarian;
+                if (showOnlyVegetarian) {
+                    btn.classList.remove("btn-outline-success");
+                    btn.classList.add("btn-success", "text-white");
+                    btn.innerHTML = '<i class="bi bi-leaf me-1"></i>Món chay';
+                } else {
+                    btn.classList.add("btn-outline-success");
+                    btn.classList.remove("btn-success", "text-white");
+                    btn.innerHTML = '<i class="bi bi-leaf me-1"></i>Chỉ hiện món chay';
+                }
+                renderDishes();
+            });
+        }
+
+        // Render top selling dishes section
+        function renderTopDishes() {
+            const wrapper = document.getElementById("topDishesWrapper");
+            const container = document.getElementById("topDishesSection");
+            if (!wrapper || !container || !Array.isArray(topDishIds)) {
+                return;
+            }
+
+            const topDishes = dishes.filter(d => topDishIds.indexOf(d.DishID) !== -1);
+            if (topDishes.length === 0) {
+                wrapper.classList.remove("d-none");
+                container.innerHTML = `
+                    <div class="col-12 text-muted small">
+                        Chưa có dữ liệu món bán chạy. Vui lòng đặt vài đơn để hệ thống thống kê.
+                    </div>`;
+                return;
+            }
+
+            wrapper.classList.remove("d-none");
+
+            container.innerHTML = topDishes.map(dish => `
+                <div class="col-md-6">
+                    <div class="card dish-card">
+                        <div class="position-relative">
+                            <img src="${dish.Image || 'https://placehold.co/300x200?text=No+Image'}"
+                                 class="dish-image"
+                                 alt="${dish.Name}"
+                                 onerror="fallbackDishImage(this)">
+                            ${dish.isVegetarian ? `
+                                <span class="badge-vegetarian">
+                                    <i class="bi bi-leaf"></i> Chay
+                                </span>` : ``}
+                            <span class="badge-top-seller">
+                                <i class="bi bi-star-fill"></i> Bán chạy
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">${dish.Name}</h5>
+                            <p class="card-text text-muted small">${dish.Description || ''}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="price">${parseInt(dish.Price).toLocaleString("vi-VN")}đ</div>
+                                    <small class="text-muted">${dish.Unit}</small>
+                                </div>
+                                <button class="btn-add" onclick="addToCart(${dish.DishID}, this)">
+                                    <i class="bi bi-plus-lg me-1"></i>Thêm
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join("");
+        }
+
+        // Render Dishes
+        function renderDishes() {
+            const grid = document.getElementById("dishesGrid");
+            let filteredDishes = dishes.filter(d => d.categoryId === selectedCategory);
+
+            const searchInput = document.getElementById("dishSearchInput");
+            const search = (searchInput && searchInput.value ? searchInput.value : "").toLowerCase();
+
+            if (showOnlyVegetarian) {
+                filteredDishes = filteredDishes.filter(d => d.isVegetarian);
+            }
+
+            if (search) {
+                filteredDishes = filteredDishes.filter(d =>
+                    (d.Name || "").toLowerCase().indexOf(search) !== -1
+                );
+            }
+
+            if (filteredDishes.length === 0) {
+                grid.innerHTML = '<div class="col-12"><div class="empty-cart"><i class="bi bi-inbox"></i><p>Không có món ăn nào</p></div></div>';
+                return;
+            }
+
+            grid.innerHTML = filteredDishes.map(dish => `
+                <div class="col-md-6">
+                    <div class="card dish-card">
+                        <div class="position-relative">
+                            <img src="${dish.Image || 'https://placehold.co/300x200?text=No+Image'}"
+                                 class="dish-image"
+                                 alt="${dish.Name}"
+                                 onerror="fallbackDishImage(this)">
+                            ${dish.isVegetarian ? `
+                                <span class="badge-vegetarian">
+                                    <i class="bi bi-leaf"></i> Chay
+                                </span>` : ``}
+                            ${Array.isArray(topDishIds) && topDishIds.indexOf(dish.DishID) !== -1 ? `
+                                <span class="badge-top-seller">
+                                    <i class="bi bi-star-fill"></i> Bán chạy
+                                </span>` : ``}
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">${dish.Name}</h5>
+                            <p class="card-text text-muted small">${dish.Description || ''}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="price">${parseInt(dish.Price).toLocaleString("vi-VN")}đ</div>
+                                    <small class="text-muted">${dish.Unit}</small>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="quantity-control">
+                                        <button onclick="decreaseQuantity(this)">
+                                            <i class="bi bi-dash"></i>
+                                        </button>
+                                        <span class="px-3 fw-bold quantity-display">1</span>
+                                        <button onclick="increaseQuantity(this)">
+                                            <i class="bi bi-plus"></i>
+                                        </button>
+                                    </div>
+                                    <button class="btn-add" onclick="addToCart(${dish.DishID}, this)">
+                                        <i class="bi bi-plus-lg me-1"></i>Thêm
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="button"
+                                    class="btn btn-link p-0 mt-2 small"
+                                    onclick="showDishDetail(${dish.DishID})">
+                                <i class="bi bi-info-circle me-1"></i>Chi tiết món
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join("");
+        }
+
+        // Increase/Decrease Quantity
+        function increaseQuantity(btn) {
+            const display = btn.parentElement.querySelector(".quantity-display");
+            let qty = parseInt(display.textContent);
+            display.textContent = qty + 1;
+        }
+
+        function decreaseQuantity(btn) {
+            const display = btn.parentElement.querySelector(".quantity-display");
+            let qty = parseInt(display.textContent);
+            if (qty > 1) {
+                display.textContent = qty - 1;
+            }
+        }
+
+        // Add to Cart
+        function addToCart(dishId, btnElement) {
+            const dish = dishes.find(d => d.DishID === dishId);
+            if (!dish) return;
+
+            // Mặc định số lượng = 1 (dùng cho Món bán chạy không có bộ điều khiển số lượng)
+            let quantity = 1;
+            const container = btnElement.closest(".d-flex");
+            if (container) {
+                const quantityDisplay = container.querySelector(".quantity-display");
+                if (quantityDisplay) {
+                    const parsed = parseInt(quantityDisplay.textContent);
+                    if (!isNaN(parsed) && parsed > 0) {
+                        quantity = parsed;
+                    }
+                    // Reset lại về 1 cho lần tiếp theo
+                    quantityDisplay.textContent = "1";
+                }
+            }
+
+            const existing = pendingItems.find(item => item.DishID === dishId);
+
+            if (existing) {
+                existing.quantity += quantity;
+            } else {
+                pendingItems.push({
+                    ...dish,
+                    quantity: quantity,
+                    status: "pending",
+                    orderedAt: new Date()
+                });
+            }
+
+            renderCart();
+            updateSendButton();
+            showToast("success", `Đã thêm ${quantity} ${dish.Unit} ${dish.Name} vào giỏ hàng`);
+        }
+
+        // Show Send Kitchen Confirmation Modal
+        function showSendKitchenConfirm() {
+            if (pendingItems.length === 0) {
+                showToast("info", "Không có món nào để gửi");
+                return;
+            }
+
+            // Nếu khách hàng chưa đăng nhập thì chuyển tới trang đăng nhập
+            if (!isCustomerLoggedIn) {
+                showToast("warning", "Vui lòng đăng nhập tài khoản khách hàng để đặt món.");
+                window.location.href = customerLoginUrl;
+                return;
+            }
+
+            // Render danh sách xác nhận
+            const confirmList = document.getElementById("confirmItemsList");
+            confirmList.innerHTML = pendingItems.map(item => `
+                <div class="confirm-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="flex-grow-1">
+                            <strong>${item.Name}</strong>
+                            <div class="text-muted small">
+                                ${parseInt(item.Price).toLocaleString("vi-VN")}đ × ${item.quantity}
+                                ${item.note ? `<br><em style="color: #dc3545;">Ghi chú: ${item.note}</em>` : ""}
+                            </div>
+                        </div>
+                        <div class="fw-bold" style="color: var(--primary-color)">
+                            x${item.quantity}
+                        </div>
+                    </div>
+                </div>
+            `).join("");
+
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById("confirmSendKitchenModal"));
+            modal.show();
+        }
+
+                // Confirm Send to Kitchen - GỬI LÊN SERVER
+        function confirmSendKitchen() {
+            if (pendingItems.length === 0) {
+                showToast("info", "Không có món nào để gửi");
+                return;
+            }
+
+            // Nếu khách hàng chưa đăng nhập thì chuyển tới trang đăng nhập
+            if (!isCustomerLoggedIn) {
+                showToast("warning", "Vui lòng đăng nhập tài khoản khách hàng để đặt món.");
+                window.location.href = customerLoginUrl;
+                return;
+            }
+
+            const btnConfirmSend = document.getElementById("btnConfirmSend");
+            const originalText = btnConfirmSend.innerHTML;
+
+            // Disable button
+            btnConfirmSend.disabled = true;
+            btnConfirmSend.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Đang gửi...';
+
+            // Chuẩn bị dữ liệu gửi lên server
+            const itemsToSend = pendingItems.map(item => ({
+                DishID: item.DishID,
+                Quantity: item.quantity,
+                Note: item.note || ""
+            }));
+
+            console.log("Sending items:", itemsToSend);
+            console.log("TableID:", tableID, "BranchId:", branchId);
+
+            // Lấy CSRF Token từ form
+            const tokenElement = document.querySelector('input[name="__RequestVerificationToken"]');
+            if (!tokenElement) {
+                showToast("error", "Lỗi bảo mật: Không tìm thấy CSRF token");
+                btnConfirmSend.disabled = false;
+                btnConfirmSend.innerHTML = originalText;
+                return;
+            }
+
+            const tokenValue = tokenElement.value;
+
+            // Gửi POST request tới server bằng FormData
+            const formData = new FormData();
+            formData.append('tableId', tableID);
+            formData.append('branchId', branchId);
+            formData.append('items', JSON.stringify(itemsToSend));
+            formData.append('__RequestVerificationToken', tokenValue);
+
+            fetch('/Menu/SendOrderToKitchen', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                console.log("Response status:", response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Response data:", data);
+
+                // Server yêu cầu đăng nhập
+                if (data.requiresLogin && data.loginUrl) {
+                    showToast("warning", "Phiên làm việc đã hết hạn, vui lòng đăng nhập lại.");
+                    window.location.href = data.loginUrl;
+                    return;
+                }
+
+                if (data.success) {
+                    // Chuyển từ pending sang cart (đã gửi)
+                    pendingItems.forEach(item => {
+                        const existing = cart.find(c => c.DishID === item.DishID && c.status === "preparing");
+                        if (existing) {
+                            existing.quantity += item.quantity;
+                        } else {
+                            cart.push({
+                                ...item,
+                                status: "preparing",
+                                orderedAt: new Date()
+                            });
+                        }
+                    });
+
+                    showToast("success", data.message || `Đã gửi yêu cầu ${pendingItems.length} món cho bếp`);
+                    pendingItems = [];
+                    renderCart();
+                    updateSendButton();
+
+                    // Lưu orderId để theo dõi trạng thái món
+                    if (data.orderID) {
+                        currentOrderId = data.orderID;
+                        startOrderStatusWatcher();
+                    }
+
+                    // Đóng modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById("confirmSendKitchenModal"));
+                    if (modal) {
+                        modal.hide();
+                    }
+                } else {
+                    showToast("error", data.message || "Có lỗi xảy ra khi gửi đơn");
+                    console.error("Server error:", data);
+                    btnConfirmSend.disabled = false;
+                    btnConfirmSend.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+                showToast("error", "Có lỗi xảy ra: " + error.message);
+                btnConfirmSend.disabled = false;
+                btnConfirmSend.innerHTML = originalText;
+            });
+        }
+
+        // Xem chi tiết món ăn
+        function showDishDetail(dishId) {
+            const dish = dishes.find(d => d.DishID === dishId);
+            if (!dish) return;
+
+            const ingredientLines = (dishIngredients || []).filter(x => x.dishId === dishId);
+            const fallbackIngredients = Array.isArray(dish.Ingredients)
+                ? dish.Ingredients.map(x => ({
+                    name: x.Name ?? x.name ?? "",
+                    quantity: Number(x.Quantity ?? x.quantity ?? 0),
+                    unit: x.Unit ?? x.unit ?? ""
+                }))
+                : [];
+            const ing = ingredientLines.length > 0 ? ingredientLines : fallbackIngredients;
+
+            const detailHtml = `
+                <div class="modal fade" id="dishDetailModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    ${dish.Name}
+                                    ${dish.isVegetarian ? '<span class="badge bg-success ms-2">Chay</span>' : ''}
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3 text-center">
+                                    <img src="${resolveDishImage(dish)}"
+                                         class="img-fluid rounded"
+                                         style="max-height:220px;object-fit:cover;"
+                                         onerror="fallbackDishImage(this)" />
+                                </div>
+                                <p class="text-muted">${dish.Description || 'Món ăn đang cập nhật mô tả.'}</p>
+                                <hr />
+                                <h6 class="fw-bold mb-2">Thành phần</h6>
+                                ${ing.length === 0
+                                    ? '<div class="text-muted small">Chưa khai báo thành phần cho món này.</div>'
+                                    : `<ul class="small mb-0">${
+                                        ing.map(x =>
+                                            `<li>${x.name}: <strong>${x.quantity.toLocaleString('vi-VN')} ${x.unit}</strong></li>`
+                                        ).join('')
+                                      }</ul>`
+                                }
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                                <button type="button" class="btn btn-primary" data-bs-dismiss="modal" onclick="quickAddDish(${dish.DishID})">
+                                    <i class="bi bi-plus-lg me-1"></i>Thêm vào giỏ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+
+            const existing = document.getElementById("dishDetailModal");
+            if (existing) {
+                existing.parentElement.removeChild(existing);
+            }
+
+            const wrapper = document.createElement("div");
+            wrapper.innerHTML = detailHtml;
+            document.body.appendChild(wrapper.firstElementChild);
+
+            const modalEl = document.getElementById("dishDetailModal");
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        }
+
+        function quickAddDish(dishId) {
+            const dummyBtn = document.createElement("button");
+            dummyBtn.closest = () => null;
+            addToCart(dishId, dummyBtn);
+        }
+
+        // Show Toast
+        function showToast(type, message) {
+            const bgClass = type === "success" ? "success" : type === "error" ? "danger" : "info";
+            const toastHTML = `
+                <div class="toast align-items-center text-white bg-${bgClass} border-0" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            <i class="bi bi-check-circle me-2"></i>${message}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            `;
+
+            const container = document.createElement("div");
+            container.style.position = "fixed";
+            container.style.top = "6rem";
+            container.style.left = "50%";
+            container.style.transform = "translateX(-50%)";
+            container.style.zIndex = "9999";
+            container.innerHTML = toastHTML;
+            document.body.appendChild(container);
+
+            const toastElement = container.querySelector(".toast");
+            const toast = new bootstrap.Toast(toastElement);
+            toast.show();
+
+            toastElement.addEventListener("hidden.bs.toast", () => {
+                container.remove();
+            });
+        }
+
+        // Update Quantity
+        function updateQuantity(dishId, delta) {
+            let item = pendingItems.find(i => i.DishID === dishId);
+            let isPending = true;
+
+            if (!item) {
+                item = cart.find(i => i.DishID === dishId);
+                isPending = false;
+            }
+
+            if (item) {
+                item.quantity += delta;
+                if (item.quantity <= 0) {
+                    if (isPending) {
+                        pendingItems = pendingItems.filter(i => i.DishID !== dishId);
+                    } else {
+                        cart = cart.filter(i => i.DishID !== dishId);
+                    }
+                }
+                renderCart();
+                updateSendButton();
+            }
+        }
+
+        // Remove from Cart
+        function removeFromCart(dishId) {
+            const pendingItem = pendingItems.find(i => i.DishID === dishId);
+            if (pendingItem) {
+                pendingItems = pendingItems.filter(i => i.DishID !== dishId);
+                showToast("info", `Đã xóa ${pendingItem.Name} khỏi giỏ hàng`);
+            } else {
+                const item = cart.find(i => i.DishID === dishId);
+                if (item) {
+                    cart = cart.filter(i => i.DishID !== dishId);
+                    showToast("info", `Đã xóa ${item.Name} khỏi giỏ hàng`);
+                }
+            }
+            renderCart();
+            updateSendButton();
+        }
+
+        function pickValue(source, keys, fallback = null) {
+            if (!source || typeof source !== "object" || !Array.isArray(keys)) {
+                return fallback;
+            }
+
+            for (const key of keys) {
+                if (Object.prototype.hasOwnProperty.call(source, key) && source[key] !== undefined && source[key] !== null) {
+                    return source[key];
+                }
+            }
+
+            return fallback;
+        }
+
+        function getOrderId(order) {
+            const raw = pickValue(order, ["OrderID", "orderID", "orderId"], 0);
+            return Number(raw) || 0;
+        }
+
+        function getOrderStatusCode(order) {
+            const raw = pickValue(order, ["StatusCode", "statusCode"], "");
+            return (String(raw || "")).toUpperCase().trim();
+        }
+
+        function getOrderItems(order) {
+            const items = pickValue(order, ["Items", "items"], []);
+            return Array.isArray(items) ? items : [];
+        }
+
+        function mapOrderItemToCart(item, statusLabel) {
+            return {
+                DishID: Number(pickValue(item, ["DishID", "dishID", "dishId"], 0)) || 0,
+                Name: String(pickValue(item, ["DishName", "dishName"], "")),
+                Price: Number(pickValue(item, ["UnitPrice", "unitPrice"], 0)) || 0,
+                Unit: String(pickValue(item, ["Unit", "unit"], "")),
+                quantity: Number(pickValue(item, ["Quantity", "quantity"], 0)) || 0,
+                status: statusLabel,
+                note: String(pickValue(item, ["Note", "note"], "")),
+                Image: pickValue(item, ["Image", "image"], null)
+            };
+        }
+
+        function hasActiveOrderStateInClient() {
+            if (currentOrderId) {
+                return true;
+            }
+
+            return Array.isArray(cart) && cart.some(function (item) {
+                var status = String(item && item.status ? item.status : "").toLowerCase();
+                return status === "preparing" || status === "ready" || status === "served";
+            });
+        }
+
+        function clearOrderStateInClient() {
+            currentOrderId = null;
+            cart = [];
+            pendingItems = [];
+            readyPromptedOrderIds = {};
+            renderCart();
+            updateSendButton();
+            try {
+                localStorage.removeItem(cartStorageKey);
+            } catch (e) {
+                console.warn("Không thể xóa giỏ hàng khỏi localStorage:", e.message);
+            }
+        }
+
+        function clearCurrentTableContextOnServer() {
+            var tokenElement = document.querySelector('input[name="__RequestVerificationToken"]');
+            var tokenValue = tokenElement ? tokenElement.value : "";
+            if (!tokenValue) {
+                return Promise.resolve();
+            }
+
+            return fetch('/Menu/ClearCurrentTableContext', {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                    "X-Requested-With": "XMLHttpRequest"
+                },
+                body: "__RequestVerificationToken=" + encodeURIComponent(tokenValue)
+            }).catch(function () {
+                return null;
+            });
+        }
+
+        function handleOrderCompletedAndResetTableContext() {
+            if (isClearingTableContext) {
+                return;
+            }
+
+            isClearingTableContext = true;
+            clearOrderStateInClient();
+
+            clearCurrentTableContextOnServer()
+                .finally(function () {
+                    showToast("success", "Thu ngân đã thanh toán xong. Bàn đã được giải phóng.");
+                    setTimeout(function () {
+                        window.location.href = '/';
+                    }, 1000);
+                });
+        }
+
+        // ====== THEO DÕI TRẠNG THÁI MÓN ĂN TỪ BẾP ======
+        function startOrderStatusWatcher() {
+            if (!tableID || tableID <= 0) return;
+
+            if (orderStatusTimer) {
+                clearInterval(orderStatusTimer);
+            }
+
+            function showOrderReadyModal() {
+                try {
+                    var readyModalEl = document.getElementById("orderReadyModal");
+                    if (!readyModalEl) return;
+
+                    var readyModal = bootstrap.Modal.getOrCreateInstance(readyModalEl);
+                    readyModal.show();
+                } catch (e) {
+                    console.warn("Không thể hiển thị modal xác nhận nhận món:", e.message);
+                }
+            }
+
+            function hideOrderReadyModal() {
+                try {
+                    var readyModalEl = document.getElementById("orderReadyModal");
+                    if (!readyModalEl) return;
+
+                    var readyModal = bootstrap.Modal.getInstance(readyModalEl);
+                    if (readyModal) {
+                        readyModal.hide();
+                    }
+                } catch (e) {
+                    console.warn("Không thể đóng modal xác nhận nhận món:", e.message);
+                }
+            }
+
+            function syncCartWithOrderItems(order, statusLabel) {
+                var orderItems = getOrderItems(order);
+                if (!orderItems.length) return;
+
+                cart = orderItems.map(function (i) { return mapOrderItemToCart(i, statusLabel); });
+
+                pendingItems = [];
+                renderCart();
+                updateSendButton();
+                saveCartToStorage();
+            }
+
+            function applyOrdersState(orders) {
+                if (!Array.isArray(orders) || orders.length === 0) {
+                    hideOrderReadyModal();
+                    if (hasActiveOrderStateInClient()) {
+                        handleOrderCompletedAndResetTableContext();
+                    }
+                    return;
+                }
+
+                var normalizedOrders = orders
+                    .slice()
+                    .sort(function (a, b) {
+                        return getOrderId(a) - getOrderId(b);
+                    });
+
+                var readyOrder = normalizedOrders.find(function (o) {
+                    return getOrderStatusCode(o) === "READY";
+                });
+
+                if (readyOrder) {
+                    currentOrderId = getOrderId(readyOrder) || currentOrderId;
+                    syncCartWithOrderItems(readyOrder, "ready");
+
+                    if (currentOrderId && !readyPromptedOrderIds[currentOrderId]) {
+                        readyPromptedOrderIds[currentOrderId] = true;
+                        showToast("success", "Món ăn đã sẵn sàng, vui lòng nhận món ăn.");
+                    }
+
+                    showOrderReadyModal();
+                    return;
+                }
+
+                var latestOrder = normalizedOrders[normalizedOrders.length - 1];
+                currentOrderId = getOrderId(latestOrder) || currentOrderId;
+                var latestStatus = getOrderStatusCode(latestOrder);
+                if (latestStatus === "PENDING" || latestStatus === "CONFIRMED" || latestStatus === "PREPARING") {
+                    syncCartWithOrderItems(latestOrder, "preparing");
+                    hideOrderReadyModal();
+                    return;
+                }
+
+                if (latestStatus === "SERVING" || latestStatus === "COMPLETED") {
+                    syncCartWithOrderItems(latestOrder, "served");
+                    hideOrderReadyModal();
+                    return;
+                }
+            }
+
+            function pollOrderStatusOnce() {
+                fetch('/Home/GetTableOrderStatuses?tableId=' + tableID, {
+                    method: 'GET',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(r => r.ok ? r.json() : null)
+                .then(data => {
+                    if (!data || !data.success) return;
+                    applyOrdersState(pickValue(data, ["orders", "Orders"], []));
+                })
+                .catch(() => { /* bỏ qua lỗi tạm thời */ });
+            }
+
+            // Gọi ngay 1 lần để không cần F5 sau khi gửi bếp.
+            pollOrderStatusOnce();
+            orderStatusTimer = setInterval(pollOrderStatusOnce, 2000);
+
+            pollReadyNotificationsOnce();
+            if (readyNotificationTimer) {
+                clearInterval(readyNotificationTimer);
+            }
+            readyNotificationTimer = setInterval(pollReadyNotificationsOnce, 4000);
+        }
+
+        // Khách xác nhận đã nhận món
+        function confirmOrderReceived() {
+            if (!currentOrderId) return;
+            if (confirmingOrderReceived) return;
+
+            var tokenElement = document.querySelector('input[name="__RequestVerificationToken"]');
+            if (!tokenElement) {
+                showToast("error", "Không tìm thấy token bảo mật. Vui lòng tải lại trang.");
+                return;
+            }
+
+            var tokenValue = tokenElement.value;
+            var confirmBtn = document.getElementById("btnConfirmOrderReceived");
+            var originalBtnHtml = confirmBtn ? confirmBtn.innerHTML : "";
+
+            confirmingOrderReceived = true;
+            if (confirmBtn) {
+                confirmBtn.disabled = true;
+                confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Đang xác nhận...';
+            }
+
+            fetch('/Home/ConfirmOrderReceived', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: 'orderId=' + encodeURIComponent(currentOrderId) +
+                    '&__RequestVerificationToken=' + encodeURIComponent(tokenValue)
+            })
+                .then(function (response) { return response.json(); })
+                .then(function (data) {
+                    if (data && data.requiresLogin && data.loginUrl) {
+                        showToast("warning", "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.");
+                        window.location.href = data.loginUrl;
+                        return;
+                    }
+
+                    if (data && data.success) {
+                        showToast("success", data.message || "Đã xác nhận nhận món. Chúc ngon miệng!");
+
+                        cart = (cart || []).map(function (item) {
+                            return {
+                                ...item,
+                                status: "served"
+                            };
+                        });
+                        renderCart();
+
+                        if (currentOrderId) {
+                            readyPromptedOrderIds[currentOrderId] = true;
+                        }
+
+                        if (activeReadyNotificationId) {
+                            const resolveForm = new FormData();
+                            resolveForm.append('notificationId', activeReadyNotificationId);
+                            resolveForm.append('__RequestVerificationToken', tokenValue);
+                            fetch('/Menu/ResolveReadyNotification', {
+                                method: 'POST',
+                                body: resolveForm,
+                                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                            }).catch(() => { /* best effort */ });
+
+                            activeReadyNotificationId = null;
+                            pollReadyNotificationsOnce();
+                        }
+                    } else {
+                        showToast("error", (data && data.message) || "Không thể xác nhận nhận món.");
+                    }
+
+                    try {
+                        var readyModalEl = document.getElementById("orderReadyModal");
+                        if (readyModalEl) {
+                            var readyModal = bootstrap.Modal.getInstance(readyModalEl);
+                            if (readyModal) {
+                                readyModal.hide();
+                            }
+                        }
+                    } catch (e) {
+                        console.warn("Không thể đóng modal xác nhận nhận món:", e.message);
+                    }
+                })
+                .catch(function (error) {
+                    console.error("ConfirmOrderReceived error:", error);
+                    showToast("error", "Có lỗi xảy ra khi xác nhận nhận món.");
+                })
+                .finally(function () {
+                    confirmingOrderReceived = false;
+                    if (confirmBtn) {
+                        confirmBtn.disabled = false;
+                        confirmBtn.innerHTML = originalBtnHtml;
+                    }
+                });
+        }
+
+        // Render Cart
+        function renderCart() {
+            const cartItems = document.getElementById("cartItems");
+            const cartBadge = document.getElementById("cartBadge");
+            const cartSummary = document.getElementById("cartSummary");
+            const totalAmount = document.getElementById("totalAmount");
+
+            const allItems = [...pendingItems, ...cart];
+            const totalItems = allItems.reduce((sum, item) => sum + item.quantity, 0);
+            const total = allItems.reduce((sum, item) => sum + item.Price * item.quantity, 0);
+
+            cartBadge.textContent = totalItems;
+
+            if (allItems.length === 0) {
+                cartItems.innerHTML = `
+                    <div class="empty-cart">
+                        <i class="bi bi-cart3"></i>
+                        <p class="mb-1">Giỏ hàng trống</p>
+                        <small>Hãy chọn món ăn yêu thích</small>
+                    </div>
+                `;
+                cartSummary.classList.add("d-none");
+            } else {
+                let itemsHTML = "";
+
+                if (pendingItems.length > 0) {
+                    itemsHTML += '<div class="mb-2"><small class="text-muted fw-bold"><i class="bi bi-clock-history me-1"></i>Chưa gửi bếp</small></div>';
+                    itemsHTML += pendingItems.map(item => `
+                        <div class="cart-item" style="background: #fff3cd;">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="flex-grow-1">
+                                    <div class="fw-bold">${item.Name}</div>
+                                    <small class="text-muted">${parseInt(item.Price).toLocaleString("vi-VN")}đ × ${item.quantity}</small>
+                                    <div class="mt-1"><span class="badge bg-secondary"><i class="bi bi-hourglass me-1"></i>Chờ gửi</span></div>
+                                </div>
+                                <button class="btn btn-link text-danger p-0" onclick="removeFromCart(${item.DishID})"><i class="bi bi-trash"></i></button>
+                            </div>
+                            <input type="text" class="form-control form-control-sm note-input mb-2"
+                                   placeholder="Ghi chú (vd: ít cay, không hành...)"
+                                   value="${item.note || ''}"
+                                   onchange="updateNote(${item.DishID}, this.value, 'pending')">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="quantity-control">
+                                    <button onclick="updateQuantity(${item.DishID}, -1)"><i class="bi bi-dash"></i></button>
+                                    <span class="px-3 fw-bold">${item.quantity}</span>
+                                    <button onclick="updateQuantity(${item.DishID}, 1)"><i class="bi bi-plus"></i></button>
+                                </div>
+                                <div class="fw-bold" style="color: var(--primary-color)">${(item.Price * item.quantity).toLocaleString("vi-VN")}đ</div>
+                            </div>
+                        </div>
+                    `).join("");
+                }
+
+                if (cart.length > 0) {
+                    if (pendingItems.length > 0) itemsHTML += '<hr><div class="mb-2"><small class="text-muted fw-bold"><i class="bi bi-fire me-1"></i>Đang xử lý</small></div>';
+
+                    itemsHTML += cart.map(item => `
+                        <div class="cart-item ${(item.status === "ready" || item.status === "served") ? "ready" : ""}">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="flex-grow-1">
+                                    <div class="fw-bold">
+                                        ${item.Name}
+                                        ${item.status === "ready"
+                                            ? '<i class="bi bi-check-circle-fill text-success ms-1"></i>'
+                                            : (item.status === "served" ? '<i class="bi bi-hand-thumbs-up-fill text-primary ms-1"></i>' : "")}
+                                    </div>
+                                    <small class="text-muted">${parseInt(item.Price).toLocaleString("vi-VN")}đ × ${item.quantity}</small>
+                                    ${item.note ? `<span class="item-note-display"><i class="bi bi-pencil-fill me-1" style="font-size: 10px;"></i>${item.note}</span>` : ""}
+                                    <div class="mt-1">
+                                        ${item.status === "preparing"
+                                            ? '<span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i>Đang chuẩn bị</span>'
+                                            : (item.status === "served"
+                                                ? '<span class="badge bg-primary"><i class="bi bi-hand-thumbs-up me-1"></i>Đã nhận món</span>'
+                                                : '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Sẵn sàng</span>')}
+                                    </div>
+                                </div>
+                                <button class="btn btn-link text-danger p-0" onclick="removeFromCart(${item.DishID})"><i class="bi bi-trash"></i></button>
+                            </div>
+                            <div class="d-flex justify-content-end align-items-center">
+                                <div class="fw-bold" style="color: var(--primary-color)">${(item.Price * item.quantity).toLocaleString("vi-VN")}đ</div>
+                            </div>
+                        </div>
+                    `).join("");
+                }
+
+                cartItems.innerHTML = itemsHTML;
+                totalAmount.textContent = total.toLocaleString("vi-VN") + "đ";
+                cartSummary.classList.remove("d-none");
+            }
+
+            saveCartToStorage();
+        }
+
+        // Update Send Button
+        function updateSendButton() {
+            const btnSend = document.getElementById("btnSendKitchen");
+            if (pendingItems.length > 0) {
+                btnSend.disabled = false;
+                btnSend.innerHTML = `<i class="bi bi-check-circle me-2"></i>Yêu cầu ${pendingItems.length} món cho bếp`;
+            } else {
+                btnSend.disabled = true;
+                btnSend.innerHTML = `<i class="bi bi-check-circle me-2"></i>Yêu cầu cho bếp`;
+            }
+        }
+
+        // View Bill
+        function viewBill() {
+            const allItems = [...pendingItems, ...cart];
+
+            if (allItems.length === 0) {
+                showToast("info", "Giỏ hàng trống");
+                return;
+            }
+
+            const modal = new bootstrap.Modal(document.getElementById("billModal"));
+            const billItems = document.getElementById("billItems");
+            const billTime = document.getElementById("billTime");
+            const billTotalItems = document.getElementById("billTotalItems");
+            const billSubtotal = document.getElementById("billSubtotal");
+            const billTotal = document.getElementById("billTotal");
+            const billPoints = document.getElementById("billPoints");
+
+            const now = new Date();
+            billTime.textContent = now.toLocaleString("vi-VN", {
+                hour: "2-digit",
+                minute: "2-digit",
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric"
+            });
+
+            const totalItems = allItems.reduce((sum, item) => sum + item.quantity, 0);
+            const total = allItems.reduce((sum, item) => sum + item.Price * item.quantity, 0);
+            const points = Math.floor(total * 0.01);
+
+            billItems.innerHTML = allItems.map(item => `
+                <div class="bill-item">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                        <div class="flex-grow-1">
+                            <div class="fw-bold">${item.Name}</div>
+                            <small class="text-muted">${parseInt(item.Price).toLocaleString("vi-VN")}đ × ${item.quantity} ${item.Unit}</small>
+                            ${item.note ? `<div class="small fst-italic text-danger">Ghi chú: ${item.note}</div>` : ""}
+                        </div>
+                        <div class="text-end">
+                            ${item.status === "pending"
+                                ? '<span class="badge bg-secondary small mb-1">Chờ gửi</span>'
+                                : (item.status === "served"
+                                    ? '<span class="badge bg-primary small mb-1">Đã nhận món</span>'
+                                    : '<span class="badge bg-success small mb-1">Đã đặt</span>')}
+                            <div class="fw-bold" style="color: var(--primary-color)">
+                                ${(item.Price * item.quantity).toLocaleString("vi-VN")}đ
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join("");
+
+            billTotalItems.textContent = `${totalItems} món`;
+            billSubtotal.textContent = total.toLocaleString("vi-VN") + "đ";
+            billTotal.textContent = total.toLocaleString("vi-VN") + "đ";
+            billPoints.textContent = points;
+
+            modal.show();
+        }
+
+        // Checkout
+        function checkout() {
+            if (cart.length === 0) {
+                if (pendingItems.length > 0) {
+                    showToast("info", "Vui lòng gửi món cho bếp trước khi thanh toán.");
+                } else {
+                    showToast("info", "Giỏ hàng trống. Vui lòng chọn món ăn.");
+                }
+                return;
+            }
+
+            const hasPreparingItems = cart.some(item => item.status === "preparing");
+
+            if (hasPreparingItems) {
+                showToast("info", "Vui lòng đợi tất cả món ăn được chuẩn bị xong trước khi thanh toán.");
+                return;
+            }
+
+            const billModalEl = document.getElementById("billModal");
+            const billModal = bootstrap.Modal.getInstance(billModalEl);
+            if (billModal) {
+                billModal.hide();
+            }
+
+            const checkoutModal = new bootstrap.Modal(document.getElementById("checkoutNotificationModal"));
+            checkoutModal.show();
+        }
+
+        // Finish Payment Process
+        function finishPaymentProcess() {
+            showToast("info", "Yêu cầu thanh toán đã được ghi nhận. Vui lòng chờ thu ngân xác nhận.");
+        }
+
+        // Khôi phục giỏ hàng từ đơn hiện tại (sau khi đăng xuất/đăng nhập lại)
+        function restoreCartFromExistingOrder() {
+            if (!currentOrderId) return;
+
+            fetch('/Home/GetOrderStatus?orderId=' + currentOrderId, {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    var order = pickValue(data, ["order", "Order"], null);
+                    if (!data || !data.success || !order) return;
+
+                    var items = getOrderItems(order);
+                    if (!items.length) return;
+
+                    // Chỉ hiển thị các món đã gửi cho bếp (status preparing/ready)
+                    cart = items.map(function (i) {
+                        var normalizedStatus = 'preparing';
+                        var statusCode = getOrderStatusCode(order);
+                        if (statusCode === 'READY') {
+                            normalizedStatus = 'ready';
+                        } else if (statusCode === 'SERVING' || statusCode === 'COMPLETED') {
+                            normalizedStatus = 'served';
+                        }
+
+                        return mapOrderItemToCart(i, normalizedStatus);
+                    });
+                    pendingItems = [];
+                    renderCart();
+                    updateSendButton();
+                    saveCartToStorage();
+                })
+                .catch(function (e) {
+                    console.warn('Không thể khôi phục giỏ hàng từ đơn hiện tại:', e.message);
+                });
+        }
+
+        // ====== LƯU / LOAD GIỎ HÀNG TRONG LOCALSTORAGE ======
+        function saveCartToStorage() {
+            const data = {
+                pendingItems: pendingItems,
+                cart: cart
+            };
+            try {
+                localStorage.setItem(cartStorageKey, JSON.stringify(data));
+            } catch (e) {
+                console.warn("Không thể lưu giỏ hàng:", e.message);
+            }
+        }
+
+        function loadCartFromStorage() {
+            try {
+                const raw = localStorage.getItem(cartStorageKey);
+                if (!raw) return;
+                const data = JSON.parse(raw);
+                pendingItems = data.pendingItems || [];
+                cart = data.cart || [];
+            } catch (e) {
+                console.warn("Không thể đọc giỏ hàng:", e.message);
+            }
+        }
+
+        // Update Note
+        function updateNote(dishId, noteContent, listType) {
+            let item;
+            if (listType === "pending") {
+                item = pendingItems.find(i => i.DishID === dishId);
+            } else {
+                item = cart.find(i => i.DishID === dishId);
+            }
+
+            if (item) {
+                item.note = noteContent.trim();
+            }
+        }
+
+        // Initialize Loyalty Info
+        function initializeLoyaltyInfo() {
+            const loyaltyInfo = document.getElementById("loyaltyInfo");
+            const customerNameEl = document.getElementById("customerName");
+            const loyaltyPointsEl = document.getElementById("loyaltyPoints");
+
+            if (isCustomerLoggedIn && loyaltyInfo && customerNameEl && loyaltyPointsEl) {
+                customerNameEl.textContent = customerName;
+                loyaltyPointsEl.textContent = Number(loyaltyPoints || 0).toLocaleString("vi-VN");
+                loyaltyInfo.classList.remove("d-none");
+            }
+        }
+
+        // Reset Table
+        function confirmResetTable() {
+            clearOrderStateInClient();
+
+            const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value || "";
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/Menu/ResetTable';
+            form.innerHTML = `
+                <input type="hidden" name="tableId" value="${tableID}">
+                <input type="hidden" name="branchId" value="${branchId}">
+                <input type="hidden" name="__RequestVerificationToken" value="${token}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    </script>
+
+</body>
+</html>

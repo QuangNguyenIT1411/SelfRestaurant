@@ -1,0 +1,68 @@
+﻿{
+    "timestamp":  "20260302_191527",
+    "passed":  11,
+    "total":  12,
+    "log":  "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\.runlogs\\customer_detailed_new_20260302_191527.log",
+    "results":  [
+                    {
+                        "Step":  "Open Register",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Register",
+                        "Pass":  true,
+                        "Detail":  "status=200 user=cusd_20260302191527098"
+                    },
+                    {
+                        "Step":  "Open Login",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Login",
+                        "Pass":  true,
+                        "Detail":  "fallback user=lan.nguyen"
+                    },
+                    {
+                        "Step":  "Select Branch/Table",
+                        "Pass":  true,
+                        "Detail":  "branch=1 table=6 display=6"
+                    },
+                    {
+                        "Step":  "Open Menu",
+                        "Pass":  true,
+                        "Detail":  "dishId=1 (fallback)"
+                    },
+                    {
+                        "Step":  "Add Item",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true}"
+                    },
+                    {
+                        "Step":  "Read Active Order",
+                        "Pass":  true,
+                        "Detail":  "orderId=65 itemId=154 status=PENDING"
+                    },
+                    {
+                        "Step":  "Update Quantity",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true}"
+                    },
+                    {
+                        "Step":  "Remove Item",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true} [json-fallback]"
+                    },
+                    {
+                        "Step":  "Add Item Again",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true}"
+                    },
+                    {
+                        "Step":  "Unhandled Error",
+                        "Pass":  false,
+                        "Detail":  "The remote server returned an error: (415) Unsupported Media Type."
+                    }
+                ]
+}

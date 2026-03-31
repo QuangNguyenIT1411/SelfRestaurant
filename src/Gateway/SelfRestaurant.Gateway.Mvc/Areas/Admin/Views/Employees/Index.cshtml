@@ -1,0 +1,243 @@
+@model SelfRestaurant.Gateway.Mvc.Areas.Admin.Models.AdminEmployeesIndexViewModel
+@{
+    ViewBag.Title = "Quản lý nhân viên";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var employees = Model?.Items ?? Array.Empty<SelfRestaurant.Gateway.Mvc.Models.AdminEmployeeDto>();
+    var branchItems = new SelectList(Model?.Branches ?? Array.Empty<SelfRestaurant.Gateway.Mvc.Models.BranchDto>(), "BranchId", "Name", Model?.BranchId);
+    var roleItems = new SelectList(Model?.Roles ?? Array.Empty<SelfRestaurant.Gateway.Mvc.Models.EmployeeRoleDto>(), "RoleId", "RoleName", Model?.RoleId);
+    var searchTerm = Model?.Search ?? string.Empty;
+    var branchId = Model?.BranchId;
+    var roleId = Model?.RoleId;
+    var page = Model?.Page ?? 1;
+    var totalPages = Model?.TotalPages ?? 1;
+}
+
+@section css{
+    <style>
+        body {
+            background: radial-gradient(circle at 20% 20%, #f5f7ff 0, #eef2f9 30%, #e5ebf7 60%, #f8fbff 100%);
+            color: #0f172a;
+        }
+
+        .page-title {
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: #0b132b;
+        }
+
+        .card-hero {
+            border: none;
+            border-radius: 18px;
+            box-shadow: 0 15px 40px rgba(15, 23, 42, 0.08);
+        }
+
+        .filter-card {
+            border: 1px solid #e6e9f2;
+            border-radius: 14px;
+        }
+
+        .badge-soft-success {
+            background: #e8fff3;
+            color: #0f9d58;
+        }
+
+        .badge-soft-danger {
+            background: #fff1f1;
+            color: #d93025;
+        }
+
+        .table > :not(caption) > * > * {
+            padding: 14px 12px;
+        }
+
+        .table thead {
+            background: #f6f8fb;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.04em;
+        }
+
+        .action-buttons .btn {
+            border-radius: 10px;
+        }
+    </style>
+}
+
+<div class="container py-4">
+    <div class="row g-3">
+        <div class="col-lg-3">
+            @await Html.PartialAsync("~/Areas/Admin/Views/Shared/_AdminSidebar.cshtml")
+        </div>
+        <div class="col-lg-9">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+                <div>
+                    <h1 class="page-title mb-1">Quản lý nhân viên</h1>
+                    <p class="text-muted mb-0">Tạo, cập nhật và vô hiệu hóa tài khoản nhân viên trong hệ thống.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="@Url.Action("Create", "Employees", new { area = "Admin" })" class="btn btn-primary btn-lg shadow-sm">
+                        <i class="bi bi-plus-lg me-2"></i>Thêm nhân viên
+                    </a>
+                </div>
+            </div>
+
+            @if (ViewBag.SuccessMessage != null)
+            {
+                <div class="alert alert-success alert-dismissible fade show card-hero" role="alert">
+                    <i class="bi bi-check-circle-fill me-2"></i>@ViewBag.SuccessMessage
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
+
+            @if (ViewBag.ErrorMessage != null)
+            {
+                <div class="alert alert-danger alert-dismissible fade show card-hero" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>@ViewBag.ErrorMessage
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
+
+            @using (Html.BeginForm("Index", "Employees", FormMethod.Get, new { area = "Admin", @class = "filter-card card-hero mb-4" }))
+            {
+                <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Từ khóa</label>
+                            <input type="text"
+                                   name="search"
+                                   value="@ViewBag.SearchTerm"
+                                   class="form-control form-control-lg"
+                                   placeholder="Tên, tài khoản, số điện thoại..." />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Chi nhánh</label>
+                            @Html.DropDownList("branchId", branchItems, "Tất cả chi nhánh", new { @class = "form-select form-select-lg" })
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Vai trò</label>
+                            @Html.DropDownList("roleId", roleItems, "Tất cả vai trò", new { @class = "form-select form-select-lg" })
+                        </div>
+                        <div class="col-md-2 d-flex gap-2">
+                            <button type="submit" class="btn btn-dark btn-lg w-100">
+                                <i class="bi bi-funnel-fill me-1"></i>Lọc
+                            </button>
+                            <a href="@Url.Action("Index", "Employees", new { area = "Admin" })" class="btn btn-outline-secondary btn-lg w-100">
+                                <i class="bi bi-arrow-repeat me-1"></i>Xóa lọc
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <div class="card card-hero">
+                <div>
+                    <table class="table align-middle mb-0 w-100">
+                        <thead>
+                            <tr>
+                                <th>Nhân viên</th>
+                                <th>Tài khoản</th>
+                                <th>Vai trò</th>
+                                <th>Chi nhánh</th>
+                                <th>Liên hệ</th>
+                                <th>Ca làm</th>
+                                <th>Lương</th>
+                                <th>Trạng thái</th>
+                                <th class="text-end">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!employees.Any())
+                            {
+                                <tr>
+                                    <td colspan="9" class="text-center py-4 text-muted">
+                                        <i class="bi bi-emoji-neutral me-2"></i>Chưa có nhân viên nào.
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                foreach (var item in employees)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="fw-semibold">@item.Name</div>
+                                            <div class="small text-muted">ID: @item.EmployeeId</div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary-subtle text-secondary">
+                                                <i class="bi bi-person-circle me-1"></i>@item.Username
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="fw-semibold">@item.RoleName</div>
+                                            <div class="small text-muted">@item.RoleCode</div>
+                                        </td>
+                                        <td>
+                                            <div class="fw-semibold">@item.BranchName</div>
+                                        </td>
+                                        <td>
+                                            <div class="small"><i class="bi bi-telephone me-1"></i>@(item.Phone ?? "-")</div>
+                                            <div class="small text-muted"><i class="bi bi-envelope me-1"></i>@(item.Email ?? "-")</div>
+                                        </td>
+                                        <td>@(string.IsNullOrWhiteSpace(item.Shift) ? "-" : item.Shift)</td>
+                                        <td>@(item.Salary.HasValue ? string.Format("{0:n0} đ", item.Salary.Value) : "-")</td>
+                                        <td>
+                                            @if (item.IsActive)
+                                            {
+                                                <span class="badge badge-soft-success">
+                                                    <i class="bi bi-check2-circle me-1"></i>Hoạt động
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge badge-soft-danger">
+                                                    <i class="bi bi-slash-circle me-1"></i>Khóa
+                                                </span>
+                                            }
+                                        </td>
+                                        <td class="text-end action-buttons">
+                                            <a class="btn btn-sm btn-outline-primary me-2" href="@Url.Action("Edit", "Employees", new { area = "Admin", id = item.EmployeeId })">
+                                                <i class="bi bi-pencil-square me-1"></i>Sửa
+                                            </a>
+                                            <a class="btn btn-sm btn-outline-info me-2" href="@Url.Action("History", "Employees", new { area = "Admin", id = item.EmployeeId })">
+                                                <i class="bi bi-clock-history me-1"></i>Lịch sử
+                                            </a>
+                                            @using (Html.BeginForm("Delete", "Employees", new { area = "Admin", id = item.EmployeeId }, FormMethod.Post, false, new { onsubmit = "return confirm('Bạn có chắc muốn vô hiệu hóa nhân viên này?');", @class = "d-inline" }))
+                                            {
+                                                @Html.AntiForgeryToken()
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    <i class="bi bi-person-x me-1"></i>Khóa
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            @if (totalPages > 1)
+            {
+                <nav class="mt-3">
+                    <ul class="pagination">
+                        <li class="page-item @(page <= 1 ? "disabled" : "")">
+                            <a class="page-link" href="@Url.Action("Index", "Employees", new { area = "Admin", page = page - 1, search = searchTerm, branchId = branchId, roleId = roleId })">«</a>
+                        </li>
+                        @for (int p = 1; p <= totalPages; p++)
+                        {
+                            <li class="page-item @(p == page ? "active" : "")">
+                                <a class="page-link" href="@Url.Action("Index", "Employees", new { area = "Admin", page = p, search = searchTerm, branchId = branchId, roleId = roleId })">@p</a>
+                            </li>
+                        }
+                        <li class="page-item @(page >= totalPages ? "disabled" : "")">
+                            <a class="page-link" href="@Url.Action("Index", "Employees", new { area = "Admin", page = page + 1, search = searchTerm, branchId = branchId, roleId = roleId })">»</a>
+                        </li>
+                    </ul>
+                </nav>
+            }
+        </div>
+    </div>
+</div>

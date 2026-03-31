@@ -1,0 +1,4 @@
+[2026-03-27 01:26:26] === START CASHIER <-> CUSTOMER FLOW TEST ===
+[2026-03-27 01:26:27] [OLD] skipped by -SkipOld
+[2026-03-27 01:26:27] [NEW] customer login...
+[2026-03-27 01:26:31] TEST FAILED: Unable to connect to the remote server

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Thu ng&#xE2;n - Thanh to&#xE1;n - SelfRestaurant</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+    
+</head>
+<body>
+    <nav b-7t7rp274vo class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top">
+        <div b-7t7rp274vo class="container">
+            <a class="navbar-brand fw-bold text-danger" href="/Staff">SelfRestaurant</a>
+            <button b-7t7rp274vo class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+                <span b-7t7rp274vo class="navbar-toggler-icon"></span>
+            </button>
+            <div b-7t7rp274vo class="collapse navbar-collapse" id="mainNav">
+                <ul b-7t7rp274vo class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
+                    <li b-7t7rp274vo class="nav-item"><a class="nav-link" href="/Staff">Trang Chủ</a></li>
+                    <li b-7t7rp274vo class="nav-item"><a class="nav-link" href="/Staff/Home/About">Về Chúng Tôi</a></li>
+                    <li b-7t7rp274vo class="nav-item"><a class="nav-link" href="/Staff/Home/Contact">Liên Hệ</a></li>
+                        <li b-7t7rp274vo class="nav-item"><a class="btn btn-sm btn-outline-secondary" href="/Staff/Customer/Login">Đăng Nhập</a></li>
+                        <li b-7t7rp274vo class="nav-item"><a class="btn btn-sm btn-danger" href="/Staff/Customer/Register">Đăng Ký</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main b-7t7rp274vo class="py-3">
+        
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="m-0">Thu ngân - Thanh toán</h2>
+        <div class="text-muted">Chi nh&#xE1;nh Qu&#x1EAD;n 1 - Thu ng&#xE2;n Lan</div>
+    </div>
+
+    <div class="d-flex gap-2 mb-3">
+        <a class="btn btn-outline-secondary btn-sm" asp-action="History" asp-controller="Cashier" asp-area="Staff">Lịch sử & tài khoản</a>
+        <a class="btn btn-outline-primary btn-sm" asp-action="Report" asp-controller="Cashier" asp-area="Staff">Báo cáo theo ngày</a>
+    </div>
+
+
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead>
+                <tr>
+                    <th>Đơn</th>
+                    <th>Bàn</th>
+                    <th>Khách</th>
+                    <th>Món</th>
+                    <th>Tạm tính</th>
+                    <th style="min-width:280px">Thanh toán</th>
+                </tr>
+            </thead>
+            <tbody>
+                    <tr>
+                        <td>#4<br /><small class="text-muted">ORD-20260301020241</small></td>
+                        <td>QR-Q1-B01</td>
+                        <td>
+                            <div>Kh&#xE1;ch l&#x1EBB;</div>
+                        </td>
+                        <td>
+                            <div><strong>1</strong> món</div>
+                            <details>
+                                <summary class="small">Xem chi tiết</summary>
+                                <ul class="small mb-0 ps-3">
+                                        <li>1 x B&#xFA;n Ch&#x1EA3; H&#xE0; N&#x1ED9;i (60,000)</li>
+                                </ul>
+                            </details>
+                        </td>
+                        <td>60,000</td>
+                        <td>
+                            <form method="post" asp-action="Checkout" asp-controller="Cashier" asp-area="Staff" class="row g-1">
+                                <input name="__RequestVerificationToken" type="hidden" value="CfDJ8OgSn209wwhClc_GrVmhEIQvN3LyCiYzCP49M3sMJHrGhu09K3b2zU4WFtEBrinZt9hZ0nWlrfw-8jGBtdl0-7LBwHAJ_T7qgTuSOwHPuWbN8o_wdnxU8rwCE2ZkQ_RlAJv0yQxuSVvYmwgZYCbR5BI" />
+                                <input type="hidden" name="orderId" value="4" />
+                                <div class="col-12">
+                                    <select name="paymentMethod" class="form-select form-select-sm">
+                                        <option value="CASH">Tiền mặt</option>
+                                        <option value="CARD">Thẻ</option>
+                                        <option value="TRANSFER">Chuyển khoản</option>
+                                    </select>
+                                </div>
+                                <div class="col-6"><input class="form-control form-control-sm" type="number" step="0.01" name="discount" value="0" placeholder="Giảm giá" /></div>
+                                <div class="col-6"><input class="form-control form-control-sm" type="number" name="pointsUsed" value="0" min="0" max="0" placeholder="Điểm dùng" /></div>
+                                <div class="col-12"><input class="form-control form-control-sm" type="number" step="0.01" name="paymentAmount" value="60000.00" placeholder="Tiền nhận" /></div>
+                                <div class="col-12"><button class="btn btn-sm btn-danger w-100" type="submit">Xác nhận</button></div>
+                            </form>
+                        </td>
+                    </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+    </main>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+</body>
+</html>

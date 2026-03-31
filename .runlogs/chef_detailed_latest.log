@@ -1,0 +1,19 @@
+
+ChucNang                      Pass ChiTiet                            
+--------                      ---- -------                            
+Dang nhap Chef                True status=200                         
+Mo dashboard Chef             True status=200                         
+Mo lich su Chef               True status=200                         
+Tao don test cho Chef         True orderId=1035 tableId=1 dishId=12   
+Bat dau che bien PREPARING    True orderId=1035                       
+Danh dau san sang READY       True orderId=1035                       
+Chuyen phuc vu SERVING        True status=SERVING                     
+Huy don CancelOrder           True orderId=1036                       
+Xem nguyen lieu mon           True dishId=12                          
+Lay DS nguyen lieu mon        True count=3                            
+Sua quantity nguyen lieu mon  True ingredientId=16 qty=1.23           
+Tat/Bat mon HideDish/ShowDish True before=True hidden=False shown=True
+
+
+
+SUMMARY: 12/12 PASS

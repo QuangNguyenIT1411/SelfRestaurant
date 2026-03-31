@@ -1,0 +1,4 @@
+[2026-03-27 01:26:27] Checking new gateway: http://localhost:5100
+[2026-03-27 01:29:38] [SYSTEM][Unhandled][FAIL] New gateway is not reachable at http://localhost:5100
+[2026-03-27 01:29:38] Summary JSON: C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\.runlogs\admin_flow_summary_20260327_012626.json
+[2026-03-27 01:29:38] FINAL: 0/1 PASS

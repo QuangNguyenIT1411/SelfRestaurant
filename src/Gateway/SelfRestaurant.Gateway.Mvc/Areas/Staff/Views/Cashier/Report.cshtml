@@ -1,0 +1,112 @@
+﻿@model SelfRestaurant.Gateway.Mvc.Areas.Staff.Models.CashierDashboardViewModel
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewBag.Title = "Báo cáo doanh thu theo ngày";
+}
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h3 class="mb-1">Báo cáo doanh thu theo ngày</h3>
+            <small class="text-muted">
+                Nhân viên: @ViewBag.EmployeeName (@ViewBag.BranchName)
+            </small>
+        </div>
+        <div>
+            <a href="@Url.Action("Index", "Cashier", new { area = "Staff" })" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Quay lại quầy thu ngân
+            </a>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body d-flex justify-content-between align-items-end flex-wrap gap-3">
+            <form method="get" class="d-flex align-items-end gap-2">
+                <div>
+                    <label class="form-label">Chọn ngày</label>
+                    <input type="date"
+                           name="date"
+                           class="form-control"
+                           value="@Context.Request.Query["date"]" />
+                </div>
+                <div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search me-1"></i>Xem báo cáo
+                    </button>
+                </div>
+            </form>
+            <button type="button" class="btn btn-outline-primary" onclick="window.print()">
+                <i class="bi bi-printer me-1"></i>In báo cáo
+            </button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <div class="d-flex justify-content-between">
+                <span>Tổng quan</span>
+                <span>Ngày: <strong>@(string.IsNullOrEmpty(Context.Request.Query["date"]) ? DateTime.Today.ToString("dd/MM/yyyy") : DateTime.Parse(Context.Request.Query["date"].ToString()).ToString("dd/MM/yyyy"))</strong></span>
+            </div>
+        </div>
+        <div class="card-body">
+            @{
+                var bills = Model.Bills ?? new List<SelfRestaurant.Gateway.Mvc.Areas.Staff.Models.CashierBillHistoryViewModel>();
+                var totalRevenue = bills.Sum(b => b.TotalAmount);
+                var count = bills.Count;
+            }
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <div class="border rounded p-3">
+                        <div class="text-muted small">Số hóa đơn</div>
+                        <div class="fs-4 fw-bold">@count</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="border rounded p-3">
+                        <div class="text-muted small">Tổng doanh thu</div>
+                        <div class="fs-4 fw-bold text-success">@totalRevenue.ToString("N0") đ</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle">
+                    <thead>
+                        <tr>
+                            <th>Thời gian</th>
+                            <th>Mã HĐ</th>
+                            <th>Đơn hàng</th>
+                            <th>Bàn</th>
+                            <th class="text-end">Thành tiền</th>
+                            <th>PTTT</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (bills.Any())
+                        {
+                            foreach (var b in bills)
+                            {
+                                <tr>
+                                    <td>@b.BillTime.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td>@b.BillCode</td>
+                                    <td>@b.OrderCode</td>
+                                    <td>@b.TableName</td>
+                                    <td class="text-end">@b.TotalAmount.ToString("N0") đ</td>
+                                    <td>@b.PaymentMethod</td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-3">
+                                    Không có hóa đơn nào trong ngày này.
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

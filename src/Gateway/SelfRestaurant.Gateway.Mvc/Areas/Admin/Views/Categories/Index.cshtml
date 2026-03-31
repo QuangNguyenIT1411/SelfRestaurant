@@ -1,0 +1,173 @@
+﻿@model SelfRestaurant.Gateway.Mvc.Areas.Admin.Models.CategoryManagementViewModel
+@{
+    ViewBag.Title = "Quản lý danh mục & đơn vị";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container py-4">
+    <div class="row g-3">
+        <div class="col-lg-3">
+            @await Html.PartialAsync("~/Areas/Admin/Views/Shared/_AdminSidebar.cshtml")
+        </div>
+        <div class="col-lg-9">
+            <h2 class="mb-3">Quản lý danh mục &amp; đơn vị</h2>
+
+            @if (ViewBag.SuccessMessage != null)
+            {
+                <div class="alert alert-success">@ViewBag.SuccessMessage</div>
+            }
+            @if (ViewBag.ErrorMessage != null)
+            {
+                <div class="alert alert-danger">@ViewBag.ErrorMessage</div>
+            }
+
+            <div class="row g-4">
+                <div class="col-md-5">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-white fw-semibold">
+                            Đơn vị món ăn (Unit)
+                        </div>
+                        <div class="card-body">
+                            <p class="small text-muted">
+                                Danh sách đơn vị đang được sử dụng trong các món ăn.
+                                Bạn có thể đổi tên đơn vị, hệ thống sẽ cập nhật cho tất cả món.
+                            </p>
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Đơn vị</th>
+                                            <th class="text-end">Số món</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @if (Model.Units == null || Model.Units.Count == 0)
+                                        {
+                                            <tr>
+                                                <td colspan="3" class="text-center text-muted py-3">Chưa có đơn vị nào.</td>
+                                            </tr>
+                                        }
+                                        else
+                                        {
+                                            foreach (var u in Model.Units)
+                                            {
+                                                <tr>
+                                                    <td>@u.Unit</td>
+                                                    <td class="text-end">@u.DishCount</td>
+                                                    <td class="text-end">
+                                                        @using (Html.BeginForm("RenameUnit", "Categories", FormMethod.Post, new { area = "Admin", @class = "d-inline-flex align-items-center gap-1" }))
+                                                        {
+                                                            @Html.AntiForgeryToken()
+                                                            @Html.Hidden("oldUnit", u.Unit)
+                                                            <input type="text" name="newUnit" class="form-control form-control-sm" style="width: 110px;" placeholder="Đơn vị mới" />
+                                                            <button type="submit" class="btn btn-sm btn-outline-primary">
+                                                                <i class="bi bi-arrow-repeat"></i>
+                                                            </button>
+                                                        }
+                                                    </td>
+                                                </tr>
+                                            }
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-7">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+                            <span>Danh mục món ăn</span>
+                        </div>
+                        <div class="card-body">
+                            <h6 class="fw-semibold mb-2">Thêm danh mục mới</h6>
+                            @using (Html.BeginForm("Create", "Categories", FormMethod.Post, new { area = "Admin", @class = "row g-2 mb-3" }))
+                            {
+                                @Html.AntiForgeryToken()
+                                <div class="col-md-4">
+                                    <input type="text" name="name" class="form-control" placeholder="Tên danh mục" />
+                                </div>
+                                <div class="col-md-5">
+                                    <input type="text" name="description" class="form-control" placeholder="Mô tả (tuỳ chọn)" />
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="number" name="displayOrder" class="form-control" placeholder="Thứ tự" />
+                                </div>
+                                <div class="col-md-1 d-grid">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-plus-lg"></i>
+                                    </button>
+                                </div>
+                            }
+
+                            <hr />
+
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Tên danh mục</th>
+                                            <th>Mô tả</th>
+                                            <th style="width:80px;">Thứ tự</th>
+                                            <th style="width:80px;">Kích hoạt</th>
+                                            <th style="width:90px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @if (Model.Categories == null || Model.Categories.Count == 0)
+                                        {
+                                            <tr>
+                                                <td colspan="5" class="text-center text-muted py-3">Chưa có danh mục nào.</td>
+                                            </tr>
+                                        }
+                                        else
+                                        {
+                                            foreach (var c in Model.Categories)
+                                            {
+                                                <tr>
+                                                    @using (Html.BeginForm("Update", "Categories", FormMethod.Post, new { area = "Admin" }))
+                                                    {
+                                                        @Html.AntiForgeryToken()
+                                                        @Html.Hidden("id", c.CategoryID)
+                                                        <td style="width: 180px;">
+                                                            <input type="text" name="name" class="form-control form-control-sm" value="@c.Name" />
+                                                        </td>
+                                                        <td>
+                                                            <input type="text" name="description" class="form-control form-control-sm" value="@c.Description" />
+                                                        </td>
+                                                        <td>
+                                                            <input type="number" name="displayOrder" class="form-control form-control-sm" value="@(c.DisplayOrder ?? 0)" />
+                                                        </td>
+                                                        <td class="text-center">
+                                                            <input type="checkbox" name="isActive" value="true" @(c.IsActive ?? true ? "checked=\"checked\"" : "") />
+                                                        </td>
+                                                        <td class="text-end">
+                                                            <button type="submit" class="btn btn-sm btn-outline-primary me-1">
+                                                                <i class="bi bi-save"></i>
+                                                            </button>
+                                                            @using (Html.BeginForm("Delete", "Categories", FormMethod.Post, new { area = "Admin", onsubmit = "return confirm('Xoá danh mục này?');" }))
+                                                            {
+                                                                @Html.AntiForgeryToken()
+                                                                @Html.Hidden("id", c.CategoryID)
+                                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                                    <i class="bi bi-trash"></i>
+                                                                </button>
+                                                            }
+                                                        </td>
+                                                    }
+                                                </tr>
+                                            }
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

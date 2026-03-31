@@ -1,0 +1,10 @@
+[2026-03-05 09:34:52] === START CASHIER <-> CUSTOMER FLOW TEST ===
+[2026-03-05 09:34:52] [OLD] skipped by -SkipOld
+[2026-03-05 09:34:52] [NEW] customer login...
+[2026-03-05 09:34:52] [NEW] points before payment: 17650
+[2026-03-05 09:34:52] [NEW] table=11
+[2026-03-05 09:34:52] [NEW] cashier login...
+[2026-03-05 09:34:53] [NEW] points after payment: 19150
+[2026-03-05 09:34:53] [NEW] Result: {"Environment":"NEW_MICROSERVICE","TableId":11,"OrderId":1065,"Subtotal":0,"StatusAfterPayment":"COMPLETED","PointsBefore":17650,"PointsAfter":19150,"PointsEarnedFromPayment":1500,"CustomerPointsFromPayment":19150,"PointsIncreased":true,"Pass":true}
+[2026-03-05 09:34:53] Summary saved: C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\.runlogs\cashier_customer_flow_summary_20260305_093452.json
+[2026-03-05 09:34:53] Final result: BothPass=True

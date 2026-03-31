@@ -1,0 +1,14 @@
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\tools\inspectgw\bin\Debug\net8.0\inspectgw.exe
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\tools\inspectgw\bin\Debug\net8.0\inspectgw.deps.json
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\tools\inspectgw\bin\Debug\net8.0\inspectgw.runtimeconfig.json
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\tools\inspectgw\bin\Debug\net8.0\inspectgw.dll
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\tools\inspectgw\bin\Debug\net8.0\inspectgw.pdb
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\tools\inspectgw\obj\Debug\net8.0\inspectgw.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\tools\inspectgw\obj\Debug\net8.0\inspectgw.AssemblyInfoInputs.cache
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\tools\inspectgw\obj\Debug\net8.0\inspectgw.AssemblyInfo.cs
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\tools\inspectgw\obj\Debug\net8.0\inspectgw.csproj.CoreCompileInputs.cache
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\tools\inspectgw\obj\Debug\net8.0\inspectgw.dll
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\tools\inspectgw\obj\Debug\net8.0\refint\inspectgw.dll
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\tools\inspectgw\obj\Debug\net8.0\inspectgw.pdb
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\tools\inspectgw\obj\Debug\net8.0\inspectgw.genruntimeconfig.cache
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\tools\inspectgw\obj\Debug\net8.0\ref\inspectgw.dll

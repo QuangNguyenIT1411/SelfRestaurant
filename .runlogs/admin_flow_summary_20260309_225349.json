@@ -1,0 +1,45 @@
+﻿{
+    "timestamp":  "20260309_225349",
+    "total":  6,
+    "passed":  6,
+    "failed":  0,
+    "log":  "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\.runlogs\\admin_flow_test_20260309_225349.log",
+    "results":  [
+                    {
+                        "env":  "OLD",
+                        "feature":  "Admin-Login",
+                        "pass":  true,
+                        "detail":  "skipped by -SkipOld"
+                    },
+                    {
+                        "env":  "NEW",
+                        "feature":  "Admin-Login",
+                        "pass":  true,
+                        "detail":  "login success"
+                    },
+                    {
+                        "env":  "NEW",
+                        "feature":  "Admin-Customers",
+                        "pass":  true,
+                        "detail":  "customerId=1093 phone 0956791077 -\u003e 0920796000 -\u003e 0956791077 (created temp customer)"
+                    },
+                    {
+                        "env":  "NEW",
+                        "feature":  "Admin-Employees",
+                        "pass":  true,
+                        "detail":  "employeeId=1021 phone 0953760558 -\u003e 0992267010 -\u003e 0953760558"
+                    },
+                    {
+                        "env":  "NEW",
+                        "feature":  "Admin-Revenue",
+                        "pass":  true,
+                        "detail":  "Revenue + TopDishes pages loaded"
+                    },
+                    {
+                        "env":  "NEW",
+                        "feature":  "Admin-Dishes",
+                        "pass":  true,
+                        "detail":  "dishId=1064 name=AUTO_ADMIN_TEST_NEW_20260309_225352559_372 created then deactivated"
+                    }
+                ]
+}

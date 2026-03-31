@@ -1,0 +1,38 @@
+﻿{
+    "timestamp":  "20260302_191441",
+    "passed":  5,
+    "total":  6,
+    "log":  "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\.runlogs\\customer_detailed_new_20260302_191441.log",
+    "results":  [
+                    {
+                        "Step":  "Open Register",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Register",
+                        "Pass":  true,
+                        "Detail":  "status=200 user=cusd_20260302191441624"
+                    },
+                    {
+                        "Step":  "Open Login",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Login",
+                        "Pass":  true,
+                        "Detail":  "fallback user=lan.nguyen"
+                    },
+                    {
+                        "Step":  "Select Branch/Table",
+                        "Pass":  true,
+                        "Detail":  "branch=1 table=1 display=1"
+                    },
+                    {
+                        "Step":  "Unhandled Error",
+                        "Pass":  false,
+                        "Detail":  "No dish id found on menu"
+                    }
+                ]
+}

@@ -1,0 +1,1699 @@
+﻿@{
+    ViewBag.Title = "Thực Đơn";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+@Html.AntiForgeryToken()
+
+@section css{
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --primary-hover: #0b5ed7;
+        }
+
+        body {
+            background: linear-gradient(to bottom right, #e7f1ff, #f0f5ff);
+            min-height: 100vh;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .header {
+            background: linear-gradient(to right, #0d6efd, #3d8bfd);
+            color: white;
+            padding: 1.5rem 0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .category-tab {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            border: none;
+            background: #e9ecef;
+            color: #495057;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin: 0.25rem;
+        }
+
+            .category-tab:hover {
+                background: #dee2e6;
+            }
+
+            .category-tab.active {
+                background: var(--primary-color);
+                color: white;
+                box-shadow: 0 4px 6px rgba(13, 110, 253, 0.3);
+                transform: scale(1.05);
+            }
+
+        .veg-toggle-btn {
+            border-radius: 999px;
+            font-weight: 600;
+        }
+
+        .dish-card {
+            border: none;
+            border-radius: 1rem;
+            overflow: hidden;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            height: 100%;
+        }
+
+            .dish-card:hover {
+                box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+                transform: translateY(-5px);
+            }
+
+        .dish-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+
+        .badge-special {
+            background: var(--primary-color);
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+        }
+
+        .badge-vegetarian {
+            background: #198754;
+            position: absolute;
+            top: 0.5rem;
+            left: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+        }
+
+        .badge-top-seller {
+            background: #fd7e14;
+            position: absolute;
+            bottom: 0.5rem;
+            right: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+        }
+
+        .price {
+            color: var(--primary-color);
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .btn-add {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+            .btn-add:hover {
+                background: var(--primary-hover);
+                box-shadow: 0 4px 8px rgba(13, 110, 253, 0.3);
+            }
+
+        .cart-sidebar {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            position: sticky;
+            top: 1rem;
+        }
+
+        .cart-item {
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+        }
+
+            .cart-item:last-child {
+                border-bottom: none;
+            }
+
+            .cart-item.ready {
+                background: #d1e7dd;
+                padding: 0.75rem;
+                border-radius: 0.5rem;
+                border-bottom: none;
+                margin-bottom: 0.5rem;
+            }
+
+        .quantity-control {
+            background: #e9ecef;
+            border-radius: 0.5rem;
+            display: inline-flex;
+            align-items: center;
+        }
+
+            .quantity-control button {
+                background: transparent;
+                border: none;
+                padding: 0.5rem;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+
+                .quantity-control button:hover {
+                    background: #dee2e6;
+                }
+
+        .btn-checkout {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            font-size: 1.1rem;
+            font-weight: 700;
+            transition: all 0.3s;
+            width: 100%;
+        }
+
+            .btn-checkout:hover {
+                background: var(--primary-hover);
+                box-shadow: 0 6px 12px rgba(13, 110, 253, 0.3);
+            }
+
+        .btn-view-bill {
+            background: white;
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+            padding: 0.75rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+            .btn-view-bill:hover {
+                background: var(--primary-color);
+                color: white;
+            }
+
+        .loyalty-card {
+            background: linear-gradient(to bottom right, #0d6efd, #3d8bfd);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            color: white;
+            margin-top: 1rem;
+        }
+
+        .notification-area {
+            position: fixed;
+            top: 6rem;
+            right: 1rem;
+            z-index: 9998;
+            max-width: 350px;
+        }
+
+        .notification-item {
+            background: white;
+            border-left: 4px solid #198754;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            animation: slideInRight 0.3s ease;
+        }
+
+        @@keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .empty-cart {
+            text-align: center;
+            padding: 3rem 0;
+            color: #adb5bd;
+        }
+
+            .empty-cart i {
+                font-size: 3rem;
+                opacity: 0.3;
+                margin-bottom: 1rem;
+            }
+
+        .cart-badge {
+            background: var(--primary-color);
+            color: white;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+        }
+
+        .bill-modal .modal-content {
+            border-radius: 1rem;
+        }
+
+        .bill-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 1rem 1rem 0 0;
+        }
+
+        .bill-item {
+            border-bottom: 1px solid #e9ecef;
+            padding: 0.75rem 0;
+        }
+
+            .bill-item:last-child {
+                border-bottom: 2px solid var(--primary-color);
+            }
+
+        .bill-total {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .note-input {
+            font-size: 0.85rem;
+            background-color: #f8f9fa;
+            border: 1px dashed #ced4da;
+            transition: all 0.2s;
+        }
+
+            .note-input:focus {
+                background-color: #fff;
+                border-color: var(--primary-color);
+                box-shadow: none;
+            }
+
+        .item-note-display {
+            font-size: 0.8rem;
+            color: #dc3545;
+            font-style: italic;
+            display: block;
+            margin-top: 2px;
+        }
+
+        .confirm-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            background: #f8f9fa;
+        }
+
+        .confirm-item {
+            background: white;
+            border-left: 3px solid var(--primary-color);
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.9rem;
+        }
+
+            .confirm-item:last-child {
+                margin-bottom: 0;
+            }
+    </style>
+}
+
+<!-- Notification Area -->
+<div id="notificationArea" class="notification-area"></div>
+
+<!-- Header -->
+<div class="header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-6">
+                <h1 class="mb-0 h3">Self Restaurant</h1>
+                <small class="opacity-75 d-block mb-1">Chi nhánh @ViewBag.BranchName</small>
+                <a href="@Url.Action("Index", "Home")" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-house-door me-1"></i>Quay lại trang chủ
+                </a>
+            </div>
+            <div class="col-6 text-end">
+                <div class="small opacity-75">Bàn số</div>
+                <div class="display-5 fw-bold">@ViewBag.TableNumber</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Content -->
+<div class="container">
+    <div class="row">
+        <!-- Menu Section -->
+        <div class="col-lg-8 mb-4">
+            <!-- Top Sellers -->
+            <div id="topDishesWrapper" class="mb-4 d-none">
+                <div class="bg-white rounded-3 shadow-sm p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="mb-0">
+                            <i class="bi bi-star-fill text-warning me-1"></i>
+                            Món bán chạy
+                        </h5>
+                        <small class="text-muted">Trong chi nhánh này</small>
+                    </div>
+                    <div class="row g-3" id="topDishesSection"></div>
+                </div>
+            </div>
+
+            <!-- Category Tabs + Search -->
+            <div class="bg-white rounded-3 shadow-sm p-3 mb-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div class="d-flex flex-wrap flex-grow-1 gap-2">
+                        <div class="d-flex flex-wrap" id="categoryTabs"></div>
+                        <div class="flex-grow-1">
+                            <input type="text"
+                                   id="dishSearchInput"
+                                   class="form-control form-control-sm"
+                                   placeholder="Tìm món theo tên..."
+                                   oninput="renderDishes()" />
+                        </div>
+                    </div>
+                    <button type="button"
+                            id="vegFilterBtn"
+                            class="btn btn-outline-success btn-sm veg-toggle-btn">
+                        <i class="bi bi-leaf me-1"></i>
+                        Chỉ hiện món chay
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dishes Grid -->
+            <div class="row g-3" id="dishesGrid"></div>
+        </div>
+
+        <!-- Cart Section -->
+        <div class="col-lg-4">
+            <div class="cart-sidebar">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h4 class="mb-0">
+                        <i class="bi bi-cart3" style="color: var(--primary-color)"></i>
+                        Giỏ hàng
+                    </h4>
+                    <span class="cart-badge" id="cartBadge">0</span>
+                </div>
+
+                <div id="cartItems"></div>
+
+                <div id="cartSummary" class="d-none">
+                    <hr />
+
+                    <button class="btn-view-bill" onclick="viewBill()">
+                        <i class="bi bi-receipt me-2"></i>
+                        Xem hóa đơn tạm tính
+                    </button>
+
+                    <div class="d-flex justify-content-between mb-3">
+                        <span class="h5 fw-bold">Tổng cộng:</span>
+                        <span class="h4 fw-bold"
+                              style="color: var(--primary-color)"
+                              id="totalAmount">0đ</span>
+                    </div>
+
+                    <div id="loyaltyInfo"
+                         class="bg-warning bg-opacity-10 border border-warning rounded p-3 mb-3 d-none">
+                        <div class="d-flex align-items-center small">
+                            <i class="bi bi-person-circle me-2"></i>
+                            <span class="fw-bold" id="customerName"></span>
+                        </div>
+                        <div class="text-muted small">
+                            Điểm tích lũy: +<span id="loyaltyPoints">0</span> điểm
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <button class="btn btn-success w-100 py-3"
+                                onclick="showSendKitchenConfirm()"
+                                id="btnSendKitchen"
+                                disabled>
+                            <i class="bi bi-check-circle me-2"></i>
+                            Gửi đơn cho bếp
+                        </button>
+                        <div class="text-center text-muted small mt-1">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Gửi món trước khi thanh toán
+                        </div>
+                    </div>
+
+                    <button class="btn-checkout" onclick="checkout()">
+                        <i class="bi bi-credit-card me-2"></i>
+                        Thanh toán
+                    </button>
+
+                    <div class="text-center text-muted small mt-2">
+                        <i class="bi bi-clock me-1"></i>
+                        Vui lòng đến quầy thu ngân để thanh toán
+                    </div>
+
+                    <button type="button"
+                            class="btn btn-outline-danger w-100 mt-3"
+                            data-bs-toggle="modal"
+                            data-bs-target="#resetTableModal">
+                        <i class="bi bi-arrow-repeat me-2"></i>
+                        Reset bàn
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Xác nhận gửi đơn cho bếp -->
+<div class="modal fade" id="confirmSendKitchenModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle text-warning me-2"></i>Xác nhận gửi đơn cho bếp
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3 text-muted">
+                    Vui lòng xác nhận các món sau sẽ được gửi cho bếp:
+                </p>
+                <div class="confirm-list" id="confirmItemsList"></div>
+                <div class="alert alert-info mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <small>Hành động này không thể hoàn tác. Vui lòng kiểm tra kỹ trước khi xác nhận.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-2"></i>Hủy
+                </button>
+                <button type="button" class="btn btn-success" id="btnConfirmSend" onclick="confirmSendKitchen()">
+                    <i class="bi bi-check-circle me-2"></i>Xác nhận gửi
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Hóa đơn tạm tính -->
+<div class="modal fade" id="billModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="bill-header text-center">
+                <h3 class="mb-1"><i class="bi bi-receipt"></i> HÓA ĐƠN TẠM TÍNH</h3>
+                <p class="mb-0 small opacity-75">Bàn số @ViewBag.TableNumber - Chi nhánh @ViewBag.BranchName</p>
+                <p class="mb-0 small opacity-75" id="billTime"></p>
+            </div>
+            <div class="modal-body">
+                <div id="billItems"></div>
+
+                <div class="bill-total">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Tổng món:</span>
+                        <span id="billTotalItems">0 món</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Tạm tính:</span>
+                        <span id="billSubtotal">0đ</span>
+                    </div>
+                    <hr />
+                    <div class="d-flex justify-content-between">
+                        <span class="fw-bold h5 mb-0">Tổng cộng:</span>
+                        <span class="fw-bold h4 mb-0"
+                              style="color: var(--primary-color)"
+                              id="billTotal">0đ</span>
+                    </div>
+                    <div class="text-muted small mt-2 text-center">
+                        <i class="bi bi-star-fill text-warning"></i>
+                        Điểm thưởng: +<span id="billPoints">0</span> điểm
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3 mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <small>Vui lòng đến quầy thu ngân để thanh toán khi hoàn tất.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button"
+                        class="btn btn-secondary"
+                        data-bs-dismiss="modal">
+                    Đóng
+                </button>
+                <button type="button"
+                        class="btn btn-primary"
+                        style="background: var(--primary-color); border: none"
+                        onclick="checkout()"
+                        data-bs-dismiss="modal">
+                    <i class="bi bi-credit-card me-2"></i>Thanh toán
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Thanh toán -->
+<div class="modal fade"
+     id="checkoutNotificationModal"
+     tabindex="-1"
+     aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content text-center p-4">
+            <div class="modal-body">
+                <div class="mb-3">
+                    <i class="bi bi-cash-coin text-primary"
+                       style="font-size: 4rem"></i>
+                </div>
+
+                <h4 class="fw-bold mb-3">Yêu cầu thanh toán đã gửi!</h4>
+                <p class="text-muted mb-4">
+                    Vui lòng đến quầy thu ngân để hoàn tất thanh toán.
+                </p>
+
+                <div class="bg-light rounded-3 p-3 mb-4 border border-primary border-opacity-25">
+                    <small class="text-uppercase text-muted fw-bold">Mã bàn của bạn</small>
+                    <div class="display-4 fw-bold text-primary mt-1">@ViewBag.TableNumber</div>
+                </div>
+
+                <button type="button"
+                        class="btn btn-primary w-100 py-2 fw-bold"
+                        data-bs-dismiss="modal"
+                        onclick="finishPaymentProcess()">
+                    <i class="bi bi-check-lg me-2"></i>Đã hiểu
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Xác nhận nhận món -->
+<div class="modal fade" id="orderReadyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title">
+                    <i class="bi bi-bell-fill text-success me-2"></i>Món ăn đã sẵn sàng
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">
+                    Bếp đã hoàn thành món ăn cho bàn <strong>@ViewBag.TableNumber</strong>.
+                    Vui lòng đến quầy lấy món. Sau khi đã nhận món, hãy nhấn
+                    <strong>"Tôi đã nhận món"</strong> để xác nhận.
+                </p>
+                <div class="alert alert-success small mb-0">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Việc xác nhận giúp hệ thống ẩn đơn khỏi màn hình bếp và chuẩn bị cho lần đặt món tiếp theo.
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    Để sau
+                </button>
+                <button type="button" class="btn btn-success" onclick="confirmOrderReceived()">
+                    <i class="bi bi-check2-circle me-1"></i>Tôi đã nhận món
+                </button>
+            </div>
+        </div>
+    </div>
+    </div>
+
+<!-- Modal Reset Bàn -->
+<div class="modal fade" id="resetTableModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle text-warning me-2"></i>Xác nhận reset bàn</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">
+                    Bạn có chắc chắn muốn reset bàn <strong>@ViewBag.TableNumber</strong>?
+                    Hành động này sẽ xóa tất cả đơn hàng chưa được xử lý.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Hủy
+                </button>
+                <button type="button" class="btn btn-danger" onclick="confirmResetTable()">
+                    <i class="bi bi-arrow-repeat me-2"></i>Xác nhận reset
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section scripts{
+    <script>
+        // Dữ liệu từ Razor View
+        const categories = @Html.Raw(Json.Encode(ViewBag.Categories ?? new List<object>()));
+        const tableNumber = @ViewBag.TableNumber;
+        const tableID = @ViewBag.TableID;
+        const branchId = @ViewBag.BranchId;
+        // Trạng thái đăng nhập khách hàng (bool)
+        const isCustomerLoggedIn = @((ViewBag.IsCustomerLoggedIn ?? false).ToString().ToLower());
+        const customerLoginUrl = '@Url.Action("Login", "Customer")';
+        const customerName = "@ViewBag.CustomerName";
+        const customerEmail = "@ViewBag.CustomerEmail";
+        const customerPhone = "@ViewBag.CustomerPhone";
+        const loyaltyPoints = @(ViewBag.LoyaltyPoints ?? 0);
+        const dishIngredients = @Html.Raw(Json.Encode(ViewBag.DishIngredients ?? new List<object>()));
+        const topDishIds = @Html.Raw(Json.Encode(ViewBag.TopDishIds ?? new int[0]));
+
+        let dishes = [];
+        let cart = [];
+        let selectedCategory = null;
+        let pendingItems = [];
+        // Lấy OrderId hiện có (nếu đã có đơn cho bàn này)
+        let currentOrderId = @(ViewBag.CurrentOrderId ?? 0);
+        if (!currentOrderId || currentOrderId === 0) {
+            currentOrderId = null;
+        }
+        let orderStatusTimer = null;
+
+        const cartStorageKey = `menuCart-${tableID}-${branchId}`;
+
+        // Initialize
+        document.addEventListener("DOMContentLoaded", function () {
+            loadCartFromStorage();
+            initializeMenu();
+            setupCategoryTabs();
+            setupVegFilter();
+            renderTopDishes();
+            renderDishes();
+            initializeLoyaltyInfo();
+            renderCart();
+            updateSendButton();
+
+            // Nếu đã có đơn cho bàn này trước đó, bắt đầu theo dõi trạng thái luôn
+            if (currentOrderId) {
+                startOrderStatusWatcher();
+                // Nếu localStorage không có dữ liệu thì phục hồi giỏ hàng từ đơn hiện có
+                if ((!pendingItems || pendingItems.length === 0) && (!cart || cart.length === 0)) {
+                    restoreCartFromExistingOrder();
+                }
+            }
+        });
+
+        let showOnlyVegetarian = false;
+
+        // Initialize Menu từ Razor Data
+        function initializeMenu() {
+            if (categories && categories.length > 0) {
+                // Flatten tất cả dishes từ categories
+                categories.forEach(cat => {
+                    if (cat.Dishes && cat.Dishes.length > 0) {
+                        dishes = dishes.concat(cat.Dishes.map(d => ({
+                            ...d,
+                            categoryId: cat.CategoryID,
+                            categoryName: cat.CategoryName,
+                            isVegetarian: d.IsVegetarian === true
+                        })));
+                    }
+                });
+
+                // Set selected category to first category
+                if (categories.length > 0) {
+                    selectedCategory = categories[0].CategoryID;
+                }
+            }
+        }
+
+        // Setup Category Tabs
+        function setupCategoryTabs() {
+            const tabsContainer = document.getElementById("categoryTabs");
+            tabsContainer.innerHTML = categories.map(cat => `
+                <button class="category-tab ${selectedCategory === cat.CategoryID ? 'active' : ''}"
+                        data-category="${cat.CategoryID}"
+                        onclick="selectCategory(${cat.CategoryID})">
+                    ${cat.CategoryName}
+                </button>
+            `).join("");
+        }
+
+        // Select Category
+        function selectCategory(categoryId) {
+            selectedCategory = categoryId;
+            const tabs = document.querySelectorAll(".category-tab");
+            tabs.forEach(tab => {
+                tab.classList.remove("active");
+                if (parseInt(tab.dataset.category) === categoryId) {
+                    tab.classList.add("active");
+                }
+            });
+            renderDishes();
+        }
+
+        function setupVegFilter() {
+            const btn = document.getElementById("vegFilterBtn");
+            if (!btn) return;
+
+            btn.addEventListener("click", function () {
+                showOnlyVegetarian = !showOnlyVegetarian;
+                if (showOnlyVegetarian) {
+                    btn.classList.remove("btn-outline-success");
+                    btn.classList.add("btn-success", "text-white");
+                    btn.innerHTML = '<i class="bi bi-leaf me-1"></i>Món chay';
+                } else {
+                    btn.classList.add("btn-outline-success");
+                    btn.classList.remove("btn-success", "text-white");
+                    btn.innerHTML = '<i class="bi bi-leaf me-1"></i>Chỉ hiện món chay';
+                }
+                renderDishes();
+            });
+        }
+
+        // Render top selling dishes section
+        function renderTopDishes() {
+            const wrapper = document.getElementById("topDishesWrapper");
+            const container = document.getElementById("topDishesSection");
+            if (!wrapper || !container || !Array.isArray(topDishIds)) {
+                return;
+            }
+
+            const topDishes = dishes.filter(d => topDishIds.indexOf(d.DishID) !== -1);
+            if (topDishes.length === 0) {
+                wrapper.classList.remove("d-none");
+                container.innerHTML = `
+                    <div class="col-12 text-muted small">
+                        Chưa có dữ liệu món bán chạy. Vui lòng đặt vài đơn để hệ thống thống kê.
+                    </div>`;
+                return;
+            }
+
+            wrapper.classList.remove("d-none");
+
+            container.innerHTML = topDishes.map(dish => `
+                <div class="col-md-6">
+                    <div class="card dish-card">
+                        <div class="position-relative">
+                            <img src="${dish.Image || 'https://placehold.co/300x200?text=No+Image'}"
+                                 class="dish-image"
+                                 alt="${dish.Name}">
+                            ${dish.isVegetarian ? `
+                                <span class="badge-vegetarian">
+                                    <i class="bi bi-leaf"></i> Chay
+                                </span>` : ``}
+                            <span class="badge-top-seller">
+                                <i class="bi bi-star-fill"></i> Bán chạy
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">${dish.Name}</h5>
+                            <p class="card-text text-muted small">${dish.Description || ''}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="price">${parseInt(dish.Price).toLocaleString("vi-VN")}đ</div>
+                                    <small class="text-muted">${dish.Unit}</small>
+                                </div>
+                                <button class="btn-add" onclick="addToCart(${dish.DishID}, this)">
+                                    <i class="bi bi-plus-lg me-1"></i>Thêm
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join("");
+        }
+
+        // Render Dishes
+        function renderDishes() {
+            const grid = document.getElementById("dishesGrid");
+            let filteredDishes = dishes.filter(d => d.categoryId === selectedCategory);
+
+            const searchInput = document.getElementById("dishSearchInput");
+            const search = (searchInput && searchInput.value ? searchInput.value : "").toLowerCase();
+
+            if (showOnlyVegetarian) {
+                filteredDishes = filteredDishes.filter(d => d.isVegetarian);
+            }
+
+            if (search) {
+                filteredDishes = filteredDishes.filter(d =>
+                    (d.Name || "").toLowerCase().indexOf(search) !== -1
+                );
+            }
+
+            if (filteredDishes.length === 0) {
+                grid.innerHTML = '<div class="col-12"><div class="empty-cart"><i class="bi bi-inbox"></i><p>Không có món ăn nào</p></div></div>';
+                return;
+            }
+
+            grid.innerHTML = filteredDishes.map(dish => `
+                <div class="col-md-6">
+                    <div class="card dish-card">
+                        <div class="position-relative">
+                            <img src="${dish.Image || 'https://placehold.co/300x200?text=No+Image'}"
+                                 class="dish-image"
+                                 alt="${dish.Name}">
+                            ${dish.isVegetarian ? `
+                                <span class="badge-vegetarian">
+                                    <i class="bi bi-leaf"></i> Chay
+                                </span>` : ``}
+                            ${Array.isArray(topDishIds) && topDishIds.indexOf(dish.DishID) !== -1 ? `
+                                <span class="badge-top-seller">
+                                    <i class="bi bi-star-fill"></i> Bán chạy
+                                </span>` : ``}
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">${dish.Name}</h5>
+                            <p class="card-text text-muted small">${dish.Description || ''}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="price">${parseInt(dish.Price).toLocaleString("vi-VN")}đ</div>
+                                    <small class="text-muted">${dish.Unit}</small>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="quantity-control">
+                                        <button onclick="decreaseQuantity(this)">
+                                            <i class="bi bi-dash"></i>
+                                        </button>
+                                        <span class="px-3 fw-bold quantity-display">1</span>
+                                        <button onclick="increaseQuantity(this)">
+                                            <i class="bi bi-plus"></i>
+                                        </button>
+                                    </div>
+                                    <button class="btn-add" onclick="addToCart(${dish.DishID}, this)">
+                                        <i class="bi bi-plus-lg me-1"></i>Thêm
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="button"
+                                    class="btn btn-link p-0 mt-2 small"
+                                    onclick="showDishDetail(${dish.DishID})">
+                                <i class="bi bi-info-circle me-1"></i>Chi tiết món
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join("");
+        }
+
+        // Increase/Decrease Quantity
+        function increaseQuantity(btn) {
+            const display = btn.parentElement.querySelector(".quantity-display");
+            let qty = parseInt(display.textContent);
+            display.textContent = qty + 1;
+        }
+
+        function decreaseQuantity(btn) {
+            const display = btn.parentElement.querySelector(".quantity-display");
+            let qty = parseInt(display.textContent);
+            if (qty > 1) {
+                display.textContent = qty - 1;
+            }
+        }
+
+        // Add to Cart
+        function addToCart(dishId, btnElement) {
+            const dish = dishes.find(d => d.DishID === dishId);
+            if (!dish) return;
+
+            // Mặc định số lượng = 1 (dùng cho Món bán chạy không có bộ điều khiển số lượng)
+            let quantity = 1;
+            const container = btnElement.closest(".d-flex");
+            if (container) {
+                const quantityDisplay = container.querySelector(".quantity-display");
+                if (quantityDisplay) {
+                    const parsed = parseInt(quantityDisplay.textContent);
+                    if (!isNaN(parsed) && parsed > 0) {
+                        quantity = parsed;
+                    }
+                    // Reset lại về 1 cho lần tiếp theo
+                    quantityDisplay.textContent = "1";
+                }
+            }
+
+            const existing = pendingItems.find(item => item.DishID === dishId);
+
+            if (existing) {
+                existing.quantity += quantity;
+            } else {
+                pendingItems.push({
+                    ...dish,
+                    quantity: quantity,
+                    status: "pending",
+                    orderedAt: new Date()
+                });
+            }
+
+            renderCart();
+            updateSendButton();
+            showToast("success", `Đã thêm ${quantity} ${dish.Unit} ${dish.Name} vào giỏ hàng`);
+        }
+
+        // Show Send Kitchen Confirmation Modal
+        function showSendKitchenConfirm() {
+            if (pendingItems.length === 0) {
+                showToast("info", "Không có món nào để gửi");
+                return;
+            }
+
+            // Nếu khách hàng chưa đăng nhập thì chuyển tới trang đăng nhập
+            if (!isCustomerLoggedIn) {
+                showToast("warning", "Vui lòng đăng nhập tài khoản khách hàng để đặt món.");
+                window.location.href = customerLoginUrl;
+                return;
+            }
+
+            // Render danh sách xác nhận
+            const confirmList = document.getElementById("confirmItemsList");
+            confirmList.innerHTML = pendingItems.map(item => `
+                <div class="confirm-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="flex-grow-1">
+                            <strong>${item.Name}</strong>
+                            <div class="text-muted small">
+                                ${parseInt(item.Price).toLocaleString("vi-VN")}đ × ${item.quantity}
+                                ${item.note ? `<br><em style="color: #dc3545;">Ghi chú: ${item.note}</em>` : ""}
+                            </div>
+                        </div>
+                        <div class="fw-bold" style="color: var(--primary-color)">
+                            x${item.quantity}
+                        </div>
+                    </div>
+                </div>
+            `).join("");
+
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById("confirmSendKitchenModal"));
+            modal.show();
+        }
+
+                // Confirm Send to Kitchen - GỬI LÊN SERVER
+        function confirmSendKitchen() {
+            if (pendingItems.length === 0) {
+                showToast("info", "Không có món nào để gửi");
+                return;
+            }
+
+            // Nếu khách hàng chưa đăng nhập thì chuyển tới trang đăng nhập
+            if (!isCustomerLoggedIn) {
+                showToast("warning", "Vui lòng đăng nhập tài khoản khách hàng để đặt món.");
+                window.location.href = customerLoginUrl;
+                return;
+            }
+
+            const btnConfirmSend = document.getElementById("btnConfirmSend");
+            const originalText = btnConfirmSend.innerHTML;
+
+            // Disable button
+            btnConfirmSend.disabled = true;
+            btnConfirmSend.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Đang gửi...';
+
+            // Chuẩn bị dữ liệu gửi lên server
+            const itemsToSend = pendingItems.map(item => ({
+                DishID: item.DishID,
+                Quantity: item.quantity,
+                Note: item.note || ""
+            }));
+
+            console.log("Sending items:", itemsToSend);
+            console.log("TableID:", tableID, "BranchId:", branchId);
+
+            // Lấy CSRF Token từ form
+            const tokenElement = document.querySelector('input[name="__RequestVerificationToken"]');
+            if (!tokenElement) {
+                showToast("error", "Lỗi bảo mật: Không tìm thấy CSRF token");
+                btnConfirmSend.disabled = false;
+                btnConfirmSend.innerHTML = originalText;
+                return;
+            }
+
+            const tokenValue = tokenElement.value;
+
+            // Gửi POST request tới server bằng FormData
+            const formData = new FormData();
+            formData.append('tableId', tableID);
+            formData.append('branchId', branchId);
+            formData.append('items', JSON.stringify(itemsToSend));
+            formData.append('__RequestVerificationToken', tokenValue);
+
+            fetch('@Url.Action("SendOrderToKitchen", "Menu")', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                console.log("Response status:", response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Response data:", data);
+
+                // Server yêu cầu đăng nhập
+                if (data.requiresLogin && data.loginUrl) {
+                    showToast("warning", "Phiên làm việc đã hết hạn, vui lòng đăng nhập lại.");
+                    window.location.href = data.loginUrl;
+                    return;
+                }
+
+                if (data.success) {
+                    // Chuyển từ pending sang cart (đã gửi)
+                    pendingItems.forEach(item => {
+                        const existing = cart.find(c => c.DishID === item.DishID && c.status === "preparing");
+                        if (existing) {
+                            existing.quantity += item.quantity;
+                        } else {
+                            cart.push({
+                                ...item,
+                                status: "preparing",
+                                orderedAt: new Date()
+                            });
+                        }
+                    });
+
+                    showToast("success", data.message || `Đã gửi ${pendingItems.length} món cho bếp`);
+                    pendingItems = [];
+                    renderCart();
+                    updateSendButton();
+
+                    // Lưu orderId để theo dõi trạng thái món
+                    if (data.orderID) {
+                        currentOrderId = data.orderID;
+                        startOrderStatusWatcher();
+                    }
+
+                    // Đóng modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById("confirmSendKitchenModal"));
+                    if (modal) {
+                        modal.hide();
+                    }
+                } else {
+                    showToast("error", data.message || "Có lỗi xảy ra khi gửi đơn");
+                    console.error("Server error:", data);
+                    btnConfirmSend.disabled = false;
+                    btnConfirmSend.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+                showToast("error", "Có lỗi xảy ra: " + error.message);
+                btnConfirmSend.disabled = false;
+                btnConfirmSend.innerHTML = originalText;
+            });
+        }
+
+        // Mark Dish Ready (sau 8-12 giây)
+        function markDishReady(dishId) {
+            const item = cart.find(i => i.DishID === dishId);
+            if (item && item.status === "preparing") {
+                item.status = "ready";
+                renderCart();
+                showDishReadyNotification(item);
+            }
+        }
+
+        // Show Notification
+        function showDishReadyNotification(dish) {
+            const notificationArea = document.getElementById("notificationArea");
+            const notification = document.createElement("div");
+            notification.className = "notification-item";
+            notification.innerHTML = `
+                <div class="d-flex align-items-start">
+                    <i class="bi bi-check-circle-fill text-success fs-4 me-2"></i>
+                    <div class="flex-grow-1">
+                        <div class="fw-bold">Món ăn sẵn sàng!</div>
+                        <div class="small text-muted">${dish.Name} (${dish.quantity} ${dish.Unit}) đã chuẩn bị xong</div>
+                    </div>
+                    <button class="btn btn-sm btn-link text-muted p-0" onclick="this.parentElement.parentElement.remove()">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            `;
+            notificationArea.appendChild(notification);
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, 15000);
+        }
+
+        // Xem chi tiết món ăn
+        function showDishDetail(dishId) {
+            const dish = dishes.find(d => d.DishID === dishId);
+            if (!dish) return;
+
+            const ing = (dishIngredients || []).filter(x => x.dishId === dishId);
+
+            const detailHtml = `
+                <div class="modal fade" id="dishDetailModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    ${dish.Name}
+                                    ${dish.isVegetarian ? '<span class="badge bg-success ms-2">Chay</span>' : ''}
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3 text-center">
+                                    <img src="${dish.Image || 'https://placehold.co/320x200?text=No+Image'}"
+                                         class="img-fluid rounded"
+                                         style="max-height:220px;object-fit:cover;" />
+                                </div>
+                                <p class="text-muted">${dish.Description || 'Món ăn đang cập nhật mô tả.'}</p>
+                                <hr />
+                                <h6 class="fw-bold mb-2">Thành phần</h6>
+                                ${ing.length === 0
+                                    ? '<div class="text-muted small">Chưa khai báo thành phần cho món này.</div>'
+                                    : `<ul class="small mb-0">${
+                                        ing.map(x =>
+                                            `<li>${x.name}: <strong>${x.quantity.toLocaleString('vi-VN')} ${x.unit}</strong></li>`
+                                        ).join('')
+                                      }</ul>`
+                                }
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                                <button type="button" class="btn btn-primary" data-bs-dismiss="modal" onclick="quickAddDish(${dish.DishID})">
+                                    <i class="bi bi-plus-lg me-1"></i>Thêm vào giỏ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+
+            const existing = document.getElementById("dishDetailModal");
+            if (existing) {
+                existing.parentElement.removeChild(existing);
+            }
+
+            const wrapper = document.createElement("div");
+            wrapper.innerHTML = detailHtml;
+            document.body.appendChild(wrapper.firstElementChild);
+
+            const modalEl = document.getElementById("dishDetailModal");
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        }
+
+        function quickAddDish(dishId) {
+            const dummyBtn = document.createElement("button");
+            dummyBtn.closest = () => null;
+            addToCart(dishId, dummyBtn);
+        }
+
+        // Show Toast
+        function showToast(type, message) {
+            const bgClass = type === "success" ? "success" : type === "error" ? "danger" : "info";
+            const toastHTML = `
+                <div class="toast align-items-center text-white bg-${bgClass} border-0" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            <i class="bi bi-check-circle me-2"></i>${message}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            `;
+
+            const container = document.createElement("div");
+            container.style.position = "fixed";
+            container.style.top = "6rem";
+            container.style.left = "50%";
+            container.style.transform = "translateX(-50%)";
+            container.style.zIndex = "9999";
+            container.innerHTML = toastHTML;
+            document.body.appendChild(container);
+
+            const toastElement = container.querySelector(".toast");
+            const toast = new bootstrap.Toast(toastElement);
+            toast.show();
+
+            toastElement.addEventListener("hidden.bs.toast", () => {
+                container.remove();
+            });
+        }
+
+        // Update Quantity
+        function updateQuantity(dishId, delta) {
+            let item = pendingItems.find(i => i.DishID === dishId);
+            let isPending = true;
+
+            if (!item) {
+                item = cart.find(i => i.DishID === dishId);
+                isPending = false;
+            }
+
+            if (item) {
+                item.quantity += delta;
+                if (item.quantity <= 0) {
+                    if (isPending) {
+                        pendingItems = pendingItems.filter(i => i.DishID !== dishId);
+                    } else {
+                        cart = cart.filter(i => i.DishID !== dishId);
+                    }
+                }
+                renderCart();
+                updateSendButton();
+            }
+        }
+
+        // Remove from Cart
+        function removeFromCart(dishId) {
+            const pendingItem = pendingItems.find(i => i.DishID === dishId);
+            if (pendingItem) {
+                pendingItems = pendingItems.filter(i => i.DishID !== dishId);
+                showToast("info", `Đã xóa ${pendingItem.Name} khỏi giỏ hàng`);
+            } else {
+                const item = cart.find(i => i.DishID === dishId);
+                if (item) {
+                    cart = cart.filter(i => i.DishID !== dishId);
+                    showToast("info", `Đã xóa ${item.Name} khỏi giỏ hàng`);
+                }
+            }
+            renderCart();
+            updateSendButton();
+        }
+
+        // ====== THEO DÕI TRẠNG THÁI MÓN ĂN TỪ BẾP ======
+        function startOrderStatusWatcher() {
+            if (!currentOrderId) return;
+
+            // Clear timer cũ nếu có
+            if (orderStatusTimer) {
+                clearInterval(orderStatusTimer);
+            }
+
+            // Poll 10 giây/lần
+            orderStatusTimer = setInterval(function () {
+                fetch('@Url.Action("GetOrderStatus", "Home")?orderId=' + currentOrderId, {
+                    method: 'GET',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(r => r.ok ? r.json() : null)
+                .then(data => {
+                    if (!data || !data.success || !data.order) return;
+
+                    const status = data.order.StatusCode;
+                    if (status === 'READY' || status === 'SERVING') {
+                        clearInterval(orderStatusTimer);
+                        orderStatusTimer = null;
+                        showToast("success", "Bếp đã hoàn thành món ăn của bạn! Vui lòng đến quầy nhận món.");
+
+                        // Cập nhật trạng thái các món trong giỏ sang "ready"
+                        cart = (cart || []).map(function (item) {
+                            return {
+                                ...item,
+                                status: "ready"
+                            };
+                        });
+
+                        renderCart();
+
+                        // Hiển thị modal xác nhận nhận món
+                        try {
+                            var readyModalEl = document.getElementById("orderReadyModal");
+                            if (readyModalEl) {
+                                var readyModal = new bootstrap.Modal(readyModalEl);
+                                readyModal.show();
+                            }
+                        } catch (e) {
+                            console.warn("Không thể hiển thị modal xác nhận nhận món:", e.message);
+                        }
+                    }
+                })
+                .catch(() => { /* bỏ qua lỗi tạm thời */ });
+            }, 10000);
+        }
+
+        // Khách xác nhận đã nhận món
+        function confirmOrderReceived() {
+            if (!currentOrderId) return;
+
+            var tokenElement = document.querySelector('input[name="__RequestVerificationToken"]');
+            if (!tokenElement) {
+                showToast("error", "Không tìm thấy token bảo mật. Vui lòng tải lại trang.");
+                return;
+            }
+
+            var tokenValue = tokenElement.value;
+
+            fetch('@Url.Action("ConfirmOrderReceived", "Home")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: 'orderId=' + encodeURIComponent(currentOrderId) +
+                    '&__RequestVerificationToken=' + encodeURIComponent(tokenValue)
+            })
+                .then(function (response) { return response.json(); })
+                .then(function (data) {
+                    if (data && data.requiresLogin && data.loginUrl) {
+                        showToast("warning", "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.");
+                        window.location.href = data.loginUrl;
+                        return;
+                    }
+
+                    if (data && data.success) {
+                        showToast("success", data.message || "Đã xác nhận nhận món. Chúc ngon miệng!");
+                    } else {
+                        showToast("error", (data && data.message) || "Không thể xác nhận nhận món.");
+                    }
+
+                    try {
+                        var readyModalEl = document.getElementById("orderReadyModal");
+                        if (readyModalEl) {
+                            var readyModal = bootstrap.Modal.getInstance(readyModalEl);
+                            if (readyModal) {
+                                readyModal.hide();
+                            }
+                        }
+                    } catch (e) {
+                        console.warn("Không thể đóng modal xác nhận nhận món:", e.message);
+                    }
+                })
+                .catch(function (error) {
+                    console.error("ConfirmOrderReceived error:", error);
+                    showToast("error", "Có lỗi xảy ra khi xác nhận nhận món.");
+                });
+        }
+
+        // Render Cart
+        function renderCart() {
+            const cartItems = document.getElementById("cartItems");
+            const cartBadge = document.getElementById("cartBadge");
+            const cartSummary = document.getElementById("cartSummary");
+            const totalAmount = document.getElementById("totalAmount");
+
+            const allItems = [...pendingItems, ...cart];
+            const totalItems = allItems.reduce((sum, item) => sum + item.quantity, 0);
+            const total = allItems.reduce((sum, item) => sum + item.Price * item.quantity, 0);
+
+            cartBadge.textContent = totalItems;
+
+            if (allItems.length === 0) {
+                cartItems.innerHTML = `
+                    <div class="empty-cart">
+                        <i class="bi bi-cart3"></i>
+                        <p class="mb-1">Giỏ hàng trống</p>
+                        <small>Hãy chọn món ăn yêu thích</small>
+                    </div>
+                `;
+                cartSummary.classList.add("d-none");
+            } else {
+                let itemsHTML = "";
+
+                if (pendingItems.length > 0) {
+                    itemsHTML += '<div class="mb-2"><small class="text-muted fw-bold"><i class="bi bi-clock-history me-1"></i>Chưa gửi bếp</small></div>';
+                    itemsHTML += pendingItems.map(item => `
+                        <div class="cart-item" style="background: #fff3cd;">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="flex-grow-1">
+                                    <div class="fw-bold">${item.Name}</div>
+                                    <small class="text-muted">${parseInt(item.Price).toLocaleString("vi-VN")}đ × ${item.quantity}</small>
+                                    <div class="mt-1"><span class="badge bg-secondary"><i class="bi bi-hourglass me-1"></i>Chờ gửi</span></div>
+                                </div>
+                                <button class="btn btn-link text-danger p-0" onclick="removeFromCart(${item.DishID})"><i class="bi bi-trash"></i></button>
+                            </div>
+                            <input type="text" class="form-control form-control-sm note-input mb-2"
+                                   placeholder="Ghi chú (vd: ít cay, không hành...)"
+                                   value="${item.note || ''}"
+                                   onchange="updateNote(${item.DishID}, this.value, 'pending')">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="quantity-control">
+                                    <button onclick="updateQuantity(${item.DishID}, -1)"><i class="bi bi-dash"></i></button>
+                                    <span class="px-3 fw-bold">${item.quantity}</span>
+                                    <button onclick="updateQuantity(${item.DishID}, 1)"><i class="bi bi-plus"></i></button>
+                                </div>
+                                <div class="fw-bold" style="color: var(--primary-color)">${(item.Price * item.quantity).toLocaleString("vi-VN")}đ</div>
+                            </div>
+                        </div>
+                    `).join("");
+                }
+
+                if (cart.length > 0) {
+                    if (pendingItems.length > 0) itemsHTML += '<hr><div class="mb-2"><small class="text-muted fw-bold"><i class="bi bi-fire me-1"></i>Đang xử lý</small></div>';
+
+                    itemsHTML += cart.map(item => `
+                        <div class="cart-item ${item.status === "ready" ? "ready" : ""}">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="flex-grow-1">
+                                    <div class="fw-bold">
+                                        ${item.Name}
+                                        ${item.status === "ready" ? '<i class="bi bi-check-circle-fill text-success ms-1"></i>' : ""}
+                                    </div>
+                                    <small class="text-muted">${parseInt(item.Price).toLocaleString("vi-VN")}đ × ${item.quantity}</small>
+                                    ${item.note ? `<span class="item-note-display"><i class="bi bi-pencil-fill me-1" style="font-size: 10px;"></i>${item.note}</span>` : ""}
+                                    <div class="mt-1">
+                                        ${item.status === "preparing"
+                                            ? '<span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i>Đang chuẩn bị</span>'
+                                            : '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Sẵn sàng</span>'}
+                                    </div>
+                                </div>
+                                <button class="btn btn-link text-danger p-0" onclick="removeFromCart(${item.DishID})"><i class="bi bi-trash"></i></button>
+                            </div>
+                            <div class="d-flex justify-content-end align-items-center">
+                                <div class="fw-bold" style="color: var(--primary-color)">${(item.Price * item.quantity).toLocaleString("vi-VN")}đ</div>
+                            </div>
+                        </div>
+                    `).join("");
+                }
+
+                cartItems.innerHTML = itemsHTML;
+                totalAmount.textContent = total.toLocaleString("vi-VN") + "đ";
+                cartSummary.classList.remove("d-none");
+            }
+
+            saveCartToStorage();
+        }
+
+        // Update Send Button
+        function updateSendButton() {
+            const btnSend = document.getElementById("btnSendKitchen");
+            if (pendingItems.length > 0) {
+                btnSend.disabled = false;
+                btnSend.innerHTML = `<i class="bi bi-check-circle me-2"></i>Gửi ${pendingItems.length} món cho bếp`;
+            } else {
+                btnSend.disabled = true;
+                btnSend.innerHTML = `<i class="bi bi-check-circle me-2"></i>Gửi đơn cho bếp`;
+            }
+        }
+
+        // View Bill
+        function viewBill() {
+            const allItems = [...pendingItems, ...cart];
+
+            if (allItems.length === 0) {
+                showToast("info", "Giỏ hàng trống");
+                return;
+            }
+
+            const modal = new bootstrap.Modal(document.getElementById("billModal"));
+            const billItems = document.getElementById("billItems");
+            const billTime = document.getElementById("billTime");
+            const billTotalItems = document.getElementById("billTotalItems");
+            const billSubtotal = document.getElementById("billSubtotal");
+            const billTotal = document.getElementById("billTotal");
+            const billPoints = document.getElementById("billPoints");
+
+            const now = new Date();
+            billTime.textContent = now.toLocaleString("vi-VN", {
+                hour: "2-digit",
+                minute: "2-digit",
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric"
+            });
+
+            const totalItems = allItems.reduce((sum, item) => sum + item.quantity, 0);
+            const total = allItems.reduce((sum, item) => sum + item.Price * item.quantity, 0);
+            const points = Math.floor(total / 10000);
+
+            billItems.innerHTML = allItems.map(item => `
+                <div class="bill-item">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                        <div class="flex-grow-1">
+                            <div class="fw-bold">${item.Name}</div>
+                            <small class="text-muted">${parseInt(item.Price).toLocaleString("vi-VN")}đ × ${item.quantity} ${item.Unit}</small>
+                            ${item.note ? `<div class="small fst-italic text-danger">Ghi chú: ${item.note}</div>` : ""}
+                        </div>
+                        <div class="text-end">
+                            ${item.status === "pending"
+                                ? '<span class="badge bg-secondary small mb-1">Chờ gửi</span>'
+                                : '<span class="badge bg-success small mb-1">Đã đặt</span>'}
+                            <div class="fw-bold" style="color: var(--primary-color)">
+                                ${(item.Price * item.quantity).toLocaleString("vi-VN")}đ
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join("");
+
+            billTotalItems.textContent = `${totalItems} món`;
+            billSubtotal.textContent = total.toLocaleString("vi-VN") + "đ";
+            billTotal.textContent = total.toLocaleString("vi-VN") + "đ";
+            billPoints.textContent = points;
+
+            modal.show();
+        }
+
+        // Checkout
+        function checkout() {
+            if (cart.length === 0) {
+                if (pendingItems.length > 0) {
+                    showToast("info", "Vui lòng gửi món cho bếp trước khi thanh toán.");
+                } else {
+                    showToast("info", "Giỏ hàng trống. Vui lòng chọn món ăn.");
+                }
+                return;
+            }
+
+            const hasPreparingItems = cart.some(item => item.status === "preparing");
+
+            if (hasPreparingItems) {
+                showToast("info", "Vui lòng đợi tất cả món ăn được chuẩn bị xong trước khi thanh toán.");
+                return;
+            }
+
+            const billModalEl = document.getElementById("billModal");
+            const billModal = bootstrap.Modal.getInstance(billModalEl);
+            if (billModal) {
+                billModal.hide();
+            }
+
+            const checkoutModal = new bootstrap.Modal(document.getElementById("checkoutNotificationModal"));
+            checkoutModal.show();
+        }
+
+        // Finish Payment Process
+        function finishPaymentProcess() {
+            cart = [];
+            pendingItems = [];
+            renderCart();
+            updateSendButton();
+            showToast("success", "Cảm ơn quý khách đã sử dụng dịch vụ!");
+        }
+
+        // Khôi phục giỏ hàng từ đơn hiện tại (sau khi đăng xuất/đăng nhập lại)
+        function restoreCartFromExistingOrder() {
+            if (!currentOrderId) return;
+
+            fetch('@Url.Action("GetOrderStatus", "Home")?orderId=' + currentOrderId, {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    if (!data || !data.success || !data.order) return;
+
+                    var order = data.order;
+                    var items = order.Items || [];
+                    if (!items.length) return;
+
+                    // Chỉ hiển thị các món đã gửi cho bếp (status preparing/ready)
+                    cart = items.map(function (i) {
+                        return {
+                            DishID: i.DishID,
+                            Name: i.DishName,
+                            Price: i.UnitPrice,
+                            Unit: i.Unit || '',
+                            quantity: i.Quantity,
+                            status: (order.StatusCode === 'READY' || order.StatusCode === 'SERVING') ? 'ready' : 'preparing',
+                            note: i.Note || '',
+                            Image: i.Image || null
+                        };
+                    });
+                    pendingItems = [];
+                    renderCart();
+                    updateSendButton();
+                    saveCartToStorage();
+                })
+                .catch(function (e) {
+                    console.warn('Không thể khôi phục giỏ hàng từ đơn hiện tại:', e.message);
+                });
+        }
+
+        // ====== LƯU / LOAD GIỎ HÀNG TRONG LOCALSTORAGE ======
+        function saveCartToStorage() {
+            const data = {
+                pendingItems: pendingItems,
+                cart: cart
+            };
+            try {
+                localStorage.setItem(cartStorageKey, JSON.stringify(data));
+            } catch (e) {
+                console.warn("Không thể lưu giỏ hàng:", e.message);
+            }
+        }
+
+        function loadCartFromStorage() {
+            try {
+                const raw = localStorage.getItem(cartStorageKey);
+                if (!raw) return;
+                const data = JSON.parse(raw);
+                pendingItems = data.pendingItems || [];
+                cart = data.cart || [];
+            } catch (e) {
+                console.warn("Không thể đọc giỏ hàng:", e.message);
+            }
+        }
+
+        // Update Note
+        function updateNote(dishId, noteContent, listType) {
+            let item;
+            if (listType === "pending") {
+                item = pendingItems.find(i => i.DishID === dishId);
+            } else {
+                item = cart.find(i => i.DishID === dishId);
+            }
+
+            if (item) {
+                item.note = noteContent.trim();
+            }
+        }
+
+        // Initialize Loyalty Info
+        function initializeLoyaltyInfo() {
+            const loyaltyInfo = document.getElementById("loyaltyInfo");
+            const customerNameEl = document.getElementById("customerName");
+            const loyaltyPointsEl = document.getElementById("loyaltyPoints");
+
+            if (isCustomerLoggedIn === "true") {
+                customerNameEl.textContent = customerName;
+                loyaltyPointsEl.textContent = loyaltyPoints;
+                loyaltyInfo.classList.remove("d-none");
+            }
+        }
+
+        // Reset Table
+        function confirmResetTable() {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '@Url.Action("ResetTable", "Menu")';
+            form.innerHTML = `
+                <input type="hidden" name="tableId" value="${tableID}">
+                <input type="hidden" name="branchId" value="${branchId}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    </script>
+}

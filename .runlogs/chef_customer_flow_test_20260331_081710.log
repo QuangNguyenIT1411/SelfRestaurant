@@ -1,0 +1,6 @@
+[2026-03-31 08:17:10] === BẮT ĐẦU TEST LUỒNG CHEF <-> KHÁCH HÀNG ===
+[2026-03-31 08:17:10] [OLD] Bỏ qua theo cờ -SkipOld
+[2026-03-31 08:17:10] [NEW] Đăng nhập khách hàng...
+[2026-03-31 08:17:11] [NEW] Dùng bàn ID=2
+[2026-03-31 08:17:11] [NEW] Tạo orderId=22
+[2026-03-31 08:17:11] TEST FAILED: [NEW] SendToKitchen thất bại: {\u0022type\u0022:\u0022https://tools.ietf.org/html/rfc9110#section-15.5.5\u0022,\u0022title\u0022:\u0022Not Found\u0022,\u0022status\u0022:404,\u0022traceId\u0022:\u002200-f486abab784f4b268216036086eab5b0-0ecffa032f092b31-00\u0022}

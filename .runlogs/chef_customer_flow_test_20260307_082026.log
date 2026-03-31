@@ -1,0 +1,9 @@
+[2026-03-07 08:20:26] === BẮT ĐẦU TEST LUỒNG CHEF <-> KHÁCH HÀNG ===
+[2026-03-07 08:20:26] [OLD] Bỏ qua theo cờ -SkipOld
+[2026-03-07 08:20:26] [NEW] Đăng nhập khách hàng...
+[2026-03-07 08:20:27] [NEW] Dùng bàn ID=1
+[2026-03-07 08:20:27] [NEW] Tạo orderId=2
+[2026-03-07 08:20:27] [NEW] Đăng nhập chef...
+[2026-03-07 08:20:30] [NEW] Result: {"Environment":"NEW_MICROSERVICE","TableId":1,"OrderId":2,"ChefPageContainsOrder":true,"StatusAfterPreparing":"PREPARING","StatusAfterReady":"READY","CustomerConfirmedReceived":true,"ChefPageHiddenAfterConfirm":true,"Pass":true}
+[2026-03-07 08:20:30] Tóm tắt đã lưu: C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\.runlogs\chef_customer_flow_summary_20260307_082026.json
+[2026-03-07 08:20:30] Kết quả chung: BothPass=True

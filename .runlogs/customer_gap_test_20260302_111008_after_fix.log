@@ -1,0 +1,10 @@
+=== GAP TEST AFTER FIX START ===
+[A0] Reset table 3: HTTP 204
+[A1] Add={"success":true}
+[A2] Submit={"success":true}
+[A3] UpdateQuantity after submit={"success":false,"message":"\u0022Kh\u00F4ng th\u1EC3 c\u1EADp nh\u1EADt m\u00F3n \u0111\u00E3 g\u1EEDi b\u1EBFp\u0022"}
+[A4] RemoveItem after submit={"success":false,"message":"\u0022Kh\u00F4ng th\u1EC3 x\u00F3a m\u00F3n \u0111\u00E3 g\u1EEDi b\u1EBFp\u0022"}
+[B0] Reset table 5: HTTP 204
+[B1] Remove last item response={"success":true}
+[B2] Table 5 state after remove={"tableId":5,"branchId":1,"displayTableNumber":5,"numberOfSeats":2,"statusName":"Có sẵn","isAvailable":true}
+[C1] ScanLoyaltyCard logged-in => {"success":true,"message":"\u0110\u00E3 qu\u00E9t th\u1EBB th\u00E0nh c\u00F4ng","customer":{"name":"Ph\u1EA1m Th\u1ECB Hoa","phone":"0909123456","currentPoints":500,"cardPoints":500}}

@@ -1,0 +1,16 @@
+[2026-03-04 09:19:39] [PASS] Health Check :: gateway + catalog + orders reachable
+[2026-03-04 09:19:39] [PASS] Customer Login :: lan.nguyen
+[2026-03-04 09:19:39] [PASS] Customer Points Before :: points=1200
+[2026-03-04 09:19:39] [PASS] Pick Table :: branch=1 table=7
+[2026-03-04 09:19:39] [PASS] Reset Table Before Flow :: tableId=7
+[2026-03-04 09:19:39] [PASS] Pick Dish :: dishId=12
+[2026-03-04 09:19:39] [PASS] Customer Create Order :: orderId=1007 tableId=7
+[2026-03-04 09:19:39] [PASS] Customer Send To Kitchen :: orderId=1007
+[2026-03-04 09:19:39] [PASS] Chef Login :: chef_hung
+[2026-03-04 09:19:40] [PASS] Chef -> Customer PREPARING :: status=PREPARING
+[2026-03-04 09:19:40] [PASS] Chef -> Customer READY :: status=READY
+[2026-03-04 09:19:40] [PASS] Cashier Login :: cashier_lan
+[2026-03-04 09:19:40] [PASS] Cashier Process Payment :: orderId=1007 pointsEarned=0
+[2026-03-04 09:19:40] [PASS] Cashier -> Customer COMPLETED :: status=COMPLETED
+[2026-03-04 09:19:40] [FAIL] Customer Points Increased After Payment :: before=1200 after=1200
+[2026-03-04 09:19:40] [PASS] Reset Table After Flow :: tableId=7

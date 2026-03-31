@@ -1,0 +1,28 @@
+C:\Users\To Uyen\OneDrive\Desktop\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\bin\Debug\net8.0\SelfRestaurant.Database.deps.json
+C:\Users\To Uyen\OneDrive\Desktop\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\bin\Debug\net8.0\SelfRestaurant.Database.runtimeconfig.json
+C:\Users\To Uyen\OneDrive\Desktop\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\bin\Debug\net8.0\SelfRestaurant.Database.dll
+C:\Users\To Uyen\OneDrive\Desktop\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\bin\Debug\net8.0\SelfRestaurant.Database.pdb
+C:\Users\To Uyen\OneDrive\Desktop\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\obj\Debug\net8.0\SelfRestaurant.Database.csproj.AssemblyReference.cache
+C:\Users\To Uyen\OneDrive\Desktop\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\obj\Debug\net8.0\SelfRestaurant.Database.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\To Uyen\OneDrive\Desktop\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\obj\Debug\net8.0\SelfRestaurant.Database.AssemblyInfoInputs.cache
+C:\Users\To Uyen\OneDrive\Desktop\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\obj\Debug\net8.0\SelfRestaurant.Database.AssemblyInfo.cs
+C:\Users\To Uyen\OneDrive\Desktop\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\obj\Debug\net8.0\SelfRestaurant.Database.csproj.CoreCompileInputs.cache
+C:\Users\To Uyen\OneDrive\Desktop\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\obj\Debug\net8.0\SelfRestaurant.Database.dll
+C:\Users\To Uyen\OneDrive\Desktop\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\obj\Debug\net8.0\refint\SelfRestaurant.Database.dll
+C:\Users\To Uyen\OneDrive\Desktop\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\obj\Debug\net8.0\SelfRestaurant.Database.pdb
+C:\Users\To Uyen\OneDrive\Desktop\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\obj\Debug\net8.0\SelfRestaurant.Database.genruntimeconfig.cache
+C:\Users\To Uyen\OneDrive\Desktop\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\obj\Debug\net8.0\ref\SelfRestaurant.Database.dll
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\bin\Debug\net8.0\SelfRestaurant.Database.deps.json
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\bin\Debug\net8.0\SelfRestaurant.Database.runtimeconfig.json
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\bin\Debug\net8.0\SelfRestaurant.Database.dll
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\bin\Debug\net8.0\SelfRestaurant.Database.pdb
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\obj\Debug\net8.0\SelfRestaurant.Database.csproj.AssemblyReference.cache
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\obj\Debug\net8.0\SelfRestaurant.Database.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\obj\Debug\net8.0\SelfRestaurant.Database.AssemblyInfoInputs.cache
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\obj\Debug\net8.0\SelfRestaurant.Database.AssemblyInfo.cs
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\obj\Debug\net8.0\SelfRestaurant.Database.csproj.CoreCompileInputs.cache
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\obj\Debug\net8.0\SelfRestaurant.Database.dll
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\obj\Debug\net8.0\refint\SelfRestaurant.Database.dll
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\obj\Debug\net8.0\SelfRestaurant.Database.pdb
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\obj\Debug\net8.0\SelfRestaurant.Database.genruntimeconfig.cache
+C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Shared\SelfRestaurant.Database\obj\Debug\net8.0\ref\SelfRestaurant.Database.dll

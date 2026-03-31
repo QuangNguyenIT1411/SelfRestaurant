@@ -1,0 +1,98 @@
+﻿{
+    "timestamp":  "20260327_004659",
+    "passed":  18,
+    "total":  18,
+    "log":  "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\.runlogs\\customer_detailed_new_20260327_004659.log",
+    "results":  [
+                    {
+                        "Step":  "Open Register",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Register",
+                        "Pass":  true,
+                        "Detail":  "status=200 user=cusd_20260327004659844"
+                    },
+                    {
+                        "Step":  "Open Login",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Login",
+                        "Pass":  true,
+                        "Detail":  "user=cusd_20260327004659844"
+                    },
+                    {
+                        "Step":  "Select Branch/Table",
+                        "Pass":  true,
+                        "Detail":  "branch=1 table=1 display=1"
+                    },
+                    {
+                        "Step":  "Open Menu",
+                        "Pass":  true,
+                        "Detail":  "dishId=9"
+                    },
+                    {
+                        "Step":  "Add Item",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true}"
+                    },
+                    {
+                        "Step":  "Read Active Order",
+                        "Pass":  true,
+                        "Detail":  "orderId=1 itemId=1 status=PENDING"
+                    },
+                    {
+                        "Step":  "Update Quantity",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true}"
+                    },
+                    {
+                        "Step":  "Remove Item",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true} [json-fallback]"
+                    },
+                    {
+                        "Step":  "Add Item Again",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true}"
+                    },
+                    {
+                        "Step":  "Send To Kitchen",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true,\"message\":\"\\u0110\\u00E3 g\\u1EEDi y\\u00EAu c\\u1EA7u xu\\u1ED1ng b\\u1EBFp.\"} [json-fallback]"
+                    },
+                    {
+                        "Step":  "Check Order Status",
+                        "Pass":  true,
+                        "Detail":  "statusCode=PENDING"
+                    },
+                    {
+                        "Step":  "Update Profile",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Forgot Password",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Get Reset Token",
+                        "Pass":  true,
+                        "Detail":  "ok"
+                    },
+                    {
+                        "Step":  "Reset Password",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Login With New Password",
+                        "Pass":  true,
+                        "Detail":  "message=Đăng nhập thành công!"
+                    }
+                ]
+}

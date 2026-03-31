@@ -1,0 +1,78 @@
+﻿{
+    "timestamp":  "20260329_010027",
+    "passed":  12,
+    "total":  14,
+    "log":  "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\.runlogs\\customer_detailed_new_20260329_010027.log",
+    "results":  [
+                    {
+                        "Step":  "Open Register",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Register",
+                        "Pass":  true,
+                        "Detail":  "status=200 user=cusd_20260329010027716"
+                    },
+                    {
+                        "Step":  "Open Login",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Login",
+                        "Pass":  true,
+                        "Detail":  "user=cusd_20260329010027716"
+                    },
+                    {
+                        "Step":  "Select Branch/Table",
+                        "Pass":  true,
+                        "Detail":  "branch=1 table=1 display=1"
+                    },
+                    {
+                        "Step":  "Open Menu",
+                        "Pass":  true,
+                        "Detail":  "dishId=4"
+                    },
+                    {
+                        "Step":  "Add Item",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true}"
+                    },
+                    {
+                        "Step":  "Read Active Order",
+                        "Pass":  true,
+                        "Detail":  "orderId=1 itemId=1 status=PENDING"
+                    },
+                    {
+                        "Step":  "Update Quantity",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true}"
+                    },
+                    {
+                        "Step":  "Remove Item",
+                        "Pass":  false,
+                        "Detail":  "raw={\"success\":false,\"message\":\"The request was canceled due to the configured HttpClient.Timeout of 10 seconds elapsing.\"} [json-fallback]"
+                    },
+                    {
+                        "Step":  "Add Item Again",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true}"
+                    },
+                    {
+                        "Step":  "Send To Kitchen",
+                        "Pass":  true,
+                        "Detail":  "raw={\"success\":true,\"message\":\"\\u0110\\u00E3 g\\u1EEDi y\\u00EAu c\\u1EA7u xu\\u1ED1ng b\\u1EBFp.\"} [json-fallback]"
+                    },
+                    {
+                        "Step":  "Check Order Status",
+                        "Pass":  true,
+                        "Detail":  "statusCode=CONFIRMED"
+                    },
+                    {
+                        "Step":  "Unhandled Error",
+                        "Pass":  false,
+                        "Detail":  "The remote server returned an error: (500) Internal Server Error."
+                    }
+                ]
+}

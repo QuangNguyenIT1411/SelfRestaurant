@@ -1,0 +1,685 @@
+﻿@model SelfRestaurant.Models.HomeViewModel
+@{
+    ViewBag.Title = "Chuỗi Nhà Hàng Tự Phục Vụ";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var isCustomerLoggedIn = Session["CustomerID"] != null;
+    var customerName = isCustomerLoggedIn ? Session["CustomerName"]?.ToString() : "";
+
+    // ===== THÊM LẤY THÔNG TIN BÀN TỪ SESSION =====
+    var hasCurrentTable = Session["CurrentTableID"] != null;
+    var currentTableID = hasCurrentTable ? (int)Session["CurrentTableID"] : 0;
+    var currentBranchID = hasCurrentTable ? (int)Session["CurrentBranchID"] : 0;
+    var currentBranchName = hasCurrentTable ? Session["CurrentBranchName"]?.ToString() : "";
+    var currentTableNumber = hasCurrentTable ? (int)Session["CurrentTableNumber"] : 0;
+}
+
+@section css{
+    <style>
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: #f8f9fa;
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.75rem;
+            color: #d9534f !important;
+        }
+
+        .nav-link {
+            font-weight: 500;
+        }
+
+        .hero-section {
+            background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url("https://placehold.co/1920x600/666/white?text=Chao+mung+den+Self+Restaurant");
+            background-size: cover;
+            background-position: center;
+            color: white;
+            padding: 8rem 0;
+            text-align: center;
+        }
+
+            .hero-section h1 {
+                font-size: 3.5rem;
+                font-weight: 700;
+            }
+
+            .hero-section p {
+                font-size: 1.25rem;
+                margin-bottom: 2rem;
+            }
+
+        .section-container {
+            background-color: #ffffff;
+            padding: 3rem 0;
+            text-align: center;
+            min-height: 400px;
+        }
+
+        .section-title {
+            font-weight: 600;
+            margin-bottom: 2rem;
+            font-size: 2rem;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            margin: 0.5rem;
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #e9ecef;
+            color: #6c757d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            margin-right: 0.5rem;
+        }
+
+        .step.active .step-number {
+            background-color: #d9534f;
+            color: white;
+        }
+
+        .step.completed .step-number {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .step-text {
+            font-weight: 500;
+            color: #6c757d;
+        }
+
+        .step.active .step-text {
+            color: #d9534f;
+        }
+
+        .step.completed .step-text {
+            color: #28a745;
+        }
+
+        .step-arrow {
+            color: #dee2e6;
+            font-size: 1.5rem;
+            margin: 0 1rem;
+        }
+
+        .search-box {
+            max-width: 500px;
+            margin: 0 auto 2rem;
+        }
+
+        .search-input {
+            border-radius: 25px;
+            padding: 0.75rem 1.5rem;
+            border: 2px solid #dee2e6;
+            font-size: 1rem;
+        }
+
+            .search-input:focus {
+                border-color: #d9534f;
+                box-shadow: 0 0 0 0.2rem rgba(217, 83, 79, 0.25);
+            }
+
+        .branch-btn, .table-btn {
+            font-size: 1.1rem;
+            font-weight: 500;
+            padding: 0.75rem 1.5rem;
+            margin: 0.5rem;
+        }
+
+        .table-card {
+            border: 2px solid #dee2e6;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background-color: white;
+        }
+
+            .table-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            }
+
+            .table-card.available {
+                border-color: #28a745;
+            }
+
+            .table-card.occupied {
+                border-color: #dc3545;
+                background-color: #f8f9fa;
+                cursor: not-allowed;
+                opacity: 0.6;
+            }
+
+            .table-card.selected {
+                border-color: #d9534f;
+                background-color: #fff5f5;
+                border-width: 3px;
+            }
+
+        .table-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .table-card.available .table-icon {
+            color: #28a745;
+        }
+
+        .table-card.occupied .table-icon {
+            color: #dc3545;
+        }
+
+        .table-card.selected .table-icon {
+            color: #d9534f;
+        }
+
+        .loading-spinner {
+            text-align: center;
+            padding: 3rem;
+        }
+
+        .back-btn {
+            margin-bottom: 2rem;
+        }
+
+        .info-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background-color: #e7f3ff;
+            border-radius: 8px;
+            margin: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .footer {
+            background-color: #343a40;
+            color: white;
+            padding: 3rem 0;
+            text-align: center;
+        }
+
+            .footer p {
+                margin-bottom: 0.5rem;
+            }
+
+        .social-icons a {
+            color: white;
+            font-size: 1.5rem;
+            margin: 0 0.75rem;
+            transition: color 0.2s;
+        }
+
+            .social-icons a:hover {
+                color: #d9534f;
+            }
+
+        .no-results {
+            text-align: center;
+            padding: 2rem;
+            color: #6c757d;
+        }
+
+            .no-results i {
+                font-size: 3rem;
+                margin-bottom: 1rem;
+                opacity: 0.5;
+            }
+
+        .customer-dropdown {
+            color: #d9534f;
+        }
+
+        /* ===== STYLING CHO CONTINUE TABLE ALERT ===== */
+        .continue-table-alert {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .continue-table-text {
+            flex: 1;
+        }
+
+            .continue-table-text h4 {
+                margin-bottom: 0.5rem;
+                font-weight: 600;
+            }
+
+            .continue-table-text p {
+                margin: 0;
+                font-size: 0.95rem;
+                opacity: 0.9;
+            }
+
+        .continue-table-buttons {
+            display: flex;
+            gap: 0.75rem;
+            margin-left: 1rem;
+        }
+
+            .continue-table-buttons .btn {
+                font-size: 0.9rem;
+                padding: 0.5rem 1rem;
+            }
+    </style>
+}
+
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+    <div class="container">
+        <a class="navbar-brand" href="@Url.Action("Index", "Home")">Self Restaurant</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <a class="nav-link active" href="@Url.Action("Index", "Home")">Trang Chủ</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="@Url.Action("About", "Home")">Về Chúng Tôi</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="@Url.Action("Contact", "Home")">Liên Hệ</a>
+                </li>
+
+                @if (isCustomerLoggedIn)
+                {
+                    @* Nút nhanh tới bàn hiện tại nếu đang có *@
+                    if (hasCurrentTable)
+                    {
+                        <li class="nav-item me-2">
+                            <a class="nav-link btn btn-outline-danger px-3 text-danger"
+                               href="@Url.Action("Index", "Menu", new { tableId = currentTableID, branchId = currentBranchID })">
+                                <i class="fas fa-chair me-1"></i>Bàn hiện tại (@currentTableNumber)
+                            </a>
+                        </li>
+                    }
+
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle customer-dropdown" href="#" id="customerDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-user-circle me-1"></i>@customerName
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="customerDropdown">
+                            <li>
+                                <a class="dropdown-item" href="@Url.Action("Dashboard", "Customer")">
+                                    <i class="fas fa-th-large me-2"></i>Dashboard
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="@Url.Action("Profile", "Customer")">
+                                    <i class="fas fa-user me-2"></i>Hồ Sơ Cá Nhân
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item text-danger" href="@Url.Action("Logout", "Customer")">
+                                    <i class="fas fa-sign-out-alt me-2"></i>Đăng Xuất
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                }
+                else
+                {
+                    <li class="nav-item">
+                        <a class="nav-link" href="@Url.Action("Login", "Customer")">
+                            <i class="fas fa-sign-in-alt me-1"></i>Đăng Nhập
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link btn btn-danger btn-sm ms-2 text-white" href="@Url.Action("Register", "Customer")">
+                            <i class="fas fa-user-plus me-1"></i>Đăng Ký
+                        </a>
+                    </li>
+                }
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<header class="hero-section">
+    <div class="container">
+        <h1>Trải Nghiệm Ẩm Thực Tinh Tế</h1>
+        <p>Khám phá thực đơn phong phú tại các chi nhánh của Self Restaurant.</p>
+        <a href="#branch-selector" class="btn btn-danger btn-lg">Đặt Món Ngay</a>
+    </div>
+</header>
+
+<!-- ===== THÊM ALERT QUAY LẠI BÀN CŨ ===== -->
+@if (hasCurrentTable)
+{
+    <div class="container mt-4">
+        <div class="continue-table-alert">
+            <div class="continue-table-text">
+                <h4>
+                    <i class="fas fa-chair me-2"></i>Bạn còn bàn đang chờ
+                </h4>
+                <p>
+                    @currentBranchName - Bàn @currentTableNumber | Quay lại để tiếp tục đặt thêm món
+                </p>
+            </div>
+            <div class="continue-table-buttons">
+                <a href="@Url.Action("Index", "Menu", new { tableId = currentTableID, branchId = currentBranchID })" class="btn btn-light">
+                    <i class="fas fa-arrow-right me-1"></i>Quay Lại Bàn
+                </a>
+                <form method="post" action="@Url.Action("ResetTable", "Menu")" style="display: inline;">
+                    <input type="hidden" name="tableId" value="@currentTableID" />
+                    <input type="hidden" name="branchId" value="@currentBranchID" />
+                    <button type="submit" class="btn btn-outline-light" onclick="return confirm('Bạn có chắc muốn reset bàn này?');">
+                        <i class="fas fa-times me-1"></i>Reset
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Step Indicator -->
+<div class="container mt-4">
+    <div class="step-indicator" id="step-indicator">
+        <div class="step" id="step-1">
+            <div class="step-number">1</div>
+            <div class="step-text">Chọn Chi Nhánh</div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step" id="step-2">
+            <div class="step-number">2</div>
+            <div class="step-text">Chọn Bàn</div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step" id="step-3">
+            <div class="step-number">3</div>
+            <div class="step-text">Đặt Món</div>
+        </div>
+    </div>
+</div>
+
+<!-- Branch Selection Section -->
+<section class="section-container" id="branch-selector">
+    <div class="container">
+        <h2 class="section-title">Bước 1: Chọn Chi Nhánh</h2>
+
+        <!-- Search Box -->
+        <div class="search-box">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0">
+                    <i class="fas fa-search text-muted"></i>
+                </span>
+                <input type="text"
+                       class="form-control search-input border-start-0"
+                       id="branch-search"
+                       placeholder="Tìm kiếm chi nhánh theo tên hoặc địa chỉ...">
+            </div>
+        </div>
+
+        <div id="branch-buttons">
+            @if (Model != null && Model.Branches != null && Model.Branches.Any())
+            {
+                foreach (var branch in Model.Branches)
+                {
+                    <button class="btn btn-outline-danger branch-btn"
+                            data-branch-id="@branch.BranchID"
+                            data-branch-name="@branch.Name"
+                            data-branch-location="@branch.Location">
+                        <i class="fas fa-map-marker-alt me-2"></i>@branch.Name
+                        <br><small class="text-muted">@branch.Location</small>
+                    </button>
+                }
+            }
+            else
+            {
+                <p class="text-muted">Không có chi nhánh nào khả dụng.</p>
+            }
+        </div>
+
+        <div id="no-results" class="no-results d-none">
+            <i class="fas fa-search"></i>
+            <p>Không tìm thấy chi nhánh phù hợp</p>
+            <small class="text-muted">Vui lòng thử từ khóa khác</small>
+        </div>
+    </div>
+</section>
+
+<!-- Table Selection Section -->
+<section class="section-container d-none" id="table-selector">
+    <div class="container">
+        <button class="btn btn-outline-secondary back-btn" id="back-to-branch">
+            <i class="fas fa-arrow-left me-2"></i>Quay lại chọn chi nhánh
+        </button>
+        <h2 class="section-title">Bước 2: Chọn Bàn</h2>
+        <div class="mb-3">
+            <span class="info-badge">
+                <i class="fas fa-store me-2"></i>
+                <strong id="selected-branch-name"></strong>
+            </span>
+        </div>
+        <div id="table-grid" class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3">
+            <!-- Tables will be loaded here -->
+        </div>
+    </div>
+</section>
+
+<!-- Loading Spinner -->
+<div id="loading-spinner" class="loading-spinner d-none">
+    <div class="spinner-border text-danger" role="status">
+        <span class="visually-hidden">Đang tải...</span>
+    </div>
+    <p class="mt-3 text-muted">Đang tải dữ liệu...</p>
+</div>
+
+<footer class="footer">
+    <div class="container">
+        <div class="social-icons mb-3">
+            <a href="#"><i class="fab fa-facebook-f"></i></a>
+            <a href="#"><i class="fab fa-instagram"></i></a>
+            <a href="#"><i class="fab fa-twitter"></i></a>
+        </div>
+        <p>&copy; 2024 Self Restaurant. Đã đăng ký bản quyền.</p>
+        <p>Một dự án của OOAD Team.</p>
+    </div>
+</footer>
+
+@section scripts{
+    <script>
+        // Trạng thái đăng nhập khách hàng (bool)
+        const isCustomerLoggedInClient = @isCustomerLoggedIn.ToString().ToLower();
+        const customerLoginUrl = '@Url.Action("Login", "Customer")';
+
+        $(document).ready(function() {
+            // State management
+            let selectedBranchId = null;
+            let selectedBranchName = null;
+            let selectedTableId = null;
+
+            // UI Elements
+            const branchSelector = $("#branch-selector");
+            const tableSelector = $("#table-selector");
+            const loadingSpinner = $("#loading-spinner");
+            const branchButtons = $(".branch-btn");
+            const noResults = $("#no-results");
+
+            // Update step indicator
+            function updateStepIndicator(currentStep) {
+                for (let i = 1; i <= 3; i++) {
+                    const step = $("#step-" + i);
+                    step.removeClass("active completed");
+                    if (i < currentStep) step.addClass("completed");
+                    if (i === currentStep) step.addClass("active");
+                }
+            }
+
+            // Branch Search
+            $("#branch-search").on("input", function() {
+                const searchTerm = $(this).val().toLowerCase().trim();
+                let visibleCount = 0;
+
+                branchButtons.each(function() {
+                    const branchName = $(this).data("branch-name").toLowerCase();
+                    const branchLocation = $(this).data("branch-location").toLowerCase();
+
+                    if (branchName.includes(searchTerm) || branchLocation.includes(searchTerm)) {
+                        $(this).show();
+                        visibleCount++;
+                    } else {
+                        $(this).hide();
+                    }
+                });
+
+                // Show/hide no results message
+                if (visibleCount === 0 && searchTerm !== "") {
+                    noResults.removeClass("d-none");
+                } else {
+                    noResults.addClass("d-none");
+                }
+            });
+
+            // Step 1: Branch Selection
+            branchButtons.on("click", function() {
+                // Nếu khách hàng chưa đăng nhập thì chuyển tới trang đăng nhập
+                if (!isCustomerLoggedInClient) {
+                    window.location.href = customerLoginUrl;
+                    return;
+                }
+
+                selectedBranchId = $(this).data("branch-id");
+                selectedBranchName = $(this).data("branch-name");
+
+                branchButtons.removeClass("btn-danger").addClass("btn-outline-danger");
+                $(this).removeClass("btn-outline-danger").addClass("btn-danger");
+
+                loadTables();
+            });
+
+            // Load tables for selected branch
+            function loadTables() {
+                showLoading();
+                branchSelector.addClass("d-none");
+
+                $.ajax({
+                    url: '@Url.Action("GetBranchTables", "Home")',
+                    type: 'GET',
+                    data: { branchId: selectedBranchId },
+                    success: function(result) {
+                        hideLoading();
+
+                        // Nếu server yêu cầu đăng nhập thì chuyển hướng
+                        if (result.requiresLogin && result.loginUrl) {
+                            window.location.href = result.loginUrl;
+                            return;
+                        }
+
+                        if (result.success && result.tables) {
+                            $("#selected-branch-name").text(result.branchName);
+                            displayTables(result.tables);
+                            tableSelector.removeClass("d-none");
+                            updateStepIndicator(2);
+                            scrollToSection(tableSelector);
+                        } else {
+                            alert(result.message || "Không thể tải danh sách bàn");
+                            branchSelector.removeClass("d-none");
+                        }
+                    },
+                    error: function() {
+                        hideLoading();
+                        alert("Có lỗi xảy ra khi tải danh sách bàn");
+                        branchSelector.removeClass("d-none");
+                    }
+                });
+            }
+
+            // Display tables
+function displayTables(tables) {
+    const tableGrid = $("#table-grid");
+    tableGrid.empty();
+
+    $.each(tables, function(i, table) {
+        const availableClass = table.IsAvailable ? "available" : "occupied";
+        const statusText = table.StatusName;
+        const disabled = !table.IsAvailable ? "disabled" : "";
+
+        const tableCard = $(`
+            <div class="col">
+                <div class="table-card ${availableClass}" data-table-id="${table.TableID}" ${disabled}>
+                    <div class="table-icon">
+                        <i class="fas fa-chair"></i>
+                    </div>
+                    <h5>Bàn ${table.DisplayTableNumber}</h5>
+                    <p class="mb-1"><i class="fas fa-users me-2"></i>${table.NumberOfSeats} chỗ</p>
+                    <span class="badge bg-${table.IsAvailable ? 'success' : 'danger'}">${statusText}</span>
+                </div>
+            </div>
+        `);
+
+        if (table.IsAvailable) {
+            tableCard.find(".table-card").on("click", function() {
+                if (!$(this).hasClass("occupied")) {
+                    selectedTableId = table.TableID;
+                    const displayNumber = table.DisplayTableNumber;
+
+                    // Lưu display number vào sessionStorage
+                    sessionStorage.setItem('displayTableNumber', displayNumber);
+
+                    // Chuyển sang trang Menu/Index
+                    window.location.href = '@Url.Action("Index", "Menu")' +
+                        '?tableId=' + selectedTableId +
+                        '&branchId=' + selectedBranchId;
+                }
+            });
+        }
+
+        tableGrid.append(tableCard);
+    });
+}
+
+            // Back button
+            $("#back-to-branch").on("click", function() {
+                tableSelector.addClass("d-none");
+                branchSelector.removeClass("d-none");
+                updateStepIndicator(1);
+                scrollToSection(branchSelector);
+            });
+
+            // Helper functions
+            function showLoading() {
+                loadingSpinner.removeClass("d-none");
+            }
+
+            function hideLoading() {
+                loadingSpinner.addClass("d-none");
+            }
+
+            function scrollToSection(section) {
+                $('html, body').animate({
+                    scrollTop: section.offset().top - 80
+                }, 500);
+            }
+
+            // Initialize
+            updateStepIndicator(1);
+        });
+    </script>
+}

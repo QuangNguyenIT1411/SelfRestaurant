@@ -1,0 +1,4 @@
+[2026-03-31 08:02:15] === START CASHIER <-> CUSTOMER FLOW TEST ===
+[2026-03-31 08:02:15] [OLD] skipped by -SkipOld
+[2026-03-31 08:02:15] [NEW] customer login...
+[2026-03-31 08:02:15] TEST FAILED: [NEW] cannot parse customer points from dashboard

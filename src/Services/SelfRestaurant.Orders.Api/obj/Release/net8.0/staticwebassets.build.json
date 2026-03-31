@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "zQXas4WXZo71GxywL2C5mPOPz1iP+oxGZgxPGmdlYOU=",
+  "Source": "SelfRestaurant.Orders.Api",
+  "BasePath": "_content/SelfRestaurant.Orders.Api",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}

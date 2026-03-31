@@ -1,0 +1,15 @@
+﻿{
+    "timestamp":  "20260327_012626",
+    "total":  1,
+    "passed":  0,
+    "failed":  1,
+    "log":  "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\.runlogs\\admin_flow_test_20260327_012626.log",
+    "results":  [
+                    {
+                        "env":  "SYSTEM",
+                        "feature":  "Unhandled",
+                        "pass":  false,
+                        "detail":  "New gateway is not reachable at http://localhost:5100"
+                    }
+                ]
+}

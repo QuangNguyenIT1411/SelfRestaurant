@@ -1,0 +1,20 @@
+[2026-03-29 00:39:25] [PASS] Open Register :: status=200
+[2026-03-29 00:39:26] [PASS] Register :: status=200 user=cusd_20260329003925308
+[2026-03-29 00:39:26] [PASS] Open Login :: status=200
+[2026-03-29 00:39:27] [PASS] Login :: user=cusd_20260329003925308
+[2026-03-29 00:39:27] [PASS] Select Branch/Table :: branch=1 table=1 display=1
+[2026-03-29 00:39:29] [PASS] Open Menu :: dishId=4
+[2026-03-29 00:39:29] [PASS] Add Item :: raw={"success":true}
+[2026-03-29 00:39:29] [PASS] Read Active Order :: orderId=13 itemId=13 status=PENDING
+[2026-03-29 00:39:40] [FAIL] Update Quantity :: raw={"success":false,"message":"The request was canceled due to the configured HttpClient.Timeout of 10 seconds elapsing."}
+[2026-03-29 00:39:42] [PASS] Remove Item :: raw={"success":true} [json-fallback]
+[2026-03-29 00:39:52] [FAIL] Add Item Again :: raw={"success":false,"message":"The request was canceled due to the configured HttpClient.Timeout of 10 seconds elapsing."}
+[2026-03-29 00:39:53] [FAIL] Send To Kitchen :: raw={"success":false,"message":"\u0110\u01A1n h\u00E0ng tr\u1ED1ng"} [json-fallback]
+[2026-03-29 00:40:03] [FAIL] Check Order Status :: statusCode=
+[2026-03-29 00:40:04] [PASS] Update Profile :: status=200
+[2026-03-29 00:40:08] [PASS] Forgot Password :: status=200
+[2026-03-29 00:40:08] [PASS] Get Reset Token :: ok
+[2026-03-29 00:40:09] [PASS] Reset Password :: status=200
+[2026-03-29 00:40:09] [PASS] Login With New Password :: message=Ðang nh?p thành công!
+[2026-03-29 00:40:09] SUMMARY: 14/18 PASS
+[2026-03-29 00:40:09] SUMMARY_JSON: C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\.runlogs\customer_detailed_new_summary_20260329_003925.json

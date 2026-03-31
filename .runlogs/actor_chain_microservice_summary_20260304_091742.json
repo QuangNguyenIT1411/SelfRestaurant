@@ -1,0 +1,92 @@
+﻿{
+    "timestamp":  "2026-03-04 09:17:43",
+    "total":  16,
+    "passed":  5,
+    "failed":  11,
+    "orderId":  0,
+    "tableId":  0,
+    "pointsBefore":  1200,
+    "pointsAfter":  1200,
+    "results":  [
+                    {
+                        "step":  "Health Check",
+                        "pass":  true,
+                        "detail":  "gateway + catalog + orders reachable"
+                    },
+                    {
+                        "step":  "Customer Login",
+                        "pass":  false,
+                        "detail":  "Customer login failed: {\"success\":true,\"message\":\"\\u0110\\u0103ng nh\\u1EADp th\\u00E0nh c\\u00F4ng!\",\"redirectUrl\":\"/\"}"
+                    },
+                    {
+                        "step":  "Customer Points Before",
+                        "pass":  true,
+                        "detail":  "points=1200"
+                    },
+                    {
+                        "step":  "Pick Table",
+                        "pass":  false,
+                        "detail":  "GetBranchTables failed: {\"success\":true,\"branchName\":\"Chi nh\\u00E1nh Qu\\u1EADn 1\",\"tables\":[{\"tableId\":1,\"branchId\":1,\"displayTableNumber\":1,\"numberOfSeats\":2,\"statusName\":\"\\u0110ang s\\u1EED d\\u1EE5ng\",\"isAvailable\":false},{\"tableId\":2,\"branchId\":1,\"displayTableNumber\":2,\"numberOfSeats\":2,\"statusName\":\"\\u0110ang s\\u1EED d\\u1EE5ng\",\"isAvailable\":false},{\"tableId\":3,\"branchId\":1,\"displayTableNumber\":3,\"numberOfSeats\":2,\"statusName\":\"\\u0110ang s\\u1EED d\\u1EE5ng\",\"isAvailable\":false},{\"tableId\":4,\"branchId\":1,\"displayTableNumber\":4,\"numberOfSeats\":2,\"statusName\":\"\\u0110ang s\\u1EED d\\u1EE5ng\",\"isAvailable\":false},{\"tableId\":5,\"branchId\":1,\"displayTableNumber\":5,\"numberOfSeats\":2,\"statusName\":\"\\u0110ang s\\u1EED d\\u1EE5ng\",\"isAvailable\":false},{\"tableId\":6,\"branchId\":1,\"displayTableNumber\":6,\"numberOfSeats\":4,\"statusName\":\"\\u0110ang s\\u1EED d\\u1EE5ng\",\"isAvailable\":false},{\"tableId\":7,\"branchId\":1,\"displayTableNumber\":7,\"numberOfSeats\":4,\"statusName\":\"C\\u00F3 s\\u1EB5n\",\"isAvailable\":true},{\"tableId\":8,\"branchId\":1,\"displayTableNumber\":8,\"numberOfSeats\":4,\"statusName\":\"C\\u00F3 s\\u1EB5n\",\"isAvailable\":true},{\"tableId\":9,\"branchId\":1,\"displayTableNumber\":9,\"numberOfSeats\":4,\"statusName\":\"C\\u00F3 s\\u1EB5n\",\"isAvailable\":true},{\"tableId\":10,\"branchId\":1,\"displayTableNumber\":10,\"numberOfSeats\":4,\"statusName\":\"C\\u00F3 s\\u1EB5n\",\"isAvailable\":true},{\"tableId\":11,\"branchId\":1,\"displayTableNumber\":11,\"numberOfSeats\":4,\"statusName\":\"C\\u00F3 s\\u1EB5n\",\"isAvailable\":true},{\"tableId\":12,\"branchId\":1,\"displayTableNumber\":12,\"numberOfSeats\":4,\"statusName\":\"C\\u00F3 s\\u1EB5n\",\"isAvailable\":true},{\"tableId\":13,\"branchId\":1,\"displayTableNumber\":13,\"numberOfSeats\":4,\"statusName\":\"C\\u00F3 s\\u1EB5n\",\"isAvailable\":true},{\"tableId\":14,\"branchId\":1,\"displayTableNumber\":14,\"numberOfSeats\":4,\"statusName\":\"C\\u00F3 s\\u1EB5n\",\"isAvailable\":true},{\"tableId\":15,\"branchId\":1,\"displayTableNumber\":15,\"numberOfSeats\":4,\"statusName\":\"C\\u00F3 s\\u1EB5n\",\"isAvailable\":true},{\"tableId\":16,\"branchId\":1,\"displayTableNumber\":16,\"numberOfSeats\":6,\"statusName\":\"C\\u00F3 s\\u1EB5n\",\"isAvailable\":true},{\"tableId\":17,\"branchId\":1,\"displayTableNumber\":17,\"numberOfSeats\":6,\"statusName\":\"C\\u00F3 s\\u1EB5n\",\"isAvailable\":true},{\"tableId\":18,\"branchId\":1,\"displayTableNumber\":18,\"numberOfSeats\":6,\"statusName\":\"C\\u00F3 s\\u1EB5n\",\"isAvailable\":true},{\"tableId\":19,\"branchId\":1,\"displayTableNumber\":19,\"numberOfSeats\":8,\"statusName\":\"C\\u00F3 s\\u1EB5n\",\"isAvailable\":true},{\"tableId\":20,\"branchId\":1,\"displayTableNumber\":20,\"numberOfSeats\":8,\"statusName\":\"C\\u00F3 s\\u1EB5n\",\"isAvailable\":true}]}"
+                    },
+                    {
+                        "step":  "Reset Table Before Flow",
+                        "pass":  false,
+                        "detail":  "The remote server returned an error: (404) Not Found."
+                    },
+                    {
+                        "step":  "Pick Dish",
+                        "pass":  true,
+                        "detail":  "dishId=12"
+                    },
+                    {
+                        "step":  "Customer Create Order",
+                        "pass":  false,
+                        "detail":  "The remote server returned an error: (404) Not Found."
+                    },
+                    {
+                        "step":  "Customer Send To Kitchen",
+                        "pass":  false,
+                        "detail":  "Customer SendToKitchen failed: {\"success\":false,\"message\":\"Kh\\u00F4ng x\\u00E1c \\u0111\\u1ECBnh \\u0111\\u01B0\\u1EE3c b\\u00E0n hi\\u1EC7n t\\u1EA1i.\"}"
+                    },
+                    {
+                        "step":  "Chef Login",
+                        "pass":  true,
+                        "detail":  "chef_hung"
+                    },
+                    {
+                        "step":  "Chef -\u003e Customer PREPARING",
+                        "pass":  false,
+                        "detail":  "Chef PREPARING failed: {\"success\":false,\"message\":\"D\\u1EEF li\\u1EC7u c\\u1EADp nh\\u1EADt tr\\u1EA1ng th\\u00E1i kh\\u00F4ng h\\u1EE3p l\\u1EC7.\"}"
+                    },
+                    {
+                        "step":  "Chef -\u003e Customer READY",
+                        "pass":  false,
+                        "detail":  "Chef READY failed: {\"success\":false,\"message\":\"D\\u1EEF li\\u1EC7u c\\u1EADp nh\\u1EADt tr\\u1EA1ng th\\u00E1i kh\\u00F4ng h\\u1EE3p l\\u1EC7.\"}"
+                    },
+                    {
+                        "step":  "Cashier Login",
+                        "pass":  true,
+                        "detail":  "cashier_lan"
+                    },
+                    {
+                        "step":  "Cashier Process Payment",
+                        "pass":  false,
+                        "detail":  "Cashier ProcessPayment failed: {\"success\":false,\"message\":\"\\u0110\\u01A1n h\\u00E0ng kh\\u00F4ng h\\u1EE3p l\\u1EC7.\"}"
+                    },
+                    {
+                        "step":  "Cashier -\u003e Customer COMPLETED",
+                        "pass":  false,
+                        "detail":  "Customer read COMPLETED failed: {\"success\":false,\"message\":\"M\\u00E3 \\u0111\\u01A1n kh\\u00F4ng h\\u1EE3p l\\u1EC7.\"}"
+                    },
+                    {
+                        "step":  "Customer Points Increased After Payment",
+                        "pass":  false,
+                        "detail":  "before=1200 after=1200"
+                    },
+                    {
+                        "step":  "Reset Table After Flow",
+                        "pass":  false,
+                        "detail":  "The remote server returned an error: (404) Not Found."
+                    }
+                ]
+}
