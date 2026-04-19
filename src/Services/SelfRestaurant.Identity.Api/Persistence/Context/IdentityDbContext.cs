@@ -10,82 +10,22 @@ public sealed class IdentityDbContext : DbContext
     {
     }
 
-    public DbSet<Bills> Bills => Set<Bills>();
-    public DbSet<Branches> Branches => Set<Branches>();
+    public DbSet<CatalogBranchSnapshots> CatalogBranchSnapshots => Set<CatalogBranchSnapshots>();
+    public DbSet<CustomerLoyalty> CustomerLoyalty => Set<CustomerLoyalty>();
     public DbSet<Customers> Customers => Set<Customers>();
-    public DbSet<DiningTables> DiningTables => Set<DiningTables>();
-    public DbSet<Dishes> Dishes => Set<Dishes>();
     public DbSet<EmployeeRoles> EmployeeRoles => Set<EmployeeRoles>();
     public DbSet<Employees> Employees => Set<Employees>();
-    public DbSet<OrderItems> OrderItems => Set<OrderItems>();
-    public DbSet<OrderStatus> OrderStatus => Set<OrderStatus>();
-    public DbSet<Orders> Orders => Set<Orders>();
     public DbSet<PasswordResetTokens> PasswordResetTokens => Set<PasswordResetTokens>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Ignore<ActiveOrders>();
-        modelBuilder.Ignore<BranchRevenue>();
-        modelBuilder.Ignore<Categories>();
-        modelBuilder.Ignore<CategoryDish>();
-        modelBuilder.Ignore<CustomerLoyalty>();
-        modelBuilder.Ignore<DishDetails>();
-        modelBuilder.Ignore<DishIngredients>();
-        modelBuilder.Ignore<Ingredients>();
-        modelBuilder.Ignore<LoyaltyCards>();
-        modelBuilder.Ignore<MenuCategory>();
-        modelBuilder.Ignore<Menus>();
-        modelBuilder.Ignore<OrderItemIngredients>();
-        modelBuilder.Ignore<PaymentMethod>();
-        modelBuilder.Ignore<PaymentStatus>();
-        modelBuilder.Ignore<Payments>();
-        modelBuilder.Ignore<Reports>();
-        modelBuilder.Ignore<Restaurants>();
-        modelBuilder.Ignore<TableNumbers>();
-        modelBuilder.Ignore<TableStatus>();
-
-        modelBuilder.Entity<Bills>(entity =>
+        modelBuilder.Entity<CatalogBranchSnapshots>(entity =>
         {
-            entity.HasKey(e => e.BillID);
-            entity.HasIndex(e => e.BillTime).HasDatabaseName("IX_Bills_BillTime");
-            entity.HasIndex(e => e.OrderID).HasDatabaseName("IX_Bills_OrderID");
-            entity.Property(e => e.BillCode).HasMaxLength(50);
-            entity.Property(e => e.BillTime).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
-            entity.Property(e => e.ChangeAmount).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.Discount).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.PaymentAmount).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.PaymentMethod).HasMaxLength(20);
-            entity.Property(e => e.PointsDiscount).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.Subtotal).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.TotalAmount).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.IsActive).HasDefaultValue(true);
-            entity.HasOne(e => e.Customer)
-                .WithMany(c => c.Bills)
-                .HasForeignKey(e => e.CustomerID);
-            entity.HasOne(e => e.Employee)
-                .WithMany(emp => emp.Bills)
-                .HasForeignKey(e => e.EmployeeID);
-            entity.HasOne(e => e.Order)
-                .WithMany()
-                .HasForeignKey(e => e.OrderID)
-                .OnDelete(DeleteBehavior.ClientSetNull);
-        });
-
-        modelBuilder.Entity<Branches>(entity =>
-        {
-            entity.HasKey(e => e.BranchID);
-            entity.HasIndex(e => e.IsActive).HasDatabaseName("idx_branches_active");
-            entity.Property(e => e.CreatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
-            entity.Property(e => e.Email).HasMaxLength(100).IsUnicode(false);
-            entity.Property(e => e.IsActive).HasDefaultValue(true);
-            entity.Property(e => e.Location).HasMaxLength(500);
-            entity.Property(e => e.ManagerName).HasMaxLength(100);
+            entity.HasKey(e => e.BranchId);
+            entity.HasIndex(e => e.IsActive).HasDatabaseName("idx_catalog_branch_snapshots_active");
             entity.Property(e => e.Name).HasMaxLength(200);
-            entity.Property(e => e.OpeningHours).HasMaxLength(100);
-            entity.Property(e => e.Phone).HasMaxLength(20).IsUnicode(false);
-            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
-            entity.Ignore(e => e.Menus);
-            entity.Ignore(e => e.Restaurant);
+            entity.Property(e => e.Location).HasMaxLength(500);
+            entity.Property(e => e.RefreshedAtUtc).HasColumnType("datetime2");
         });
 
         modelBuilder.Entity<Customers>(entity =>
@@ -104,41 +44,21 @@ public sealed class IdentityDbContext : DbContext
             entity.Property(e => e.PhoneNumber).HasMaxLength(20).IsUnicode(false);
             entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
             entity.Property(e => e.Username).HasMaxLength(50).IsUnicode(false);
-            entity.Ignore(e => e.LoyaltyCards);
-            entity.Ignore(e => e.Payments);
         });
 
-        modelBuilder.Entity<DiningTables>(entity =>
+        modelBuilder.Entity<CustomerLoyalty>(entity =>
         {
-            entity.HasKey(e => e.TableID);
-            entity.Property(e => e.CreatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
-            entity.Property(e => e.IsActive).HasDefaultValue(true);
-            entity.Property(e => e.QRCode).HasMaxLength(200).IsUnicode(false);
-            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
-            entity.Ignore(e => e.Status);
-            entity.HasOne(e => e.Branch)
-                .WithMany(b => b.DiningTables)
-                .HasForeignKey(e => e.BranchID);
-        });
+            entity
+                .HasNoKey()
+                .ToView("CustomerLoyalty");
 
-        modelBuilder.Entity<Dishes>(entity =>
-        {
-            entity.HasKey(e => e.DishID);
-            entity.HasIndex(e => e.IsActive).HasDatabaseName("idx_dishes_active");
-            entity.HasIndex(e => e.Available).HasDatabaseName("idx_dishes_available");
-            entity.Property(e => e.Available).HasDefaultValue(true);
-            entity.Property(e => e.CreatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
-            entity.Property(e => e.Image).HasMaxLength(500).IsUnicode(false);
-            entity.Property(e => e.IsActive).HasDefaultValue(true);
-            entity.Property(e => e.IsDailySpecial).HasDefaultValue(false);
-            entity.Property(e => e.IsVegetarian).HasDefaultValue(false);
-            entity.Property(e => e.Name).HasMaxLength(200);
-            entity.Property(e => e.Price).HasColumnType("decimal(15, 2)");
-            entity.Property(e => e.Unit).HasMaxLength(50);
-            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
-            entity.Ignore(e => e.Category);
-            entity.Ignore(e => e.CategoryDish);
-            entity.Ignore(e => e.DishIngredients);
+            entity.Property(e => e.Email)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+            entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.PhoneNumber)
+                .HasMaxLength(20)
+                .IsUnicode(false);
         });
 
         modelBuilder.Entity<EmployeeRoles>(entity =>
@@ -166,66 +86,10 @@ public sealed class IdentityDbContext : DbContext
             entity.Property(e => e.Shift).HasMaxLength(50);
             entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
             entity.Property(e => e.Username).HasMaxLength(50).IsUnicode(false);
-            entity.Ignore(e => e.Orders);
-            entity.HasOne(e => e.Branch)
-                .WithMany(b => b.Employees)
-                .HasForeignKey(e => e.BranchID);
             entity.HasOne(e => e.Role)
                 .WithMany(r => r.Employees)
                 .HasForeignKey(e => e.RoleID)
                 .OnDelete(DeleteBehavior.ClientSetNull);
-        });
-
-        modelBuilder.Entity<OrderItems>(entity =>
-        {
-            entity.HasKey(e => e.ItemID);
-            entity.HasIndex(e => e.DishID).HasDatabaseName("idx_orderitems_dish");
-            entity.HasIndex(e => e.OrderID).HasDatabaseName("idx_orderitems_order");
-            entity.Property(e => e.LineTotal).HasColumnType("decimal(15, 2)");
-            entity.Property(e => e.Quantity).HasDefaultValue(1);
-            entity.Property(e => e.UnitPrice).HasColumnType("decimal(15, 2)");
-            entity.Ignore(e => e.OrderItemIngredients);
-            entity.HasOne(e => e.Dish)
-                .WithMany(d => d.OrderItems)
-                .HasForeignKey(e => e.DishID)
-                .OnDelete(DeleteBehavior.ClientSetNull);
-        });
-
-        modelBuilder.Entity<OrderStatus>(entity =>
-        {
-            entity.HasKey(e => e.StatusID);
-            entity.HasIndex(e => e.StatusCode).IsUnique();
-            entity.Property(e => e.StatusCode).HasMaxLength(50).IsUnicode(false);
-            entity.Property(e => e.StatusName).HasMaxLength(100);
-        });
-
-        modelBuilder.Entity<Orders>(entity =>
-        {
-            entity.HasKey(e => e.OrderID);
-            entity.HasIndex(e => e.OrderCode).IsUnique();
-            entity.HasIndex(e => e.CustomerID).HasDatabaseName("idx_orders_customer");
-            entity.HasIndex(e => e.StatusID).HasDatabaseName("idx_orders_status");
-            entity.HasIndex(e => e.TableID).HasDatabaseName("idx_orders_table");
-            entity.HasIndex(e => e.OrderTime).HasDatabaseName("idx_orders_time");
-            entity.Property(e => e.CompletedTime).HasColumnType("datetime");
-            entity.Property(e => e.IsActive).HasDefaultValue(true);
-            entity.Property(e => e.OrderCode).HasMaxLength(50).IsUnicode(false);
-            entity.Property(e => e.OrderTime).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
-            entity.Ignore(e => e.Bills);
-            entity.Ignore(e => e.Cashier);
-            entity.Ignore(e => e.Payments);
-            entity.HasOne(e => e.Customer)
-                .WithMany(c => c.Orders)
-                .HasForeignKey(e => e.CustomerID)
-                .OnDelete(DeleteBehavior.SetNull);
-            entity.HasOne(e => e.Status)
-                .WithMany(s => s.Orders)
-                .HasForeignKey(e => e.StatusID)
-                .OnDelete(DeleteBehavior.ClientSetNull);
-            entity.HasOne(e => e.Table)
-                .WithMany(t => t.Orders)
-                .HasForeignKey(e => e.TableID)
-                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<PasswordResetTokens>(entity =>

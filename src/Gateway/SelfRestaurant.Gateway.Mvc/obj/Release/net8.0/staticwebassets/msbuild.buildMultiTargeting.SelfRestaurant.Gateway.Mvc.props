@@ -1,3 +1,0 @@
-﻿<Project>
-  <Import Project="../build/SelfRestaurant.Gateway.Mvc.props" />
-</Project>

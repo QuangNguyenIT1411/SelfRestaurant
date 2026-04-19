@@ -1,4 +1,4 @@
-# Phase 3 - Progress
+﻿# Phase 3 - Progress
 
 ## Muc tieu Phase 3
 
@@ -15,7 +15,7 @@ Da thuc hien lat cat dau tien cua Phase 3:
   - `PUT /api/customers/admin/customers/{id}`
   - `POST /api/customers/admin/customers/{id}/deactivate`
 - Van giu cac route cuoi thua ke duoi namespace `api/identity/admin/customers...` de tranh vo Gateway trong giai doan chuyen tiep.
-- `Gateway.Mvc` da duoc cap nhat de `CustomersClient` uu tien goi namespace ownership-moi cua `Customers.Api`, va chi fallback sang namespace cu qua `Identity` neu can.
+- `Gateway.Api` da duoc cap nhat de `CustomersClient` uu tien goi namespace ownership-moi cua `Customers.Api`, va chi fallback sang namespace cu qua `Identity` neu can.
 
 ## Y nghia kien truc
 
@@ -184,7 +184,7 @@ Validation:
 Date: 2026-03-25
 
 Changes:
-- `Gateway.Mvc` now calls `Identity.Api` directly for customer-facing auth flows as well:
+- `Gateway.Api` now calls `Identity.Api` directly for customer-facing auth flows as well:
   - customer login
   - customer register
   - customer change-password
@@ -209,3 +209,4 @@ Validation:
   - chef <-> customer PASS
   - cashier <-> customer PASS
   - admin 6/6 PASS
+

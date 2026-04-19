@@ -1,0 +1,87 @@
+﻿{
+    "total":  16,
+    "passed":  16,
+    "failed":  0,
+    "results":  [
+                    {
+                        "feature":  "Gateway.Api Health",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "Admin API Login",
+                        "pass":  true,
+                        "detail":  "/Admin/Dashboard/Index"
+                    },
+                    {
+                        "feature":  "Admin Session",
+                        "pass":  true,
+                        "detail":  "admin"
+                    },
+                    {
+                        "feature":  "GET /api/gateway/admin/dashboard",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "GET /api/gateway/admin/categories",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "GET /api/gateway/admin/dishes",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "GET /api/gateway/admin/ingredients",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "GET /api/gateway/admin/tables",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "GET /api/gateway/admin/employees",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "GET /api/gateway/admin/customers",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "GET /api/gateway/admin/reports",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "GET /api/gateway/admin/settings",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "feature":  "Admin Category Create",
+                        "pass":  true,
+                        "detail":  "categoryId=114"
+                    },
+                    {
+                        "feature":  "Admin Category Update",
+                        "pass":  true,
+                        "detail":  "categoryId=114"
+                    },
+                    {
+                        "feature":  "Admin Category Delete",
+                        "pass":  true,
+                        "detail":  "categoryId=114"
+                    },
+                    {
+                        "feature":  "Admin SPA Route",
+                        "pass":  true,
+                        "detail":  "200"
+                    }
+                ]
+}

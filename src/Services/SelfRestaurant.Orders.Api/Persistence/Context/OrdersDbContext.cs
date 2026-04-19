@@ -1,6 +1,5 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SelfRestaurant.Orders.Api.Persistence.Entities;
-using CustomerEntity = SelfRestaurant.Orders.Api.Persistence.Entities.Customers;
 using OrderEntity = SelfRestaurant.Orders.Api.Persistence.Entities.Orders;
 
 namespace SelfRestaurant.Orders.Api.Persistence;
@@ -12,137 +11,43 @@ public sealed class OrdersDbContext : DbContext
     {
     }
 
-    public DbSet<Branches> Branches => Set<Branches>();
-    public DbSet<Categories> Categories => Set<Categories>();
-    public DbSet<CustomerEntity> Customers => Set<CustomerEntity>();
-    public DbSet<DiningTables> DiningTables => Set<DiningTables>();
-    public DbSet<Dishes> Dishes => Set<Dishes>();
-    public DbSet<LoyaltyCards> LoyaltyCards => Set<LoyaltyCards>();
+    public DbSet<CatalogBranchSnapshots> CatalogBranchSnapshots => Set<CatalogBranchSnapshots>();
+    public DbSet<CatalogDishSnapshots> CatalogDishSnapshots => Set<CatalogDishSnapshots>();
+    public DbSet<CatalogTableSnapshots> CatalogTableSnapshots => Set<CatalogTableSnapshots>();
     public DbSet<InboxEvents> InboxEvents => Set<InboxEvents>();
     public DbSet<OrderItems> OrderItems => Set<OrderItems>();
     public DbSet<OutboxEvents> OutboxEvents => Set<OutboxEvents>();
     public DbSet<OrderStatus> OrderStatus => Set<OrderStatus>();
     public DbSet<OrderEntity> Orders => Set<OrderEntity>();
-    public DbSet<TableStatus> TableStatus => Set<TableStatus>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Ignore<ActiveOrders>();
-        modelBuilder.Ignore<Bills>();
-        modelBuilder.Ignore<BranchRevenue>();
-        modelBuilder.Ignore<CategoryDish>();
-        modelBuilder.Ignore<CustomerLoyalty>();
-        modelBuilder.Ignore<DishDetails>();
-        modelBuilder.Ignore<DishIngredients>();
-        modelBuilder.Ignore<EmployeeRoles>();
-        modelBuilder.Ignore<Employees>();
-        modelBuilder.Ignore<Ingredients>();
-        modelBuilder.Ignore<MenuCategory>();
-        modelBuilder.Ignore<Menus>();
-        modelBuilder.Ignore<OrderItemIngredients>();
-        modelBuilder.Ignore<PasswordResetTokens>();
-        modelBuilder.Ignore<PaymentMethod>();
-        modelBuilder.Ignore<PaymentStatus>();
-        modelBuilder.Ignore<Payments>();
-        modelBuilder.Ignore<Reports>();
-        modelBuilder.Ignore<Restaurants>();
-        modelBuilder.Ignore<TableNumbers>();
-
-        modelBuilder.Entity<Branches>(entity =>
+        modelBuilder.Entity<CatalogBranchSnapshots>(entity =>
         {
-            entity.HasKey(e => e.BranchID);
-            entity.HasIndex(e => e.IsActive).HasDatabaseName("idx_branches_active");
-            entity.Property(e => e.CreatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
-            entity.Property(e => e.Email).HasMaxLength(100).IsUnicode(false);
-            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.HasKey(e => e.BranchId);
+            entity.Property(e => e.Name).HasMaxLength(200);
             entity.Property(e => e.Location).HasMaxLength(500);
-            entity.Property(e => e.ManagerName).HasMaxLength(100);
+            entity.Property(e => e.RefreshedAtUtc).HasColumnType("datetime2");
+        });
+
+        modelBuilder.Entity<CatalogDishSnapshots>(entity =>
+        {
+            entity.HasKey(e => e.DishId);
             entity.Property(e => e.Name).HasMaxLength(200);
-            entity.Property(e => e.OpeningHours).HasMaxLength(100);
-            entity.Property(e => e.Phone).HasMaxLength(20).IsUnicode(false);
-            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
-            entity.Ignore(e => e.Employees);
-            entity.Ignore(e => e.Menus);
-            entity.Ignore(e => e.Restaurant);
-        });
-
-        modelBuilder.Entity<Categories>(entity =>
-        {
-            entity.HasKey(e => e.CategoryID);
-            entity.HasIndex(e => e.IsActive).HasDatabaseName("idx_categories_active");
-            entity.HasIndex(e => e.DisplayOrder).HasDatabaseName("idx_categories_display");
-            entity.HasIndex(e => e.Name).HasDatabaseName("idx_categories_name");
-            entity.Property(e => e.CreatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
-            entity.Property(e => e.DisplayOrder).HasDefaultValue(0);
-            entity.Property(e => e.IsActive).HasDefaultValue(true);
-            entity.Property(e => e.Name).HasMaxLength(200);
-            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
-            entity.Ignore(e => e.MenuCategory);
-        });
-
-        modelBuilder.Entity<CustomerEntity>(entity =>
-        {
-            entity.HasKey(e => e.CustomerID);
-            entity.HasIndex(e => e.Username).IsUnique().HasDatabaseName("UQ_Customers_Username");
-            entity.HasIndex(e => e.IsActive).HasDatabaseName("idx_customers_active");
-            entity.Property(e => e.CreatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
-            entity.Property(e => e.Email).HasMaxLength(100).IsUnicode(false);
-            entity.Property(e => e.Name).HasMaxLength(100);
-            entity.Property(e => e.PhoneNumber).HasMaxLength(20).IsUnicode(false);
-            entity.Property(e => e.Username).HasMaxLength(50).IsUnicode(false);
-            entity.Property(e => e.Password).HasMaxLength(255);
-            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
-            entity.Ignore(e => e.Bills);
-            entity.Ignore(e => e.PasswordResetTokens);
-            entity.Ignore(e => e.Payments);
-        });
-
-        modelBuilder.Entity<DiningTables>(entity =>
-        {
-            entity.HasKey(e => e.TableID);
-            entity.HasIndex(e => e.BranchID).HasDatabaseName("idx_tables_branch");
-            entity.HasIndex(e => e.IsActive).HasDatabaseName("idx_tables_active");
-            entity.HasIndex(e => e.StatusID).HasDatabaseName("idx_tables_status");
-            entity.Property(e => e.CreatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
-            entity.Property(e => e.IsActive).HasDefaultValue(true);
-            entity.Property(e => e.QRCode).HasMaxLength(100);
-            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
-            entity.HasOne(e => e.Branch)
-                .WithMany(b => b.DiningTables)
-                .HasForeignKey(e => e.BranchID);
-            entity.HasOne(e => e.Status)
-                .WithMany(s => s.DiningTables)
-                .HasForeignKey(e => e.StatusID);
-        });
-
-        modelBuilder.Entity<Dishes>(entity =>
-        {
-            entity.HasKey(e => e.DishID);
-            entity.HasIndex(e => e.CategoryID).HasDatabaseName("idx_dishes_category");
-            entity.HasIndex(e => e.IsActive).HasDatabaseName("idx_dishes_active");
-            entity.HasIndex(e => e.Available).HasDatabaseName("idx_dishes_available");
-            entity.Property(e => e.CreatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
-            entity.Property(e => e.Description).HasMaxLength(1000);
-            entity.Property(e => e.Image).HasMaxLength(500);
-            entity.Property(e => e.IsActive).HasDefaultValue(true);
-            entity.Property(e => e.Name).HasMaxLength(200);
+            entity.Property(e => e.CategoryName).HasMaxLength(200);
             entity.Property(e => e.Price).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.Unit).HasMaxLength(50);
-            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
-            entity.Ignore(e => e.CategoryDish);
-            entity.Ignore(e => e.DishIngredients);
-            entity.HasOne(e => e.Category)
-                .WithMany(c => c.Dishes)
-                .HasForeignKey(e => e.CategoryID);
+            entity.Property(e => e.Image).HasMaxLength(500);
+            entity.Property(e => e.RefreshedAtUtc).HasColumnType("datetime2");
         });
 
-        modelBuilder.Entity<LoyaltyCards>(entity =>
+        modelBuilder.Entity<CatalogTableSnapshots>(entity =>
         {
-            entity.HasKey(e => e.CardID);
-            entity.Property(e => e.IsActive).HasDefaultValue(true);
-            entity.HasOne(e => e.Customer)
-                .WithMany(c => c.LoyaltyCards)
-                .HasForeignKey(e => e.CustomerID);
+            entity.HasKey(e => e.TableId);
+            entity.Property(e => e.QrCode).HasMaxLength(100);
+            entity.Property(e => e.StatusCode).HasMaxLength(50);
+            entity.Property(e => e.StatusName).HasMaxLength(100);
+            entity.Property(e => e.RefreshedAtUtc).HasColumnType("datetime2");
         });
 
         modelBuilder.Entity<InboxEvents>(entity =>
@@ -170,10 +75,6 @@ public sealed class OrdersDbContext : DbContext
             entity.Property(e => e.LineTotal).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.Note).HasMaxLength(500);
             entity.Property(e => e.UnitPrice).HasColumnType("decimal(18, 2)");
-            entity.Ignore(e => e.OrderItemIngredients);
-            entity.HasOne(e => e.Dish)
-                .WithMany(d => d.OrderItems)
-                .HasForeignKey(e => e.DishID);
         });
 
         modelBuilder.Entity<OutboxEvents>(entity =>
@@ -211,25 +112,9 @@ public sealed class OrdersDbContext : DbContext
             entity.Property(e => e.Note).HasMaxLength(1000);
             entity.Property(e => e.OrderCode).HasMaxLength(50).IsUnicode(false);
             entity.Property(e => e.OrderTime).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
-            entity.Ignore(e => e.Bills);
-            entity.Ignore(e => e.Cashier);
-            entity.Ignore(e => e.Payments);
-            entity.HasOne(e => e.Customer)
-                .WithMany(c => c.Orders)
-                .HasForeignKey(e => e.CustomerID);
             entity.HasOne(e => e.Status)
                 .WithMany(s => s.Orders)
                 .HasForeignKey(e => e.StatusID);
-            entity.HasOne(e => e.Table)
-                .WithMany(t => t.Orders)
-                .HasForeignKey(e => e.TableID);
-        });
-
-        modelBuilder.Entity<TableStatus>(entity =>
-        {
-            entity.HasKey(e => e.StatusID);
-            entity.Property(e => e.StatusCode).HasMaxLength(50);
-            entity.Property(e => e.StatusName).HasMaxLength(100);
         });
     }
 }

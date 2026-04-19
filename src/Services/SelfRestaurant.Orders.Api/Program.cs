@@ -12,15 +12,22 @@ builder.Services.AddControllers();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddMemoryCache();
 
 builder.Services.AddDbContext<OrdersDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("RestaurantDb")));
 
 var servicesTimeout = TimeSpan.FromSeconds(Math.Clamp(builder.Configuration.GetValue<int?>("Services:TimeoutSeconds") ?? 10, 2, 60));
 
-builder.Services.AddHttpClient<CatalogApiClient>(http =>
+builder.Services.AddHttpClient<ICatalogReadModel, CatalogApiClient>(http =>
 {
     http.BaseAddress = new Uri(builder.Configuration["Services:Catalog"] ?? "http://localhost:5101");
+    http.Timeout = servicesTimeout;
+});
+
+builder.Services.AddHttpClient<ICustomerLoyaltyReadModel, CustomersApiClient>(http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Services:Identity"] ?? "http://localhost:5104");
     http.Timeout = servicesTimeout;
 });
 

@@ -23,7 +23,7 @@
         "Action": "Start"
       },
       {
-        "Path": "src\\Gateway\\SelfRestaurant.Gateway.Mvc\\SelfRestaurant.Gateway.Mvc.csproj",
+        "Path": "src\\Gateway\\SelfRestaurant.Gateway.Api\\SelfRestaurant.Gateway.Api.csproj",
         "Action": "Start"
       }
     ]

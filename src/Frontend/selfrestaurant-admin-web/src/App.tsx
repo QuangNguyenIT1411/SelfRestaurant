@@ -1,0 +1,116 @@
+import { useEffect, useState } from "react";
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { CrossAppRedirect } from "./components/CrossAppRedirect";
+import { RequireAdmin } from "./components/RequireAdmin";
+import { adminApi } from "./lib/api";
+import type { StaffSessionDto } from "./lib/types";
+import { AdminConsolePage } from "./pages/AdminConsolePage";
+import { CustomerEditPage } from "./pages/customers/CustomerEditPage";
+import { CustomersCreatePage } from "./pages/customers/CustomersCreatePage";
+import { CustomersIndexPage } from "./pages/customers/CustomersIndexPage";
+import { EmployeeEditPage } from "./pages/employees/EmployeeEditPage";
+import { EmployeeHistoryPage } from "./pages/employees/EmployeeHistoryPage";
+import { EmployeesCreatePage } from "./pages/employees/EmployeesCreatePage";
+import { EmployeesIndexPage } from "./pages/employees/EmployeesIndexPage";
+import { LoginPage } from "./pages/LoginPage";
+
+function resolveRoleLanding(roleCode?: string | null) {
+  const normalized = roleCode?.trim().toUpperCase();
+  if (normalized === "CHEF" || normalized === "KITCHEN_STAFF") return "/Staff/Chef/Index";
+  if (normalized === "CASHIER") return "/Staff/Cashier/Index";
+  return "/Admin/Dashboard/Index";
+}
+
+function isAdminShellPath(path: string) {
+  return path === "/" || path.startsWith("/Admin/");
+}
+
+const dashboardRoutes = [
+  "/",
+  "/Admin/Dashboard/Index",
+  "/Admin/Categories/Index",
+  "/Admin/Categories/Create",
+  "/Admin/Categories/Edit",
+  "/Admin/Dishes/Index",
+  "/Admin/Dishes/Create",
+  "/Admin/Dishes/Edit",
+  "/Admin/Dishes/Delete",
+  "/Admin/Dishes/Ingredients",
+  "/Admin/Ingredients/Index",
+  "/Admin/Ingredients/Create",
+  "/Admin/Ingredients/Edit",
+  "/Admin/TablesQR/Index",
+  "/Admin/TablesQR/Edit",
+  "/Admin/TablesQR/QR",
+  "/Admin/Reports/Revenue",
+  "/Admin/Reports/TopDishes",
+  "/Admin/Settings/Index",
+];
+
+export default function App() {
+  const navigate = useNavigate();
+  const [session, setSession] = useState<StaffSessionDto | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  async function refreshSession() {
+    setLoading(true);
+    try {
+      setSession(await adminApi.getSession());
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void refreshSession();
+  }, []);
+
+  async function logout() {
+    const result = await adminApi.logout();
+    await refreshSession();
+    navigate(result.nextPath ?? "/Staff/Account/Login", { replace: true });
+  }
+
+  return (
+    <Routes>
+      <Route
+        path="/login"
+        element={loading
+          ? <div className="screen-message">Đang tải phiên đăng nhập...</div>
+          : session?.authenticated && session.staff
+            ? (isAdminShellPath(resolveRoleLanding(session.staff.roleCode))
+                ? <Navigate to={resolveRoleLanding(session.staff.roleCode)} replace />
+                : <CrossAppRedirect to={resolveRoleLanding(session.staff.roleCode)} message="Đang chuyển đến khu vực phù hợp..." />)
+            : <LoginPage onLoggedIn={refreshSession} />}
+      />
+      <Route
+        path="/Admin/Account/Login"
+        element={loading
+          ? <div className="screen-message">Đang tải phiên đăng nhập...</div>
+          : session?.authenticated && session.staff
+            ? (isAdminShellPath(resolveRoleLanding(session.staff.roleCode))
+                ? <Navigate to={resolveRoleLanding(session.staff.roleCode)} replace />
+                : <CrossAppRedirect to={resolveRoleLanding(session.staff.roleCode)} message="Đang chuyển đến khu vực phù hợp..." />)
+            : <LoginPage onLoggedIn={refreshSession} />}
+      />
+      <Route path="/Staff/Chef/*" element={<CrossAppRedirect to="/Staff/Chef/Index" message="Đang chuyển đến khu bếp..." />} />
+      <Route path="/Staff/Cashier/*" element={<CrossAppRedirect to="/Staff/Cashier/Index" message="Đang chuyển đến khu thu ngân..." />} />
+      <Route element={<RequireAdmin session={session} loading={loading} />}>
+        {dashboardRoutes.map((path) => (
+          <Route key={path} path={path} element={<AdminConsolePage onLogout={logout} />} />
+        ))}
+        <Route path="/Admin/Employees/Index" element={<EmployeesIndexPage onLogout={logout} />} />
+        <Route path="/Admin/Employees/Create" element={<EmployeesCreatePage onLogout={logout} />} />
+        <Route path="/Admin/Employees/Edit/:employeeId" element={<EmployeeEditPage onLogout={logout} />} />
+        <Route path="/Admin/Employees/Edit" element={<Navigate to="/Admin/Employees/Index" replace />} />
+        <Route path="/Admin/Employees/History/:employeeId" element={<EmployeeHistoryPage onLogout={logout} />} />
+        <Route path="/Admin/Employees/History" element={<Navigate to="/Admin/Employees/Index" replace />} />
+        <Route path="/Admin/Customers/Index" element={<CustomersIndexPage onLogout={logout} />} />
+        <Route path="/Admin/Customers/Create" element={<CustomersCreatePage onLogout={logout} />} />
+        <Route path="/Admin/Customers/Edit/:customerId" element={<CustomerEditPage onLogout={logout} />} />
+        <Route path="/Admin/Customers/Edit" element={<Navigate to="/Admin/Customers/Index" replace />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/Admin/Dashboard/Index" replace />} />
+    </Routes>
+  );
+}

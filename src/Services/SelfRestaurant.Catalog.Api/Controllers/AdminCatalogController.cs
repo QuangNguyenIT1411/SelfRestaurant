@@ -132,6 +132,112 @@ public sealed class AdminCatalogController : ControllerBase
         return Ok(new { message = "Created.", dishId = entity.DishID });
     }
 
+    [HttpPost("branches/{branchId:int}/chef/dishes")]
+    public async Task<ActionResult<ChefDishMutationResponse>> CreateChefDishForBranch(
+        int branchId,
+        [FromBody] AdminUpsertDishRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var branchExists = await _db.Branches.AnyAsync(
+            b => b.BranchID == branchId && (b.IsActive ?? false),
+            cancellationToken);
+        if (!branchExists)
+        {
+            return BadRequest(new { message = "Branch is invalid." });
+        }
+
+        var validation = await ValidateDishRequest(request, cancellationToken);
+        if (validation is not null)
+        {
+            return validation;
+        }
+
+        var entity = new Dishes
+        {
+            Name = request.Name!.Trim(),
+            Price = request.Price!.Value,
+            CategoryID = request.CategoryId!.Value,
+            Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
+            Unit = string.IsNullOrWhiteSpace(request.Unit) ? null : request.Unit.Trim(),
+            Image = string.IsNullOrWhiteSpace(request.Image) ? null : request.Image.Trim(),
+            IsVegetarian = request.IsVegetarian ?? false,
+            IsDailySpecial = request.IsDailySpecial ?? false,
+            Available = request.Available ?? true,
+            IsActive = request.IsActive ?? true,
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now
+        };
+
+        _db.Dishes.Add(entity);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var todayMenu = await EnsureTodayMenuAsync(branchId, cancellationToken);
+        var menuCategory = await EnsureMenuCategoryAsync(todayMenu.MenuID, entity.CategoryID, cancellationToken);
+        await EnsureCategoryDishAsync(menuCategory.MenuCategoryID, entity.DishID, entity.Available ?? true, cancellationToken);
+
+        return Ok(new ChefDishMutationResponse(entity.DishID, "Created and attached to today's menu."));
+    }
+
+    [HttpPut("branches/{branchId:int}/chef/dishes/{dishId:int}")]
+    public async Task<ActionResult<ChefDishMutationResponse>> UpdateChefDishForBranch(
+        int branchId,
+        int dishId,
+        [FromBody] AdminUpsertDishRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var branchExists = await _db.Branches.AnyAsync(
+            b => b.BranchID == branchId && (b.IsActive ?? false),
+            cancellationToken);
+        if (!branchExists)
+        {
+            return BadRequest(new { message = "Branch is invalid." });
+        }
+
+        var entity = await _db.Dishes.FirstOrDefaultAsync(d => d.DishID == dishId, cancellationToken);
+        if (entity is null)
+        {
+            return NotFound(new { message = "Dish not found." });
+        }
+
+        var validation = await ValidateDishRequest(request, cancellationToken);
+        if (validation is not null)
+        {
+            return validation;
+        }
+
+        entity.Name = request.Name!.Trim();
+        entity.Price = request.Price!.Value;
+        entity.CategoryID = request.CategoryId!.Value;
+        entity.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
+        entity.Unit = string.IsNullOrWhiteSpace(request.Unit) ? null : request.Unit.Trim();
+        entity.Image = string.IsNullOrWhiteSpace(request.Image) ? null : request.Image.Trim();
+        entity.IsVegetarian = request.IsVegetarian ?? false;
+        entity.IsDailySpecial = request.IsDailySpecial ?? false;
+        entity.Available = request.Available ?? true;
+        entity.IsActive = request.IsActive ?? true;
+        entity.UpdatedAt = DateTime.Now;
+
+        var todayMenu = await EnsureTodayMenuAsync(branchId, cancellationToken);
+        var targetCategory = await EnsureMenuCategoryAsync(todayMenu.MenuID, entity.CategoryID, cancellationToken);
+        await EnsureCategoryDishAsync(targetCategory.MenuCategoryID, entity.DishID, entity.Available ?? true, cancellationToken);
+
+        var staleLinks = await _db.CategoryDish
+            .Include(cd => cd.MenuCategory)
+            .Where(cd =>
+                cd.DishID == entity.DishID &&
+                cd.MenuCategory.MenuID == todayMenu.MenuID &&
+                cd.MenuCategoryID != targetCategory.MenuCategoryID)
+            .ToListAsync(cancellationToken);
+
+        if (staleLinks.Count > 0)
+        {
+            _db.CategoryDish.RemoveRange(staleLinks);
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return Ok(new ChefDishMutationResponse(entity.DishID, "Updated and synced to today's menu."));
+    }
+
     [HttpPut("dishes/{dishId:int}")]
     public async Task<ActionResult> UpdateDish(int dishId, [FromBody] AdminUpsertDishRequest request, CancellationToken cancellationToken = default)
     {
@@ -589,6 +695,142 @@ public sealed class AdminCatalogController : ControllerBase
         return null;
     }
 
+    private async Task<Menus> EnsureTodayMenuAsync(int branchId, CancellationToken cancellationToken)
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var latestMenu = await _db.Menus
+            .Where(m => m.BranchID == branchId && (m.IsActive ?? true))
+            .OrderByDescending(m => m.Date)
+            .ThenByDescending(m => m.MenuID)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (latestMenu is not null && latestMenu.Date == today)
+        {
+            await BackfillMenuFromPreviousAsync(latestMenu, cancellationToken);
+            return latestMenu;
+        }
+
+        var branchName = await _db.Branches
+            .Where(b => b.BranchID == branchId)
+            .Select(b => b.Name)
+            .FirstOrDefaultAsync(cancellationToken) ?? $"Chi nhánh {branchId}";
+
+        var menu = new Menus
+        {
+            MenuName = $"Thực đơn {branchName} - {today:dd/MM/yyyy}",
+            Date = today,
+            IsActive = true,
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now,
+            BranchID = branchId
+        };
+
+        _db.Menus.Add(menu);
+        await _db.SaveChangesAsync(cancellationToken);
+        await BackfillMenuFromPreviousAsync(menu, cancellationToken);
+        return menu;
+    }
+
+    private async Task BackfillMenuFromPreviousAsync(Menus targetMenu, CancellationToken cancellationToken)
+    {
+        var previousMenu = await _db.Menus
+            .AsNoTracking()
+            .Where(m => m.BranchID == targetMenu.BranchID
+                && (m.IsActive ?? true)
+                && m.MenuID != targetMenu.MenuID
+                && (m.Date == null || m.Date <= targetMenu.Date))
+            .OrderByDescending(m => m.Date)
+            .ThenByDescending(m => m.MenuID)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (previousMenu is null)
+        {
+            return;
+        }
+
+        var previousCategories = await _db.MenuCategory
+            .AsNoTracking()
+            .Where(mc => mc.MenuID == previousMenu.MenuID && (mc.IsActive ?? true))
+            .Select(mc => new
+            {
+                mc.CategoryID,
+                Dishes = mc.CategoryDish
+                    .Where(cd => cd.IsAvailable ?? true)
+                    .Select(cd => new
+                    {
+                        cd.DishID,
+                        cd.DisplayOrder,
+                        IsAvailable = cd.IsAvailable ?? true
+                    })
+                    .ToList()
+            })
+            .ToListAsync(cancellationToken);
+
+        foreach (var category in previousCategories)
+        {
+            var targetCategory = await EnsureMenuCategoryAsync(targetMenu.MenuID, category.CategoryID, cancellationToken);
+            foreach (var dish in category.Dishes.OrderBy(x => x.DisplayOrder))
+            {
+                await EnsureCategoryDishAsync(targetCategory.MenuCategoryID, dish.DishID, dish.IsAvailable, cancellationToken);
+            }
+        }
+    }
+
+    private async Task<MenuCategory> EnsureMenuCategoryAsync(int menuId, int categoryId, CancellationToken cancellationToken)
+    {
+        var existing = await _db.MenuCategory
+            .FirstOrDefaultAsync(mc => mc.MenuID == menuId && mc.CategoryID == categoryId, cancellationToken);
+        if (existing is not null)
+        {
+            existing.IsActive = true;
+            existing.UpdatedAt = DateTime.Now;
+            await _db.SaveChangesAsync(cancellationToken);
+            return existing;
+        }
+
+        var menuCategory = new MenuCategory
+        {
+            MenuID = menuId,
+            CategoryID = categoryId,
+            IsActive = true,
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now
+        };
+
+        _db.MenuCategory.Add(menuCategory);
+        await _db.SaveChangesAsync(cancellationToken);
+        return menuCategory;
+    }
+
+    private async Task EnsureCategoryDishAsync(int menuCategoryId, int dishId, bool isAvailable, CancellationToken cancellationToken)
+    {
+        var existing = await _db.CategoryDish
+            .FirstOrDefaultAsync(cd => cd.MenuCategoryID == menuCategoryId && cd.DishID == dishId, cancellationToken);
+        if (existing is not null)
+        {
+            existing.IsAvailable = isAvailable;
+            existing.UpdatedAt = DateTime.Now;
+            await _db.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        var maxDisplayOrder = await _db.CategoryDish
+            .Where(cd => cd.MenuCategoryID == menuCategoryId)
+            .MaxAsync(cd => (int?)cd.DisplayOrder, cancellationToken) ?? 0;
+
+        _db.CategoryDish.Add(new CategoryDish
+        {
+            MenuCategoryID = menuCategoryId,
+            DishID = dishId,
+            DisplayOrder = maxDisplayOrder + 1,
+            IsAvailable = isAvailable,
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now
+        });
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
     private static ActionResult? ValidateIngredientRequest(AdminUpsertIngredientRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
@@ -669,6 +911,7 @@ public sealed class AdminCatalogController : ControllerBase
         bool? IsDailySpecial,
         bool? Available,
         bool? IsActive);
+    public sealed record ChefDishMutationResponse(int DishId, string Message);
     public sealed record AdminDishIngredientLineResponse(
         int IngredientId,
         string Name,

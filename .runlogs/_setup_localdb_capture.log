@@ -1,0 +1,2 @@
+Detected NUL bytes in C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\sql\localdb.sql. Using fallback script C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\sql\sqlchuan.cleaned.sql
+Detected existing RESTAURANT. Skipping schema re-import to preserve current data.

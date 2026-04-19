@@ -12,6 +12,7 @@ builder.Services.AddControllers();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddMemoryCache();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -20,15 +21,23 @@ builder.Services.AddRateLimiter(options =>
             partitionKey: $"{context.Connection.RemoteIpAddress}:{context.Request.Path}",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 10,
+                // Legitimate cross-actor flows in the new gateway can trigger several
+                // staff auth requests back-to-back (chef, cashier, admin, password flows).
+                // Keep basic abuse protection, but avoid blocking normal usage and QA runs.
+                PermitLimit = 30,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
                 AutoReplenishment = true,
             }));
 });
 
+var identityConnectionString =
+    builder.Configuration.GetConnectionString("IdentityDb") ??
+    builder.Configuration.GetConnectionString("RestaurantDb") ??
+    throw new InvalidOperationException("Missing connection string: ConnectionStrings:IdentityDb");
+
 builder.Services.AddDbContext<IdentityDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("RestaurantDb")));
+    options.UseSqlServer(identityConnectionString));
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
 builder.Services.PostConfigure<SmtpOptions>(options =>
 {
@@ -40,6 +49,21 @@ builder.Services.PostConfigure<SmtpOptions>(options =>
     options.Password = Environment.GetEnvironmentVariable("SELFRESTAURANT_SMTP_PASSWORD") ?? "";
 });
 builder.Services.AddSingleton<PasswordResetEmailSender>();
+builder.Services.AddHttpClient<OrdersApiClient>(http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Services:Orders"] ?? "http://localhost:5102");
+    http.Timeout = TimeSpan.FromSeconds(10);
+});
+builder.Services.AddHttpClient<BillingApiClient>(http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Services:Billing"] ?? "http://localhost:5105");
+    http.Timeout = TimeSpan.FromSeconds(10);
+});
+builder.Services.AddHttpClient<CatalogApiClient>(http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Services:Catalog"] ?? "http://localhost:5101");
+    http.Timeout = TimeSpan.FromSeconds(10);
+});
 
 var app = builder.Build();
 

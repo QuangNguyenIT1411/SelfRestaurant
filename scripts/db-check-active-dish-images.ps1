@@ -1,6 +1,6 @@
-param(
+﻿param(
     [string]$ConnectionString = "Server=(localdb)\MSSQLLocalDB;Database=RESTAURANT;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=True",
-    [string]$WebRootPath = "src/Gateway/SelfRestaurant.Gateway.Mvc/wwwroot"
+    [string]$WebRootPath = "src/Gateway/SelfRestaurant.Gateway.Api/wwwroot"
 )
 
 $ErrorActionPreference = "Stop"
@@ -98,3 +98,4 @@ ORDER BY DishID;
 finally {
     $conn.Close()
 }
+

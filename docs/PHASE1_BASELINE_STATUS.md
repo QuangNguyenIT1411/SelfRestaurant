@@ -1,11 +1,11 @@
-# Phase 1 - Baseline Status
+﻿# Phase 1 - Baseline Status
 
 Tai lieu nay chot hien trang ky thuat cua project truoc khi buoc sang Phase 2.
 
 ## 1. Kien truc dang chay
 
 - Gateway:
-  - `src/Gateway/SelfRestaurant.Gateway.Mvc`
+  - `src/Gateway/SelfRestaurant.Gateway.Api`
 - Services:
   - `SelfRestaurant.Catalog.Api`
   - `SelfRestaurant.Orders.Api`
@@ -55,4 +55,5 @@ Ket luan:
   - reset data test neu can
   - chay lai smoke test chinh
 - Khong merge refactor du lieu lon neu chua co ket qua smoke test sau cung.
+
 

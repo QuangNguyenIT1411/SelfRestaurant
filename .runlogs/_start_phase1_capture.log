@@ -1,0 +1,66 @@
+Stopping old running processes...
+Preparing LocalDB schema...
+Building service binaries...
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  SelfRestaurant.Catalog.Api -> C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Services\SelfRestaurant.Catalog.Api\bin\Release\net8.0\SelfRestaurant.Catalog.Api.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:03.36
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  SelfRestaurant.Orders.Api -> C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Services\SelfRestaurant.Orders.Api\bin\Release\net8.0\SelfRestaurant.Orders.Api.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:02.65
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  SelfRestaurant.Customers.Api -> C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Services\SelfRestaurant.Customers.Api\bin\Release\net8.0\SelfRestaurant.Customers.Api.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:02.39
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  SelfRestaurant.Identity.Api -> C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Services\SelfRestaurant.Identity.Api\bin\Release\net8.0\SelfRestaurant.Identity.Api.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:02.37
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  SelfRestaurant.Billing.Api -> C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Services\SelfRestaurant.Billing.Api\bin\Release\net8.0\SelfRestaurant.Billing.Api.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:02.50
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  SelfRestaurant.Gateway.Mvc -> C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Gateway\SelfRestaurant.Gateway.Mvc\bin\Release\net8.0\SelfRestaurant.Gateway.Mvc.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:02.96
+Starting services...
+Health checks:
+OK  http://localhost:5101/healthz => 200
+OK  http://localhost:5102/healthz => 200
+OK  http://localhost:5103/healthz => 200
+OK  http://localhost:5104/healthz => 200
+OK  http://localhost:5105/healthz => 200
+OK  http://localhost:5100/ => 200
+Done. Logs are in .runlogs/

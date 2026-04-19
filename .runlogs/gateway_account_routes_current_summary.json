@@ -1,0 +1,265 @@
+﻿{
+    "total":  51,
+    "passed":  51,
+    "failed":  0,
+    "customerUsername":  "acct_20260414074637_u",
+    "branchId":  1,
+    "tableId":  1,
+    "results":  [
+                    {
+                        "step":  "Gateway Health",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "step":  "Customer Branch/Table Seed",
+                        "pass":  true,
+                        "detail":  "branchId=1 tableId=1"
+                    },
+                    {
+                        "step":  "Customer Register",
+                        "pass":  true,
+                        "detail":  "acct_20260414074637"
+                    },
+                    {
+                        "step":  "Customer Login Route",
+                        "pass":  true,
+                        "detail":  "/Home/Index"
+                    },
+                    {
+                        "step":  "Customer Profile Load",
+                        "pass":  true,
+                        "detail":  "customerId=2610"
+                    },
+                    {
+                        "step":  "Customer Update Profile",
+                        "pass":  true,
+                        "detail":  "acct_20260414074637_u"
+                    },
+                    {
+                        "step":  "Customer Session Sync After Profile Update",
+                        "pass":  true,
+                        "detail":  "acct_20260414074637_u"
+                    },
+                    {
+                        "step":  "Customer Change Password Validation",
+                        "pass":  true,
+                        "detail":  "password_mismatch"
+                    },
+                    {
+                        "step":  "Customer Change Password",
+                        "pass":  true,
+                        "detail":  "Doi mat khau thanh cong."
+                    },
+                    {
+                        "step":  "Customer Logout Route",
+                        "pass":  true,
+                        "detail":  "/Home/Index"
+                    },
+                    {
+                        "step":  "Customer Login With Changed Password",
+                        "pass":  true,
+                        "detail":  "/Home/Index"
+                    },
+                    {
+                        "step":  "Customer Forgot Password",
+                        "pass":  true,
+                        "detail":  "/Customer/ResetPassword?token=4f4522ad01f176d2aa1d5d3f3082775b"
+                    },
+                    {
+                        "step":  "Customer Reset Password",
+                        "pass":  true,
+                        "detail":  "/Customer/Login"
+                    },
+                    {
+                        "step":  "Customer Login With Reset Password",
+                        "pass":  true,
+                        "detail":  "/Home/Index"
+                    },
+                    {
+                        "step":  "Customer Set Context",
+                        "pass":  true,
+                        "detail":  "tableId=1"
+                    },
+                    {
+                        "step":  "Customer Context Redirect After Relogin",
+                        "pass":  true,
+                        "detail":  "/Menu/Index"
+                    },
+                    {
+                        "step":  "Customer Route /Home/Index",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "step":  "Customer Route /Home/About",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "step":  "Customer Route /Home/Contact",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "step":  "Customer Route /Menu/Index",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "step":  "Customer Route /Order/Index",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "step":  "Customer Route /Customer/Dashboard",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "step":  "Customer Route /Customer/Orders",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "step":  "Chef Login Route",
+                        "pass":  true,
+                        "detail":  "/Staff/Chef/Index"
+                    },
+                    {
+                        "step":  "Chef Update Account",
+                        "pass":  true,
+                        "detail":  "0905111222"
+                    },
+                    {
+                        "step":  "Chef Change Password Validation",
+                        "pass":  true,
+                        "detail":  "password_mismatch"
+                    },
+                    {
+                        "step":  "Chef Change Password",
+                        "pass":  true,
+                        "detail":  "Doi mat khau thanh cong."
+                    },
+                    {
+                        "step":  "Chef Login With Changed Password",
+                        "pass":  true,
+                        "detail":  "/Staff/Chef/Index"
+                    },
+                    {
+                        "step":  "Chef Route /app/chef/Staff/Account/Login",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "step":  "Chef Route /app/chef/Staff/Chef/Index",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "step":  "Chef Route /app/chef/Staff/Chef/History",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "step":  "Cashier Login Route",
+                        "pass":  true,
+                        "detail":  "/Staff/Cashier/Index"
+                    },
+                    {
+                        "step":  "Cashier Update Account",
+                        "pass":  true,
+                        "detail":  "0905222333"
+                    },
+                    {
+                        "step":  "Cashier Change Password Validation",
+                        "pass":  true,
+                        "detail":  "password_mismatch"
+                    },
+                    {
+                        "step":  "Cashier Change Password",
+                        "pass":  true,
+                        "detail":  "Doi mat khau thanh cong."
+                    },
+                    {
+                        "step":  "Cashier Login With Changed Password",
+                        "pass":  true,
+                        "detail":  "/Staff/Cashier/Index"
+                    },
+                    {
+                        "step":  "Cashier Route /app/cashier/Staff/Account/Login",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "step":  "Cashier Route /app/cashier/Staff/Cashier/Index",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "step":  "Cashier Route /app/cashier/Staff/Cashier/History",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "step":  "Cashier Route /app/cashier/Staff/Cashier/Report",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "step":  "Admin Login Route",
+                        "pass":  true,
+                        "detail":  "/Admin/Dashboard/Index"
+                    },
+                    {
+                        "step":  "Admin Update Settings",
+                        "pass":  true,
+                        "detail":  "0905333444"
+                    },
+                    {
+                        "step":  "Admin Change Password Validation",
+                        "pass":  true,
+                        "detail":  "password_mismatch"
+                    },
+                    {
+                        "step":  "Admin Change Password",
+                        "pass":  true,
+                        "detail":  "Doi mat khau thanh cong."
+                    },
+                    {
+                        "step":  "Admin Login With Changed Password",
+                        "pass":  true,
+                        "detail":  "/Admin/Dashboard/Index"
+                    },
+                    {
+                        "step":  "Admin Route /app/admin/Admin/Account/Login",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "step":  "Admin Route /app/admin/Admin/Dashboard/Index",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "step":  "Admin Route /app/admin/Admin/Employees/Index",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "step":  "Admin Route /app/admin/Admin/Customers/Index",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "step":  "Admin Route /app/admin/Admin/Reports/Revenue",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "step":  "Admin Route /app/admin/Admin/Settings/Index",
+                        "pass":  true,
+                        "detail":  "200"
+                    }
+                ]
+}

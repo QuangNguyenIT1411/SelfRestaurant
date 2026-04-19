@@ -1,0 +1,9 @@
+C:\Program Files\dotnet\sdk\10.0.200\NuGet.targets(519,5): error MSB3202: The project file "C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Gateway\SelfRestaurant.Gateway.Api\SelfRestaurant.Gateway.Api.csproj" was not found. [C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\SelfRestaurant.Microservices.sln]
+
+Build FAILED.
+
+C:\Program Files\dotnet\sdk\10.0.200\NuGet.targets(519,5): error MSB3202: The project file "C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Gateway\SelfRestaurant.Gateway.Api\SelfRestaurant.Gateway.Api.csproj" was not found. [C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\SelfRestaurant.Microservices.sln]
+    0 Warning(s)
+    1 Error(s)
+
+Time Elapsed 00:00:00.86

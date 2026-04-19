@@ -1,0 +1,29 @@
+﻿{
+    "staff":  {
+                  "employeeId":  3,
+                  "username":  "cashier_lan",
+                  "name":  "Thu ngan Lan",
+                  "phone":  "0903333333",
+                  "email":  "lan.cashier@selfrestaurant.com",
+                  "roleId":  3,
+                  "roleCode":  "CASHIER",
+                  "roleName":  "Thu ngân",
+                  "branchId":  1,
+                  "branchName":  "Chi nhánh Quận 1"
+              },
+    "date":  "2026-04-10",
+    "billCount":  0,
+    "totalRevenue":  0,
+    "bills":  [
+
+              ],
+    "account":  {
+                    "employeeId":  3,
+                    "name":  "Thu ngan Lan",
+                    "username":  "cashier_lan",
+                    "email":  "lan.cashier@selfrestaurant.com",
+                    "phone":  "0903333333",
+                    "branchName":  "Chi nhánh Quận 1",
+                    "roleName":  "Thu ngân"
+                }
+}

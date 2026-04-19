@@ -65,6 +65,7 @@ public sealed class PaymentCompletedConsumerService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var billingEvents = scope.ServiceProvider.GetRequiredService<BillingEventsClient>();
         var db = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
+        var catalogApi = scope.ServiceProvider.GetRequiredService<ICatalogReadModel>();
 
         var events = await billingEvents.GetPendingPaymentCompletedAsync(take, cancellationToken);
         if (events.Count == 0)
@@ -107,7 +108,7 @@ public sealed class PaymentCompletedConsumerService : BackgroundService
                     throw new InvalidOperationException($"Unable to deserialize payload for outbox event {item.OutboxEventId}.");
                 }
 
-                await ReconcileAsync(db, payload, cancellationToken);
+                await ReconcileAsync(db, payload, catalogApi, cancellationToken);
 
                 var inbox = existingInbox ?? new InboxEvents
                 {
@@ -158,7 +159,11 @@ public sealed class PaymentCompletedConsumerService : BackgroundService
         }
     }
 
-    private static async Task ReconcileAsync(OrdersDbContext db, PaymentCompletedPayload payload, CancellationToken cancellationToken)
+    private static async Task ReconcileAsync(
+        OrdersDbContext db,
+        PaymentCompletedPayload payload,
+        ICatalogReadModel catalogApi,
+        CancellationToken cancellationToken)
     {
         var order = await db.Orders.FirstOrDefaultAsync(x => x.OrderID == payload.OrderId, cancellationToken);
         if (order is null)
@@ -182,18 +187,7 @@ public sealed class PaymentCompletedConsumerService : BackgroundService
 
         if (order.TableID is int tableId)
         {
-            var table = await db.DiningTables.FirstOrDefaultAsync(x => x.TableID == tableId, cancellationToken);
-            var availableId = await db.TableStatus
-                .Where(x => x.StatusCode == "AVAILABLE")
-                .Select(x => (int?)x.StatusID)
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (table is not null && availableId is int tableStatusId)
-            {
-                table.StatusID = tableStatusId;
-                table.UpdatedAt = DateTime.Now;
-                table.CurrentOrderID = null;
-            }
+            await catalogApi.ReleaseTableAsync(tableId, cancellationToken);
         }
 
         await db.SaveChangesAsync(cancellationToken);

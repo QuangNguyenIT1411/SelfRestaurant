@@ -1,0 +1,16 @@
+$urls = @(
+  'http://localhost:5100/healthz',
+  'http://localhost:5100/app/customer',
+  'http://localhost:5100/app/chef',
+  'http://localhost:5100/app/cashier',
+  'http://localhost:5100/app/admin',
+  'http://localhost:5101/healthz',
+  'http://localhost:5102/healthz',
+  'http://localhost:5103/healthz',
+  'http://localhost:5104/healthz',
+  'http://localhost:5105/healthz'
+)
+foreach ($u in $urls) {
+  try { $r = Invoke-WebRequest -Uri $u -UseBasicParsing -TimeoutSec 15; Write-Output ($u + ' => ' + $r.StatusCode) }
+  catch { Write-Output ($u + ' => ERROR ' + $_.Exception.Message) }
+}

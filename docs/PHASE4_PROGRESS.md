@@ -1,4 +1,4 @@
-# Phase 4 - Progress
+﻿# Phase 4 - Progress
 
 ## Muc tieu Phase 4
 
@@ -9,10 +9,10 @@ Bat dau dua he thong sang huong event-driven theo cach an toan: publish integrat
 Date: 2026-03-25
 
 Changes:
-- `Orders.Api` bo sung hạ tầng event publisher nhe:
+- `Orders.Api` bo sung háº¡ táº§ng event publisher nhe:
   - `IIntegrationEventPublisher`
   - `FileIntegrationEventPublisher`
-- `Billing.Api` bo sung hạ tầng event publisher nhe:
+- `Billing.Api` bo sung háº¡ táº§ng event publisher nhe:
   - `IIntegrationEventPublisher`
   - `FileIntegrationEventPublisher`
 - Event sink tam thoi ghi dong thoi vao:
@@ -72,7 +72,7 @@ Changes:
 - `Program.cs` cua `Orders.Api` va `Billing.Api` doi event publisher sang `Scoped` de dung chung voi `DbContext`.
 
 Why this matters:
-- He thong da buoc qua muc “chi log ra file”, va bat dau co event persistence theo huong outbox.
+- He thong da buoc qua muc â€œchi log ra fileâ€, va bat dau co event persistence theo huong outbox.
 - Event duoc luu lai ben trong database service, phu hop hon cho retry, consumer, va eventual consistency o buoc sau.
 - Giai phap hien tai van an toan khi migration: business flow sync khong doi, nhung event da co cho backend xu ly tiep.
 
@@ -184,14 +184,14 @@ Changes:
 - `Customers.Api` bo sung public endpoints cho read-model `ReadyDishNotifications`:
   - `GET /api/customers/{customerId}/ready-notifications?tableId=...`
   - `POST /api/customers/{customerId}/ready-notifications/{notificationId}/resolve`
-- `Gateway.Mvc` bo sung contract va client de doc/xu ly ready notifications tu `Customers.Api`.
+- `Gateway.Api` bo sung contract va client de doc/xu ly ready notifications tu `Customers.Api`.
 - `MenuController` bo sung 2 endpoint BFF:
   - `GET /Menu/GetReadyNotifications`
   - `POST /Menu/ResolveReadyNotification`
 - `Views/Menu/Index.cshtml` bo sung poll cycle rieng cho ready notifications:
   - doc danh sach thong bao tu Gateway
   - render vao `notificationArea`
-  - mo modal “mon san sang” tu projection event-driven
+  - mo modal â€œmon san sangâ€ tu projection event-driven
   - resolve notification khi khach xac nhan da nhan mon
 
 Why this matters:
@@ -232,3 +232,4 @@ Validation:
   - chef <-> customer PASS
   - cashier <-> customer PASS
   - admin 6/6 PASS
+

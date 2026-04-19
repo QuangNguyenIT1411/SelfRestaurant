@@ -19,32 +19,10 @@ public sealed class CatalogDbContext : DbContext
     public DbSet<Ingredients> Ingredients => Set<Ingredients>();
     public DbSet<MenuCategory> MenuCategory => Set<MenuCategory>();
     public DbSet<Menus> Menus => Set<Menus>();
-    public DbSet<Restaurants> Restaurants => Set<Restaurants>();
     public DbSet<TableStatus> TableStatus => Set<TableStatus>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Ignore legacy cross-domain types still present in the project. Catalog owns only menu/table data.
-        modelBuilder.Ignore<ActiveOrders>();
-        modelBuilder.Ignore<Bills>();
-        modelBuilder.Ignore<BranchRevenue>();
-        modelBuilder.Ignore<CustomerLoyalty>();
-        modelBuilder.Ignore<Customers>();
-        modelBuilder.Ignore<DishDetails>();
-        modelBuilder.Ignore<EmployeeRoles>();
-        modelBuilder.Ignore<Employees>();
-        modelBuilder.Ignore<LoyaltyCards>();
-        modelBuilder.Ignore<OrderItemIngredients>();
-        modelBuilder.Ignore<OrderItems>();
-        modelBuilder.Ignore<OrderStatus>();
-        modelBuilder.Ignore<Orders>();
-        modelBuilder.Ignore<PasswordResetTokens>();
-        modelBuilder.Ignore<PaymentMethod>();
-        modelBuilder.Ignore<PaymentStatus>();
-        modelBuilder.Ignore<Payments>();
-        modelBuilder.Ignore<Reports>();
-        modelBuilder.Ignore<TableNumbers>();
-
         modelBuilder.Entity<Branches>(entity =>
         {
             entity.HasKey(e => e.BranchID);
@@ -60,9 +38,7 @@ public sealed class CatalogDbContext : DbContext
             entity.Property(e => e.Phone).HasMaxLength(20).IsUnicode(false);
             entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
             entity.Ignore(e => e.Employees);
-            entity.HasOne(e => e.Restaurant)
-                .WithMany(r => r.Branches)
-                .HasForeignKey(e => e.RestaurantID);
+            entity.Ignore(e => e.Restaurant);
         });
 
         modelBuilder.Entity<Categories>(entity =>
@@ -192,19 +168,6 @@ public sealed class CatalogDbContext : DbContext
                 .WithMany(b => b.Menus)
                 .HasForeignKey(e => e.BranchID);
         });
-
-        modelBuilder.Entity<Restaurants>(entity =>
-        {
-            entity.HasKey(e => e.RestaurantID);
-            entity.Property(e => e.Address).HasMaxLength(500);
-            entity.Property(e => e.CreatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
-            entity.Property(e => e.Email).HasMaxLength(100).IsUnicode(false);
-            entity.Property(e => e.IsActive).HasDefaultValue(true);
-            entity.Property(e => e.Name).HasMaxLength(200);
-            entity.Property(e => e.Phone).HasMaxLength(20).IsUnicode(false);
-            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
-        });
-
         modelBuilder.Entity<TableStatus>(entity =>
         {
             entity.HasKey(e => e.StatusID);

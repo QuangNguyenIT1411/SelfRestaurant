@@ -20,7 +20,7 @@ var servicesTimeout = TimeSpan.FromSeconds(Math.Clamp(builder.Configuration.GetV
 
 builder.Services.AddHttpClient<CustomersApiClient>(http =>
 {
-    http.BaseAddress = new Uri(builder.Configuration["Services:Customers"] ?? "http://localhost:5103");
+    http.BaseAddress = new Uri(builder.Configuration["Services:Identity"] ?? "http://localhost:5104");
     http.Timeout = servicesTimeout;
 });
 

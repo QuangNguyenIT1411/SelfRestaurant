@@ -20,17 +20,29 @@ public sealed class IdentityController : ControllerBase
     private readonly ILogger<IdentityController> _logger;
     private readonly PasswordResetEmailSender _passwordResetEmailSender;
     private readonly IHostEnvironment _environment;
+    private readonly IConfiguration _configuration;
+    private readonly CatalogApiClient _catalogApi;
+    private readonly OrdersApiClient _ordersApi;
+    private readonly BillingApiClient _billingApi;
 
     public IdentityController(
         IdentityDbContext db,
         ILogger<IdentityController> logger,
         PasswordResetEmailSender passwordResetEmailSender,
-        IHostEnvironment environment)
+        IHostEnvironment environment,
+        IConfiguration configuration,
+        CatalogApiClient catalogApi,
+        OrdersApiClient ordersApi,
+        BillingApiClient billingApi)
     {
         _db = db;
         _logger = logger;
         _passwordResetEmailSender = passwordResetEmailSender;
         _environment = environment;
+        _configuration = configuration;
+        _catalogApi = catalogApi;
+        _ordersApi = ordersApi;
+        _billingApi = billingApi;
     }
 
     private static string GenerateResetToken()
@@ -58,12 +70,7 @@ public sealed class IdentityController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
         {
-            return BadRequest(new { message = "Username and password are required." });
-        }
-
-        if (request.Password.Trim().Length < 6)
-        {
-            return BadRequest(new { message = "Password must be at least 6 characters." });
+            return BadRequest(new { message = "Vui lòng nhập đầy đủ thông tin." });
         }
 
         var username = request.Username.Trim();
@@ -74,10 +81,16 @@ public sealed class IdentityController : ControllerBase
                     && (c.Username == username || c.Email == username || c.PhoneNumber == username),
                 cancellationToken);
 
-        if (customer is null || !PasswordHashing.Verify(customer.Password, request.Password, out var needsUpgrade))
+        if (customer is null)
+        {
+            _logger.LogWarning("Customer login failed for missing key={Key}", username);
+            return NotFound(new { message = "Tên đăng nhập/Email/SĐT không tồn tại." });
+        }
+
+        if (!PasswordHashing.Verify(customer.Password, request.Password, out var needsUpgrade))
         {
             _logger.LogWarning("Customer login failed for key={Key}", username);
-            return Unauthorized(new { message = "Invalid credentials." });
+            return Unauthorized(new { message = "Mật khẩu không chính xác." });
         }
 
         if (needsUpgrade)
@@ -102,26 +115,25 @@ public sealed class IdentityController : ControllerBase
     [EnableRateLimiting("identity-auth")]
     public async Task<ActionResult<RegisterResponse>> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+        if (string.IsNullOrWhiteSpace(request.Username)
+            || string.IsNullOrWhiteSpace(request.Password)
+            || string.IsNullOrWhiteSpace(request.Name)
+            || string.IsNullOrWhiteSpace(request.PhoneNumber)
+            || string.IsNullOrWhiteSpace(request.Email))
         {
-            return BadRequest(new { message = "Username and password are required." });
-        }
-
-        if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.PhoneNumber))
-        {
-            return BadRequest(new { message = "Name and phone number are required." });
+            return BadRequest(new { message = "Vui lòng nhập đầy đủ thông tin." });
         }
 
         if (request.Password.Trim().Length < 6)
         {
-            return BadRequest(new { message = "Password must be at least 6 characters." });
+            return BadRequest(new { message = "Mật khẩu phải có ít nhất 6 ký tự." });
         }
 
         var username = request.Username.Trim();
         if (await _db.Customers.AnyAsync(c => c.Username == username, cancellationToken))
         {
             _logger.LogWarning("Customer register conflict by username={Username}", username);
-            return Conflict(new { message = "Username already exists." });
+            return Conflict(new { message = "Tên đăng nhập đã tồn tại." });
         }
 
         if (!string.IsNullOrWhiteSpace(request.Email))
@@ -130,7 +142,7 @@ public sealed class IdentityController : ControllerBase
             if (await _db.Customers.AnyAsync(c => c.Email == email, cancellationToken))
             {
                 _logger.LogWarning("Customer register conflict by email={Email}", email);
-                return Conflict(new { message = "Email already exists." });
+                return Conflict(new { message = "Email đã được sử dụng." });
             }
         }
 
@@ -158,23 +170,182 @@ public sealed class IdentityController : ControllerBase
         return Ok(new RegisterResponse(customer.CustomerID));
     }
 
+    [HttpGet("/api/internal/customers/loyalty/by-phone")]
+    public async Task<ActionResult<object>> GetLoyaltyByPhone([FromQuery] string? phoneNumber, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(phoneNumber))
+        {
+            return BadRequest(new { message = "Phone number is required." });
+        }
+
+        var normalizedPhone = phoneNumber.Trim();
+
+        var customer = await _db.CustomerLoyalty
+            .AsNoTracking()
+            .Where(x => x.PhoneNumber == normalizedPhone)
+            .OrderByDescending(x => x.IssueDate)
+            .ThenByDescending(x => x.CardID)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (customer is null)
+        {
+            return NotFound(new { message = "Customer not found." });
+        }
+
+        return Ok(new
+        {
+            customerId = customer.CustomerID,
+            name = customer.Name,
+            phone = customer.PhoneNumber,
+            currentPoints = customer.LoyaltyPoints ?? 0,
+            cardPoints = customer.CardPoints ?? 0,
+            cardId = customer.CardID
+        });
+    }
+
+    [HttpGet("/api/internal/customers:batch")]
+    public async Task<ActionResult<IReadOnlyList<object>>> GetCustomersBatch([FromQuery] int[]? ids, CancellationToken cancellationToken)
+    {
+        var customerIds = (ids ?? Array.Empty<int>())
+            .Where(x => x > 0)
+            .Distinct()
+            .ToArray();
+
+        if (customerIds.Length == 0)
+        {
+            return Ok(Array.Empty<object>());
+        }
+
+        var customers = await _db.Customers
+            .AsNoTracking()
+            .Where(x => customerIds.Contains(x.CustomerID) && (x.IsActive ?? true))
+            .Select(x => new
+            {
+                customerId = x.CustomerID,
+                username = x.Username,
+                name = x.Name,
+                phoneNumber = x.PhoneNumber,
+                email = x.Email,
+                gender = x.Gender,
+                dateOfBirth = x.DateOfBirth,
+                address = x.Address,
+                loyaltyPoints = x.LoyaltyPoints ?? 0,
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(customers);
+    }
+
+    [HttpGet("/api/customers/{customerId:int}")]
+    public async Task<ActionResult<object>> GetCustomer(int customerId, CancellationToken cancellationToken)
+    {
+        var customer = await _db.Customers
+            .AsNoTracking()
+            .Where(x => x.CustomerID == customerId && (x.IsActive ?? true))
+            .Select(x => new
+            {
+                customerId = x.CustomerID,
+                username = x.Username,
+                name = x.Name,
+                phoneNumber = x.PhoneNumber,
+                email = x.Email,
+                gender = x.Gender,
+                dateOfBirth = x.DateOfBirth,
+                address = x.Address,
+                loyaltyPoints = x.LoyaltyPoints ?? 0,
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return customer is null ? NotFound() : Ok(customer);
+    }
+
+    [HttpPut("/api/customers/{customerId:int}/profile")]
+    public async Task<ActionResult> UpdateCustomerProfile(
+        int customerId,
+        [FromBody] UpdateCustomerProfileRequest request,
+        CancellationToken cancellationToken)
+    {
+        var customer = await _db.Customers.FirstOrDefaultAsync(
+            x => x.CustomerID == customerId && (x.IsActive ?? true),
+            cancellationToken);
+        if (customer is null)
+        {
+            return NotFound();
+        }
+
+        customer.Username = request.Username.Trim();
+        customer.Name = request.Name.Trim();
+        customer.PhoneNumber = request.PhoneNumber.Trim();
+        customer.Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
+        customer.Gender = string.IsNullOrWhiteSpace(request.Gender) ? null : request.Gender.Trim();
+        customer.DateOfBirth = request.DateOfBirth;
+        customer.Address = string.IsNullOrWhiteSpace(request.Address) ? null : request.Address.Trim();
+        customer.UpdatedAt = DateTime.Now;
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("/api/customers/{customerId:int}/loyalty/settle")]
+    public async Task<ActionResult<object>> SettleLoyalty(
+        int customerId,
+        [FromBody] LoyaltySettlementRequest request,
+        CancellationToken cancellationToken)
+    {
+        var customer = await _db.Customers
+            .FirstOrDefaultAsync(x => x.CustomerID == customerId && (x.IsActive ?? true), cancellationToken);
+        if (customer is null)
+        {
+            return NotFound(new { message = "Customer not found." });
+        }
+
+        var pointsBefore = customer.LoyaltyPoints ?? 0;
+        var pointsUsed = request.PointsUsed < 0 ? 0 : request.PointsUsed;
+        pointsUsed = Math.Min(pointsUsed, pointsBefore);
+        pointsUsed = (pointsUsed / 1000) * 1000;
+
+        var updatedPoints = pointsBefore - pointsUsed;
+        if (updatedPoints < 0)
+        {
+            updatedPoints = 0;
+        }
+
+        var amountPaid = request.AmountPaid < 0 ? 0 : request.AmountPaid;
+        var pointsEarned = amountPaid > 0 ? (int)Math.Floor(amountPaid * 0.01m) : 0;
+
+        customer.LoyaltyPoints = updatedPoints + pointsEarned;
+        customer.UpdatedAt = DateTime.Now;
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            customerId = customer.CustomerID,
+            customerName = customer.Name,
+            pointsBefore,
+            pointsUsed,
+            pointsEarned,
+            customerPoints = customer.LoyaltyPoints ?? 0,
+        });
+    }
+
     [HttpPost("password/change")]
     [EnableRateLimiting("identity-auth")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request, CancellationToken cancellationToken)
     {
         if (request.CustomerId <= 0)
         {
-            return BadRequest(new { message = "CustomerId is required." });
+            return BadRequest(new { message = "Không tìm thấy khách hàng." });
         }
 
         if (string.IsNullOrWhiteSpace(request.CurrentPassword) || string.IsNullOrWhiteSpace(request.NewPassword))
         {
-            return BadRequest(new { message = "CurrentPassword and NewPassword are required." });
+            return BadRequest(new { message = "Vui lòng điền đầy đủ thông tin mật khẩu." });
         }
 
         if (request.NewPassword.Trim().Length < 6)
         {
-            return BadRequest(new { message = "New password must be at least 6 characters." });
+            return BadRequest(new { message = "Mật khẩu mới phải có ít nhất 6 ký tự." });
         }
 
         var customer = await _db.Customers.FirstOrDefaultAsync(
@@ -183,12 +354,12 @@ public sealed class IdentityController : ControllerBase
 
         if (customer is null)
         {
-            return NotFound(new { message = "Customer not found." });
+            return NotFound(new { message = "Không tìm thấy khách hàng." });
         }
 
         if (!PasswordHashing.Verify(customer.Password, request.CurrentPassword, out _))
         {
-            return BadRequest(new { message = "Current password is incorrect." });
+            return BadRequest(new { message = "Mật khẩu hiện tại không đúng." });
         }
 
         customer.Password = PasswordHashing.HashPassword(request.NewPassword);
@@ -197,7 +368,7 @@ public sealed class IdentityController : ControllerBase
         await _db.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Customer password changed. customerId={CustomerId}", customer.CustomerID);
 
-        return Ok(new { message = "Changed." });
+        return Ok(new { message = "Đổi mật khẩu thành công!" });
     }
 
     [HttpPost("password/forgot")]
@@ -208,7 +379,7 @@ public sealed class IdentityController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.UsernameOrEmailOrPhone))
         {
-            return BadRequest(new { message = "UsernameOrEmailOrPhone is required." });
+            return BadRequest(new { message = "Vui lòng nhập email." });
         }
 
         var key = request.UsernameOrEmailOrPhone.Trim();
@@ -224,7 +395,7 @@ public sealed class IdentityController : ControllerBase
         {
             _logger.LogInformation("Forgot-password requested for non-existing key={Key}", key);
             return Ok(new ForgotPasswordResponse(
-                Message: "Nếu tài khoản tồn tại, hệ thống sẽ gửi hướng dẫn đặt lại mật khẩu.",
+                Message: "Nếu email tồn tại trong hệ thống, bạn sẽ nhận được link đặt lại mật khẩu.",
                 ResetToken: null,
                 ExpiresAt: null));
         }
@@ -249,18 +420,21 @@ public sealed class IdentityController : ControllerBase
         var emailSent = false;
         if (!string.IsNullOrWhiteSpace(customer.Email))
         {
+            var publicBaseUrl = (_configuration["PasswordReset:PublicBaseUrl"] ?? "http://localhost:5100").TrimEnd('/');
+            var resetLink = $"{publicBaseUrl}/Customer/ResetPassword?token={Uri.EscapeDataString(token)}";
             emailSent = await _passwordResetEmailSender.TrySendAsync(
                 customer.Email,
                 customer.Name,
                 token,
+                resetLink,
                 cancellationToken);
         }
 
         var message = emailSent
-            ? "Nếu tài khoản tồn tại, hệ thống đã gửi email đặt lại mật khẩu."
+            ? "Nếu email tồn tại trong hệ thống, bạn sẽ nhận được link đặt lại mật khẩu."
             : (smtpEnabled
-                ? "Không thể gửi email lúc này. Vui lòng thử lại sau ít phút."
-                : "Hệ thống chưa cấu hình gửi email. Vui lòng liên hệ quản trị viên.");
+                ? "Có lỗi khi gửi email. Vui lòng thử lại sau."
+                : "Có lỗi khi gửi email. Vui lòng thử lại sau.");
 
         var exposeTokenForDevelopment = _environment.IsDevelopment();
 
@@ -278,17 +452,17 @@ public sealed class IdentityController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.Token))
         {
-            return BadRequest(new { message = "Token is required." });
+            return BadRequest(new { message = "Token không hợp lệ." });
         }
 
         if (string.IsNullOrWhiteSpace(request.NewPassword))
         {
-            return BadRequest(new { message = "NewPassword is required." });
+            return BadRequest(new { message = "Vui lòng điền đầy đủ thông tin." });
         }
 
         if (request.NewPassword.Trim().Length < 6)
         {
-            return BadRequest(new { message = "New password must be at least 6 characters." });
+            return BadRequest(new { message = "Mật khẩu phải có ít nhất 6 ký tự." });
         }
 
         var now = DateTime.UtcNow;
@@ -299,22 +473,22 @@ public sealed class IdentityController : ControllerBase
 
         if (token is null)
         {
-            return BadRequest(new { message = "Token is invalid." });
+            return BadRequest(new { message = "Link không hợp lệ hoặc đã hết hạn." });
         }
 
         if (token.IsUsed)
         {
-            return BadRequest(new { message = "Token was already used." });
+            return BadRequest(new { message = "Link không hợp lệ hoặc đã hết hạn." });
         }
 
         if (token.ExpiryDate <= now)
         {
-            return BadRequest(new { message = "Token has expired." });
+            return BadRequest(new { message = "Link không hợp lệ hoặc đã hết hạn." });
         }
 
         if ((token.Customer.IsActive ?? false) != true)
         {
-            return BadRequest(new { message = "Customer is inactive." });
+            return BadRequest(new { message = "Không tìm thấy khách hàng." });
         }
 
         token.Customer.Password = PasswordHashing.HashPassword(request.NewPassword);
@@ -323,7 +497,37 @@ public sealed class IdentityController : ControllerBase
 
         await _db.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Customer password reset. customerId={CustomerId}", token.CustomerID);
-        return Ok(new { message = "Password has been reset." });
+        return Ok(new { message = "Đặt lại mật khẩu thành công! Bạn có thể đăng nhập với mật khẩu mới." });
+    }
+
+    [HttpGet("password/reset/validate")]
+    public async Task<IActionResult> ValidateResetPasswordToken([FromQuery] string? token, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return BadRequest(new { message = "Link không hợp lệ.", code = "missing_token" });
+        }
+
+        var tokenData = await _db.PasswordResetTokens
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Token == token.Trim(), cancellationToken);
+
+        if (tokenData is null)
+        {
+            return BadRequest(new { message = "Link đặt lại mật khẩu không hợp lệ.", code = "invalid_token" });
+        }
+
+        if (tokenData.IsUsed)
+        {
+            return BadRequest(new { message = "Link này đã được sử dụng.", code = "used_token" });
+        }
+
+        if (tokenData.ExpiryDate <= DateTime.UtcNow)
+        {
+            return BadRequest(new { message = "Link đã hết hạn. Vui lòng yêu cầu link mới.", code = "expired_token" });
+        }
+
+        return Ok(new { valid = true });
     }
 
     [HttpPost("staff/login")]
@@ -338,7 +542,6 @@ public sealed class IdentityController : ControllerBase
         var username = request.Username.Trim();
         var employee = await _db.Employees
             .Include(e => e.Role)
-            .Include(e => e.Branch)
             .FirstOrDefaultAsync(
                 e =>
                     (e.IsActive ?? false) == true
@@ -348,7 +551,7 @@ public sealed class IdentityController : ControllerBase
         if (employee is null || !PasswordHashing.Verify(employee.Password, request.Password, out var needsUpgrade))
         {
             _logger.LogWarning("Staff login failed for key={Key}", username);
-            return Unauthorized(new { message = "Invalid credentials." });
+            return Unauthorized(new { message = "Tài khoản hoặc mật khẩu sai." });
         }
 
         if (needsUpgrade)
@@ -360,6 +563,8 @@ public sealed class IdentityController : ControllerBase
         await _db.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Staff login succeeded. employeeId={EmployeeId}", employee.EmployeeID);
 
+        var branch = await _catalogApi.GetBranchAsync(employee.BranchID, cancellationToken);
+
         return Ok(new StaffLoginResponse(
             EmployeeId: employee.EmployeeID,
             Username: employee.Username,
@@ -370,7 +575,7 @@ public sealed class IdentityController : ControllerBase
             RoleCode: employee.Role.RoleCode,
             RoleName: employee.Role.RoleName,
             BranchId: employee.BranchID,
-            BranchName: employee.Branch.Name));
+            BranchName: ResolveBranchName(employee.BranchID, branch)));
     }
 
     [HttpPost("staff/password/change")]
@@ -464,6 +669,7 @@ public sealed class IdentityController : ControllerBase
                 employee.Email,
                 employee.Name,
                 token,
+                null,
                 cancellationToken);
         }
 
@@ -539,6 +745,37 @@ public sealed class IdentityController : ControllerBase
         return Ok(new { message = "Password has been reset." });
     }
 
+    [HttpGet("staff/password/reset/validate")]
+    [EnableRateLimiting("identity-auth")]
+    public IActionResult ValidateStaffResetPasswordToken([FromQuery] string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return BadRequest(new { message = "Token is required." });
+        }
+
+        CleanupExpiredStaffResetTokens();
+
+        var normalizedToken = token.Trim();
+        if (!StaffPasswordResetTokens.TryGetValue(normalizedToken, out var state))
+        {
+            return BadRequest(new { message = "Token is invalid." });
+        }
+
+        if (state.IsUsed)
+        {
+            return BadRequest(new { message = "Token was already used." });
+        }
+
+        if (state.ExpiryUtc <= DateTime.UtcNow)
+        {
+            StaffPasswordResetTokens.TryRemove(normalizedToken, out _);
+            return BadRequest(new { message = "Token has expired." });
+        }
+
+        return Ok(new { valid = true });
+    }
+
     [HttpPut("staff/{employeeId:int}")]
     public async Task<ActionResult<StaffProfileResponse>> UpdateStaffProfile(
         int employeeId,
@@ -557,7 +794,6 @@ public sealed class IdentityController : ControllerBase
 
         var employee = await _db.Employees
             .Include(e => e.Role)
-            .Include(e => e.Branch)
             .FirstOrDefaultAsync(e => e.EmployeeID == employeeId && (e.IsActive ?? false) == true, cancellationToken);
 
         if (employee is null)
@@ -573,6 +809,8 @@ public sealed class IdentityController : ControllerBase
         await _db.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Staff profile updated. employeeId={EmployeeId}", employee.EmployeeID);
 
+        var branch = await _catalogApi.GetBranchAsync(employee.BranchID, cancellationToken);
+
         return Ok(new StaffProfileResponse(
             employee.EmployeeID,
             employee.Username,
@@ -582,7 +820,7 @@ public sealed class IdentityController : ControllerBase
             employee.Role.RoleCode,
             employee.Role.RoleName,
             employee.BranchID,
-            employee.Branch.Name));
+            ResolveBranchName(employee.BranchID, branch)));
     }
 
     [HttpGet("admin/stats")]
@@ -590,7 +828,7 @@ public sealed class IdentityController : ControllerBase
     {
         var totalEmployees = await _db.Employees.CountAsync(cancellationToken);
         var activeEmployees = await _db.Employees.CountAsync(e => (e.IsActive ?? false) == true, cancellationToken);
-        var branchCount = await _db.Branches.CountAsync(b => (b.IsActive ?? false) == true, cancellationToken);
+        var branchCount = await _catalogApi.GetActiveBranchCountAsync(cancellationToken);
 
         return Ok(new AdminStatsResponse(
             TotalEmployees: totalEmployees,
@@ -614,17 +852,20 @@ public sealed class IdentityController : ControllerBase
     }
 
     [HttpGet("admin/employees")]
-    public async Task<ActionResult<IReadOnlyList<AdminEmployeeResponse>>> GetAdminEmployees(
+    public async Task<ActionResult<AdminEmployeePagedResponse>> GetAdminEmployees(
         [FromQuery] string? search,
         [FromQuery] int? branchId,
         [FromQuery] int? roleId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
         [FromQuery] bool includeInactive = true,
         CancellationToken cancellationToken = default)
     {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
         var query = _db.Employees
             .AsNoTracking()
-            .Include(e => e.Role)
-            .Include(e => e.Branch)
             .AsQueryable();
 
         if (!includeInactive)
@@ -652,9 +893,35 @@ public sealed class IdentityController : ControllerBase
             query = query.Where(e => e.RoleID == roleId.Value);
         }
 
-        var items = await query
+        var totalItems = await query.CountAsync(cancellationToken);
+        var totalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)pageSize);
+
+        var employees = await query
             .OrderByDescending(e => e.CreatedAt ?? e.UpdatedAt ?? DateTime.MinValue)
             .ThenBy(e => e.Name)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(e => new
+            {
+                e.EmployeeID,
+                e.Name,
+                e.Username,
+                e.Phone,
+                e.Email,
+                e.Salary,
+                e.Shift,
+                IsActive = e.IsActive ?? false,
+                e.BranchID,
+                e.RoleID,
+                RoleCode = e.Role.RoleCode,
+                RoleName = e.Role.RoleName,
+                e.CreatedAt,
+                e.UpdatedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        var branchLookup = await GetBranchLookupAsync(employees.Select(e => e.BranchID), cancellationToken);
+        var items = employees
             .Select(e => new AdminEmployeeResponse(
                 e.EmployeeID,
                 e.Name,
@@ -663,17 +930,22 @@ public sealed class IdentityController : ControllerBase
                 e.Email,
                 e.Salary,
                 e.Shift,
-                e.IsActive ?? false,
+                e.IsActive,
                 e.BranchID,
-                e.Branch.Name,
+                ResolveBranchName(e.BranchID, branchLookup),
                 e.RoleID,
-                e.Role.RoleCode,
-                e.Role.RoleName,
+                e.RoleCode,
+                e.RoleName,
                 e.CreatedAt,
                 e.UpdatedAt))
-            .ToListAsync(cancellationToken);
+            .ToList();
 
-        return Ok(items);
+        return Ok(new AdminEmployeePagedResponse(
+            page,
+            pageSize,
+            totalItems,
+            totalPages,
+            items));
     }
 
     [HttpGet("admin/employees/{employeeId:int}")]
@@ -683,10 +955,9 @@ public sealed class IdentityController : ControllerBase
     {
         var employee = await _db.Employees
             .AsNoTracking()
-            .Include(e => e.Role)
-            .Include(e => e.Branch)
             .Where(e => e.EmployeeID == employeeId)
-            .Select(e => new AdminEmployeeResponse(
+            .Select(e => new
+            {
                 e.EmployeeID,
                 e.Name,
                 e.Username,
@@ -694,14 +965,14 @@ public sealed class IdentityController : ControllerBase
                 e.Email,
                 e.Salary,
                 e.Shift,
-                e.IsActive ?? false,
+                IsActive = e.IsActive ?? false,
                 e.BranchID,
-                e.Branch.Name,
                 e.RoleID,
-                e.Role.RoleCode,
-                e.Role.RoleName,
+                RoleCode = e.Role.RoleCode,
+                RoleName = e.Role.RoleName,
                 e.CreatedAt,
-                e.UpdatedAt))
+                e.UpdatedAt
+            })
             .FirstOrDefaultAsync(cancellationToken);
 
         if (employee is null)
@@ -709,7 +980,24 @@ public sealed class IdentityController : ControllerBase
             return NotFound(new { message = "Không tìm thấy nhân viên." });
         }
 
-        return Ok(employee);
+        var branch = await _catalogApi.GetBranchAsync(employee.BranchID, cancellationToken);
+
+        return Ok(new AdminEmployeeResponse(
+            employee.EmployeeID,
+            employee.Name,
+            employee.Username,
+            employee.Phone,
+            employee.Email,
+            employee.Salary,
+            employee.Shift,
+            employee.IsActive,
+            employee.BranchID,
+            ResolveBranchName(employee.BranchID, branch),
+            employee.RoleID,
+            employee.RoleCode,
+            employee.RoleName,
+            employee.CreatedAt,
+            employee.UpdatedAt));
     }
 
     [HttpPost("admin/employees")]
@@ -751,9 +1039,9 @@ public sealed class IdentityController : ControllerBase
         var response = await _db.Employees
             .AsNoTracking()
             .Include(e => e.Role)
-            .Include(e => e.Branch)
             .Where(e => e.EmployeeID == entity.EmployeeID)
-            .Select(e => new AdminEmployeeResponse(
+            .Select(e => new
+            {
                 e.EmployeeID,
                 e.Name,
                 e.Username,
@@ -761,17 +1049,34 @@ public sealed class IdentityController : ControllerBase
                 e.Email,
                 e.Salary,
                 e.Shift,
-                e.IsActive ?? false,
+                IsActive = e.IsActive ?? false,
                 e.BranchID,
-                e.Branch.Name,
                 e.RoleID,
-                e.Role.RoleCode,
-                e.Role.RoleName,
+                RoleCode = e.Role.RoleCode,
+                RoleName = e.Role.RoleName,
                 e.CreatedAt,
-                e.UpdatedAt))
+                e.UpdatedAt
+            })
             .FirstAsync(cancellationToken);
 
-        return Ok(response);
+        var branch = await _catalogApi.GetBranchAsync(response.BranchID, cancellationToken);
+
+        return Ok(new AdminEmployeeResponse(
+            response.EmployeeID,
+            response.Name,
+            response.Username,
+            response.Phone,
+            response.Email,
+            response.Salary,
+            response.Shift,
+            response.IsActive,
+            response.BranchID,
+            ResolveBranchName(response.BranchID, branch),
+            response.RoleID,
+            response.RoleCode,
+            response.RoleName,
+            response.CreatedAt,
+            response.UpdatedAt));
     }
 
     [HttpPut("admin/employees/{employeeId:int}")]
@@ -782,7 +1087,6 @@ public sealed class IdentityController : ControllerBase
     {
         var entity = await _db.Employees
             .Include(e => e.Role)
-            .Include(e => e.Branch)
             .FirstOrDefaultAsync(e => e.EmployeeID == employeeId, cancellationToken);
         if (entity is null)
         {
@@ -820,7 +1124,7 @@ public sealed class IdentityController : ControllerBase
         await _db.SaveChangesAsync(cancellationToken);
 
         await _db.Entry(entity).Reference(e => e.Role).LoadAsync(cancellationToken);
-        await _db.Entry(entity).Reference(e => e.Branch).LoadAsync(cancellationToken);
+        var branch = await _catalogApi.GetBranchAsync(entity.BranchID, cancellationToken);
 
         return Ok(new AdminEmployeeResponse(
             entity.EmployeeID,
@@ -832,7 +1136,7 @@ public sealed class IdentityController : ControllerBase
             entity.Shift,
             entity.IsActive ?? false,
             entity.BranchID,
-            entity.Branch.Name,
+            ResolveBranchName(entity.BranchID, branch),
             entity.RoleID,
             entity.Role.RoleCode,
             entity.Role.RoleName,
@@ -865,7 +1169,6 @@ public sealed class IdentityController : ControllerBase
         var employee = await _db.Employees
             .AsNoTracking()
             .Include(e => e.Role)
-            .Include(e => e.Branch)
             .FirstOrDefaultAsync(e => e.EmployeeID == employeeId, cancellationToken);
         if (employee is null)
         {
@@ -874,86 +1177,39 @@ public sealed class IdentityController : ControllerBase
 
         days = Math.Clamp(days, 1, 365);
         take = Math.Clamp(take, 1, 500);
-        var fromDate = DateTime.Today.AddDays(-days);
-
         var chefHistory = new List<AdminChefHistoryItem>();
         var cashierHistory = new List<AdminCashierHistoryItem>();
         var roleCode = employee.Role.RoleCode;
+        var branch = await _catalogApi.GetBranchAsync(employee.BranchID, cancellationToken);
 
         if (roleCode is "CHEF" or "KITCHEN_STAFF")
         {
-            var orders = await _db.Orders
-                .AsNoTracking()
-                .Include(o => o.Table)
-                    .ThenInclude(t => t!.Branch)
-                .Include(o => o.Status)
-                .Where(o => (o.IsActive ?? false) == true && o.OrderTime >= fromDate)
-                .Where(o => employee.BranchID <= 0 || (o.Table != null && o.Table.BranchID == employee.BranchID))
-                .OrderByDescending(o => o.CompletedTime ?? o.OrderTime)
-                .Take(take)
-                .Select(o => new
-                {
-                    o.OrderID,
-                    o.OrderCode,
-                    o.OrderTime,
-                    o.CompletedTime,
-                    TableName = o.Table != null ? (o.Table.QRCode ?? ("Bàn " + o.Table.TableID)) : null,
-                    BranchName = o.Table != null && o.Table.Branch != null ? o.Table.Branch.Name : null,
-                    StatusCode = o.Status.StatusCode,
-                    StatusName = o.Status.StatusName,
-                })
-                .ToListAsync(cancellationToken);
-
-            var orderIds = orders.Select(o => o.OrderID).ToList();
-            var orderItems = await _db.OrderItems
-                .AsNoTracking()
-                .Include(oi => oi.Dish)
-                .Where(oi => orderIds.Contains(oi.OrderID))
-                .Select(oi => new
-                {
-                    oi.OrderID,
-                    oi.Quantity,
-                    DishName = oi.Dish.Name
-                })
-                .ToListAsync(cancellationToken);
-
-            var itemsByOrder = orderItems
-                .GroupBy(x => x.OrderID)
-                .ToDictionary(
-                    g => g.Key,
-                    g => string.Join(", ", g.Select(x => $"{x.Quantity}x {x.DishName}")));
-
+            var orders = await _ordersApi.GetChefHistoryAsync(employee.BranchID, days, take, cancellationToken);
             chefHistory = orders
                 .Select(o => new AdminChefHistoryItem(
-                    o.OrderID,
+                    o.OrderId,
                     o.OrderCode,
                     o.OrderTime,
                     o.CompletedTime,
                     o.TableName,
-                    o.BranchName,
+                    string.IsNullOrWhiteSpace(o.BranchName) ? ResolveBranchName(employee.BranchID, branch) : o.BranchName,
                     o.StatusCode,
                     o.StatusName,
-                    itemsByOrder.TryGetValue(o.OrderID, out var summary) ? summary : string.Empty))
+                    o.DishesSummary))
                 .ToList();
         }
 
         if (roleCode == "CASHIER")
         {
-            cashierHistory = await _db.Bills
-                .AsNoTracking()
-                .Include(b => b.Order)
-                    .ThenInclude(o => o.Table)
-                .Include(b => b.Customer)
-                .Where(b => b.IsActive && b.EmployeeID == employeeId && b.BillTime >= fromDate)
-                .OrderByDescending(b => b.BillTime)
-                .Take(take)
+            var bills = await _billingApi.GetCashierHistoryAsync(employeeId, days, take, cancellationToken);
+            cashierHistory = bills
                 .Select(b => new AdminCashierHistoryItem(
-                    b.BillID,
+                    b.BillId,
                     b.BillCode,
                     b.BillTime,
-                    b.Order != null ? b.Order.OrderCode : null,
-                    b.Order != null && b.Order.Table != null ? (b.Order.Table.QRCode ?? ("Bàn " + b.Order.Table.TableID)) : null,
-                    b.Customer != null ? b.Customer.Name : null,
+                    b.OrderCode,
+                    b.TableName,
+                    b.CustomerName,
                     b.Subtotal,
                     b.Discount,
                     b.PointsDiscount,
@@ -962,7 +1218,7 @@ public sealed class IdentityController : ControllerBase
                     b.PaymentMethod,
                     b.PaymentAmount,
                     b.ChangeAmount))
-                .ToListAsync(cancellationToken);
+                .ToList();
         }
 
         return Ok(new AdminEmployeeHistoryResponse(
@@ -972,7 +1228,7 @@ public sealed class IdentityController : ControllerBase
                 employee.Role.RoleCode,
                 employee.Role.RoleName,
                 employee.BranchID,
-                employee.Branch.Name),
+                ResolveBranchName(employee.BranchID, branch)),
             chefHistory,
             cashierHistory));
     }
@@ -1005,8 +1261,8 @@ public sealed class IdentityController : ControllerBase
             return BadRequest(new { message = "Vui lòng chọn chi nhánh." });
         }
 
-        var branchExists = await _db.Branches.AnyAsync(b => b.BranchID == branchId && (b.IsActive ?? false) == true, cancellationToken);
-        if (!branchExists)
+        var branch = await _catalogApi.GetBranchAsync(branchId, cancellationToken);
+        if (branch is null || !branch.IsActive)
         {
             return BadRequest(new { message = "Chi nhánh không hợp lệ." });
         }
@@ -1035,11 +1291,16 @@ public sealed class IdentityController : ControllerBase
     }
 
     [HttpGet("admin/customers")]
-    public async Task<ActionResult<IReadOnlyList<AdminCustomerResponse>>> GetAdminCustomers(
+    public async Task<ActionResult<AdminCustomerPagedResponse>> GetAdminCustomers(
         [FromQuery] string? search,
         [FromQuery] bool includeInactive = true,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
         CancellationToken cancellationToken = default)
     {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
         var query = _db.Customers.AsNoTracking().AsQueryable();
         if (!includeInactive)
         {
@@ -1056,9 +1317,14 @@ public sealed class IdentityController : ControllerBase
                 (c.Email != null && c.Email.Contains(key)));
         }
 
+        var totalItems = await query.CountAsync(cancellationToken);
+        var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+
         var items = await query
             .OrderByDescending(c => c.CreatedAt)
             .ThenBy(c => c.Name)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(c => new AdminCustomerResponse(
                 c.CustomerID,
                 c.Name,
@@ -1073,7 +1339,42 @@ public sealed class IdentityController : ControllerBase
                 c.CreatedAt))
             .ToListAsync(cancellationToken);
 
-        return Ok(items);
+        return Ok(new AdminCustomerPagedResponse(
+            page,
+            pageSize,
+            totalItems,
+            totalPages,
+            items));
+    }
+
+    [HttpGet("admin/customers/{customerId:int}")]
+    public async Task<ActionResult<AdminCustomerResponse>> GetAdminCustomerById(
+        int customerId,
+        CancellationToken cancellationToken = default)
+    {
+        var customer = await _db.Customers
+            .AsNoTracking()
+            .Where(c => c.CustomerID == customerId)
+            .Select(c => new AdminCustomerResponse(
+                c.CustomerID,
+                c.Name,
+                c.Username,
+                c.PhoneNumber,
+                c.Email,
+                c.Address,
+                c.Gender,
+                c.DateOfBirth,
+                c.LoyaltyPoints ?? 0,
+                c.IsActive ?? false,
+                c.CreatedAt))
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (customer is null)
+        {
+            return NotFound(new { message = "Không tìm thấy khách hàng." });
+        }
+
+        return Ok(customer);
     }
 
     [HttpPost("admin/customers")]
@@ -1099,7 +1400,7 @@ public sealed class IdentityController : ControllerBase
             Name = request.Name.Trim(),
             Username = request.Username.Trim(),
             Password = PasswordHashing.HashPassword(request.Password.Trim()),
-            PhoneNumber = request.PhoneNumber.Trim(),
+            PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber) ? string.Empty : request.PhoneNumber.Trim(),
             Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
             Address = string.IsNullOrWhiteSpace(request.Address) ? null : request.Address.Trim(),
             Gender = string.IsNullOrWhiteSpace(request.Gender) ? null : request.Gender.Trim(),
@@ -1160,7 +1461,7 @@ public sealed class IdentityController : ControllerBase
             entity.Password = PasswordHashing.HashPassword(request.Password.Trim());
         }
 
-        entity.PhoneNumber = request.PhoneNumber.Trim();
+        entity.PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber) ? string.Empty : request.PhoneNumber.Trim();
         entity.Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
         entity.Address = string.IsNullOrWhiteSpace(request.Address) ? null : request.Address.Trim();
         entity.Gender = string.IsNullOrWhiteSpace(request.Gender) ? null : request.Gender.Trim();
@@ -1219,11 +1520,6 @@ public sealed class IdentityController : ControllerBase
             return BadRequest(new { message = "Vui lòng nhập họ tên khách hàng." });
         }
 
-        if (string.IsNullOrWhiteSpace(phoneNumber))
-        {
-            return BadRequest(new { message = "Vui lòng nhập số điện thoại." });
-        }
-
         if (!currentId.HasValue && string.IsNullOrWhiteSpace(password))
         {
             return BadRequest(new { message = "Vui lòng nhập mật khẩu." });
@@ -1258,6 +1554,33 @@ public sealed class IdentityController : ControllerBase
         return null;
     }
 
+    private Task<IReadOnlyDictionary<int, CatalogApiClient.BranchSnapshotResponse>> GetBranchLookupAsync(
+        IEnumerable<int> branchIds,
+        CancellationToken cancellationToken)
+        => GetBranchLookupCoreAsync(branchIds, cancellationToken);
+
+    private async Task<IReadOnlyDictionary<int, CatalogApiClient.BranchSnapshotResponse>> GetBranchLookupCoreAsync(
+        IEnumerable<int> branchIds,
+        CancellationToken cancellationToken)
+    {
+        var lookup = (await _catalogApi.GetBranchesAsync(branchIds, cancellationToken) ?? Array.Empty<CatalogApiClient.BranchSnapshotResponse>())
+            .ToDictionary(x => x.BranchId);
+
+        return lookup;
+    }
+
+    private static string ResolveBranchName(
+        int branchId,
+        CatalogApiClient.BranchSnapshotResponse? branch)
+        => string.IsNullOrWhiteSpace(branch?.Name) ? $"Chi nhánh {branchId}" : branch.Name;
+
+    private static string ResolveBranchName(
+        int branchId,
+        IReadOnlyDictionary<int, CatalogApiClient.BranchSnapshotResponse> branchLookup)
+        => branchLookup.TryGetValue(branchId, out var branch)
+            ? ResolveBranchName(branchId, branch)
+            : $"Chi nhánh {branchId}";
+
     private sealed class StaffPasswordResetState
     {
         public int EmployeeId { get; init; }
@@ -1286,6 +1609,17 @@ public sealed class IdentityController : ControllerBase
         string? Address = null);
 
     public sealed record RegisterResponse(int CustomerId);
+
+    public sealed record UpdateCustomerProfileRequest(
+        string Username,
+        string Name,
+        string PhoneNumber,
+        string? Email,
+        string? Gender,
+        DateOnly? DateOfBirth,
+        string? Address);
+
+    public sealed record LoyaltySettlementRequest(int PointsUsed, decimal AmountPaid);
 
     public sealed record ChangePasswordRequest(int CustomerId, string CurrentPassword, string NewPassword);
 
@@ -1346,6 +1680,13 @@ public sealed class IdentityController : ControllerBase
         string RoleName,
         DateTime? CreatedAt,
         DateTime? UpdatedAt);
+
+    public sealed record AdminEmployeePagedResponse(
+        int Page,
+        int PageSize,
+        int TotalItems,
+        int TotalPages,
+        IReadOnlyList<AdminEmployeeResponse> Items);
 
     public sealed record CreateAdminEmployeeRequest(
         string Name,
@@ -1424,11 +1765,18 @@ public sealed class IdentityController : ControllerBase
         bool IsActive,
         DateTime? CreatedAt);
 
+    public sealed record AdminCustomerPagedResponse(
+        int Page,
+        int PageSize,
+        int TotalItems,
+        int TotalPages,
+        IReadOnlyList<AdminCustomerResponse> Items);
+
     public sealed record CreateAdminCustomerRequest(
         string Name,
         string Username,
         string Password,
-        string PhoneNumber,
+        string? PhoneNumber,
         string? Email = null,
         string? Address = null,
         string? Gender = null,
@@ -1440,7 +1788,7 @@ public sealed class IdentityController : ControllerBase
         string Name,
         string Username,
         string? Password,
-        string PhoneNumber,
+        string? PhoneNumber,
         string? Email = null,
         string? Address = null,
         string? Gender = null,

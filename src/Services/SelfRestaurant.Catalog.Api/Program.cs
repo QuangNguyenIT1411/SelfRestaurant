@@ -11,8 +11,13 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+var catalogConnectionString =
+    builder.Configuration.GetConnectionString("CatalogDb") ??
+    builder.Configuration.GetConnectionString("RestaurantDb") ??
+    throw new InvalidOperationException("Missing connection string: ConnectionStrings:CatalogDb");
+
 builder.Services.AddDbContext<CatalogDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("RestaurantDb")));
+    options.UseSqlServer(catalogConnectionString));
 
 var app = builder.Build();
 

@@ -1,25 +1,160 @@
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
+using SelfRestaurant.Billing.Api.Persistence;
+using SelfRestaurant.Billing.Api.Persistence.Entities;
 
 namespace SelfRestaurant.Billing.Api.Infrastructure;
 
 public sealed class OrdersApiClient
 {
     private readonly HttpClient _http;
+    private readonly BillingDbContext _db;
+    private static readonly TimeSpan SnapshotFreshnessTtl = TimeSpan.FromHours(12);
 
-    public OrdersApiClient(HttpClient http)
+    public OrdersApiClient(HttpClient http, BillingDbContext db)
     {
         _http = http;
+        _db = db;
     }
 
-    public async Task<bool> CompleteCheckoutAsync(int orderId, int cashierId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<CashierOrderAggregateResponse>> GetCashierOrdersAsync(int branchId, CancellationToken cancellationToken)
     {
-        using var response = await _http.PostAsJsonAsync(
-            $"/api/orders/{orderId}/billing/complete",
-            new CompleteCheckoutRequest(cashierId),
+        var list = await _http.GetFromJsonAsync<IReadOnlyList<CashierOrderAggregateResponse>>(
+            $"/api/internal/branches/{branchId}/cashier/orders",
             cancellationToken);
 
-        return response.IsSuccessStatusCode;
+        var materialized = list ?? Array.Empty<CashierOrderAggregateResponse>();
+        await UpsertSnapshotsFromCashierQueueAsync(branchId, materialized, cancellationToken);
+        return materialized;
     }
 
-    public sealed record CompleteCheckoutRequest(int CashierId);
+    public async Task<CheckoutContextResponse?> GetCheckoutContextAsync(int orderId, CancellationToken cancellationToken)
+    {
+        var response = await _http.GetFromJsonAsync<CheckoutContextResponse>($"/api/internal/orders/{orderId}/checkout-context", cancellationToken);
+        if (response is not null)
+        {
+            await UpsertSnapshotsAsync(
+                new[] { new OrderBillContextResponse(response.OrderId, response.OrderCode, response.TableId, response.TableName ?? "-", response.BranchId, response.BranchName) },
+                cancellationToken);
+        }
+
+        return response;
+    }
+
+    public async Task<IReadOnlyList<OrderBillContextResponse>> GetOrderBillContextsAsync(IEnumerable<int> orderIds, CancellationToken cancellationToken)
+    {
+        var ids = orderIds
+            .Where(x => x > 0)
+            .Distinct()
+            .ToArray();
+
+        if (ids.Length == 0)
+        {
+            return Array.Empty<OrderBillContextResponse>();
+        }
+
+        var cached = await _db.OrderContextSnapshots
+            .AsNoTracking()
+            .Where(x => ids.Contains(x.OrderId))
+            .ToListAsync(cancellationToken);
+
+        var freshLookup = cached
+            .Where(x => IsFresh(x.RefreshedAtUtc))
+            .ToDictionary(x => x.OrderId, Map);
+
+        var missingIds = ids.Where(id => !freshLookup.ContainsKey(id)).ToArray();
+        if (missingIds.Length == 0)
+        {
+            return ids.Where(freshLookup.ContainsKey).Select(id => freshLookup[id]).ToArray();
+        }
+
+        try
+        {
+            var query = string.Join("&", missingIds.Select(id => $"ids={id}"));
+            var remote = await _http.GetFromJsonAsync<IReadOnlyList<OrderBillContextResponse>>(
+                $"/api/internal/orders:bill-context?{query}",
+                cancellationToken);
+
+            if (remote is not null)
+            {
+                await UpsertSnapshotsAsync(remote, cancellationToken);
+                foreach (var item in remote)
+                {
+                    freshLookup[item.OrderId] = item;
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        foreach (var stale in cached.Where(x => !freshLookup.ContainsKey(x.OrderId)))
+        {
+            freshLookup[stale.OrderId] = Map(stale);
+        }
+
+        return ids.Where(freshLookup.ContainsKey).Select(id => freshLookup[id]).ToArray();
+    }
+
+    private async Task UpsertSnapshotsFromCashierQueueAsync(
+        int branchId,
+        IEnumerable<CashierOrderAggregateResponse> orders,
+        CancellationToken cancellationToken)
+    {
+        var list = orders
+            .Select(x => new OrderBillContextResponse(
+                x.OrderId,
+                x.OrderCode,
+                x.TableId,
+                x.TableName,
+                branchId,
+                null))
+            .ToArray();
+
+        await UpsertSnapshotsAsync(list, cancellationToken);
+    }
+
+    private async Task UpsertSnapshotsAsync(
+        IEnumerable<OrderBillContextResponse> snapshots,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        var list = snapshots.ToList();
+        var ids = list.Select(x => x.OrderId).Distinct().ToArray();
+        var existing = await _db.OrderContextSnapshots
+            .Where(x => ids.Contains(x.OrderId))
+            .ToDictionaryAsync(x => x.OrderId, cancellationToken);
+
+        foreach (var item in list)
+        {
+            if (!existing.TryGetValue(item.OrderId, out var entity))
+            {
+                entity = new OrderContextSnapshots { OrderId = item.OrderId };
+                _db.OrderContextSnapshots.Add(entity);
+            }
+
+            entity.OrderCode = item.OrderCode;
+            entity.TableId = item.TableId;
+            entity.TableName = item.TableName;
+            entity.BranchId = item.BranchId;
+            entity.BranchName = item.BranchName;
+            entity.RefreshedAtUtc = now;
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static bool IsFresh(DateTime refreshedAtUtc)
+        => refreshedAtUtc >= DateTime.UtcNow.Subtract(SnapshotFreshnessTtl);
+
+    private static OrderBillContextResponse Map(OrderContextSnapshots snapshot)
+        => new(snapshot.OrderId, snapshot.OrderCode, snapshot.TableId, snapshot.TableName ?? "-", snapshot.BranchId, snapshot.BranchName);
+
+    public sealed record OrderBillContextResponse(
+        int OrderId,
+        string? OrderCode,
+        int? TableId,
+        string TableName,
+        int? BranchId,
+        string? BranchName);
 }

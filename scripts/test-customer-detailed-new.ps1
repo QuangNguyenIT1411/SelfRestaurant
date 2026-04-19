@@ -197,7 +197,7 @@ try {
     $fr=Invoke-WebRequest "$BaseUrl/Customer/ForgotPassword" -Method Post -WebSession $s -UseBasicParsing -ContentType 'application/x-www-form-urlencoded' -Body @{UsernameOrEmailOrPhone=$u;__RequestVerificationToken=$ft}
     Add-Result "Forgot Password" ($fr.StatusCode -in 200,302) "status=$($fr.StatusCode)"
 
-    $conn=New-Object System.Data.SqlClient.SqlConnection('Server=(localdb)\MSSQLLocalDB;Database=RESTAURANT;Trusted_Connection=True;TrustServerCertificate=True;')
+    $conn=New-Object System.Data.SqlClient.SqlConnection('Server=(localdb)\MSSQLLocalDB;Database=RESTAURANT_IDENTITY;Trusted_Connection=True;TrustServerCertificate=True;')
     $conn.Open()
     $cmd=$conn.CreateCommand()
     $cmd.CommandText='SELECT TOP 1 prt.Token FROM PasswordResetTokens prt JOIN Customers c ON c.CustomerID = prt.CustomerID WHERE c.Username=@u ORDER BY prt.TokenID DESC'

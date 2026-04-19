@@ -1,0 +1,5 @@
+[2026-04-13 01:36:43] Checking new gateway: http://localhost:5100
+[2026-04-13 01:36:43] New gateway ready.
+[2026-04-13 01:36:43] [SYSTEM][Unhandled][FAIL] Old site not found: C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main_OLD\SelfRestaurant
+[2026-04-13 01:36:44] Summary JSON: C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\.runlogs\admin_flow_summary_20260413_013643.json
+[2026-04-13 01:36:44] FINAL: 0/1 PASS

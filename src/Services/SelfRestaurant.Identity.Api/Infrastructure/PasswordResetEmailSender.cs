@@ -25,6 +25,7 @@ public sealed class PasswordResetEmailSender
         string toEmail,
         string? toName,
         string resetToken,
+        string? resetLink,
         CancellationToken cancellationToken)
     {
         if (!IsEnabled)
@@ -36,9 +37,9 @@ public sealed class PasswordResetEmailSender
         {
             using var message = new MailMessage
             {
-                Subject = "SelfRestaurant - Ma dat lai mat khau",
+                Subject = "SelfRestaurant - Đặt lại mật khẩu",
                 IsBodyHtml = true,
-                Body = BuildHtmlBody(toName, resetToken),
+                Body = BuildHtmlBody(toName, resetToken, resetLink),
             };
 
             message.From = new MailAddress(_options.FromEmail, _options.FromName);
@@ -67,17 +68,36 @@ public sealed class PasswordResetEmailSender
         }
     }
 
-    private static string BuildHtmlBody(string? customerName, string resetToken)
+    private static string BuildHtmlBody(string? customerName, string resetToken, string? resetLink)
     {
-        var displayName = string.IsNullOrWhiteSpace(customerName) ? "Ban" : customerName.Trim();
+        var displayName = string.IsNullOrWhiteSpace(customerName) ? "Bạn" : customerName.Trim();
+        var safeLink = string.IsNullOrWhiteSpace(resetLink) ? null : WebUtility.HtmlEncode(resetLink);
+
+        if (!string.IsNullOrWhiteSpace(safeLink))
+        {
+            return $@"
+<div style=""font-family:Segoe UI,Arial,sans-serif;line-height:1.6;color:#1f2937"">
+  <h2 style=""margin-bottom:12px"">Đặt lại mật khẩu Self Restaurant</h2>
+  <p>Xin chào {WebUtility.HtmlEncode(displayName)},</p>
+  <p>Chúng tôi đã nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.</p>
+  <p>Vui lòng nhấn vào nút bên dưới để mở trang đặt lại mật khẩu:</p>
+  <p style=""margin:24px 0"">
+    <a href=""{safeLink}"" style=""display:inline-block;background:#d9534f;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600"">Mở trang đặt lại mật khẩu</a>
+  </p>
+  <p>Nếu nút không hoạt động, bạn có thể sao chép đường dẫn sau và mở trong trình duyệt:</p>
+  <p style=""word-break:break-all"">{safeLink}</p>
+  <p>Liên kết này sẽ hết hạn sau 30 phút.</p>
+  <p>Nếu bạn không yêu cầu thao tác này, hãy bỏ qua email này.</p>
+</div>";
+        }
 
         return $@"
 <div style=""font-family:Segoe UI,Arial,sans-serif;line-height:1.6;color:#1f2937"">
-  <h2 style=""margin-bottom:12px"">Dat lai mat khau SelfRestaurant</h2>
-  <p>Xin chao {WebUtility.HtmlEncode(displayName)},</p>
-  <p>Nhap ma sau de dat lai mat khau cua ban:</p>
+  <h2 style=""margin-bottom:12px"">Đặt lại mật khẩu Self Restaurant</h2>
+  <p>Xin chào {WebUtility.HtmlEncode(displayName)},</p>
+  <p>Nhập mã sau để đặt lại mật khẩu của bạn:</p>
   <p style=""font-size:18px;font-weight:700;letter-spacing:1px"">{WebUtility.HtmlEncode(resetToken)}</p>
-  <p>Neu ban khong yeu cau thao tac nay, hay bo qua email nay.</p>
+  <p>Nếu bạn không yêu cầu thao tác này, hãy bỏ qua email này.</p>
 </div>";
     }
 }

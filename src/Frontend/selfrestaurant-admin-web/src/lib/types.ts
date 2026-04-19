@@ -1,0 +1,42 @@
+export type ApiError = { success: false; code: string; message: string; details?: unknown };
+
+export type StaffSessionUserDto = {
+  employeeId: number;
+  username: string;
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  roleId: number;
+  roleCode: string;
+  roleName: string;
+  branchId: number;
+  branchName: string;
+};
+
+export type StaffSessionDto = { authenticated: boolean; staff?: StaffSessionUserDto | null; loginPath?: string | null };
+export type BranchDto = { branchId: number; name: string; location?: string | null };
+export type CategoryDto = { categoryId: number; name: string; description?: string | null; displayOrder: number; isActive: boolean };
+export type TableStatusDto = { statusId: number; statusCode: string; statusName: string };
+export type EmployeeRoleDto = { roleId: number; roleCode: string; roleName: string };
+export type AdminDashboardStatsDto = { totalEmployees: number; activeEmployees: number; branchCount: number; todayOrders: number; pendingOrders: number; todayRevenue: number };
+export type AdminSettingsDto = { employeeId: number; name: string; username: string; phone?: string | null; email?: string | null; branchName: string; roleName: string };
+export type AdminEmployeeDto = { employeeId: number; name: string; username: string; password?: string | null; phone?: string | null; email?: string | null; salary?: number | null; shift?: string | null; isActive: boolean; branchId: number; branchName: string; roleId: number; roleCode: string; roleName: string };
+export type AdminCustomerDto = { customerId: number; name: string; username: string; password?: string | null; phoneNumber?: string | null; email?: string | null; gender?: string | null; dateOfBirth?: string | null; address?: string | null; loyaltyPoints: number; isActive: boolean };
+export type AdminDishDto = { dishId: number; name: string; price: number; categoryId: number; categoryName: string; description?: string | null; unit?: string | null; image?: string | null; isVegetarian: boolean; isDailySpecial: boolean; available: boolean; isActive: boolean };
+export type AdminDishIngredientLineDto = { ingredientId: number; name: string; unit: string; currentStock: number; isActive: boolean; selected: boolean; quantityPerDish: number };
+export type AdminIngredientDto = { ingredientId: number; name: string; unit: string; currentStock: number; reorderLevel: number; isActive: boolean };
+export type AdminTableDto = { tableId: number; branchId: number; branchName: string; numberOfSeats: number; qrCode?: string | null; statusId: number; statusCode: string; statusName: string; isActive: boolean };
+export type AdminRevenueReportRowDto = { date: string; branchId: number; branchName: string; totalOrders: number; totalRevenue: number };
+export type AdminTopDishReportItemDto = { dishId: number; dishName: string; categoryName: string; totalQuantity: number; totalRevenue: number };
+export type AdminChefHistoryItemDto = { orderId: number; orderCode?: string | null; orderTime: string; completedTime?: string | null; tableName?: string | null; branchName?: string | null; statusCode: string; statusName: string; dishesSummary: string };
+export type AdminCashierHistoryItemDto = { billId: number; billCode: string; billTime: string; orderCode?: string | null; tableName?: string | null; customerName?: string | null; subtotal: number; discount: number; pointsDiscount: number; pointsUsed?: number | null; totalAmount: number; paymentMethod: string; paymentAmount?: number | null; changeAmount?: number | null };
+export type AdminEmployeeHistoryResponse = { employee: { employeeId: number; employeeName: string; roleCode: string; roleName: string; branchId: number; branchName: string }; chefHistory: AdminChefHistoryItemDto[]; cashierHistory: AdminCashierHistoryItemDto[] };
+export type Paged<T> = { page: number; pageSize: number; totalItems: number; totalPages: number; items: T[] };
+export type AdminDashboardDto = { staff: StaffSessionUserDto; stats: AdminDashboardStatsDto; latestEmployees: AdminEmployeeDto[]; branches: BranchDto[]; roles: EmployeeRoleDto[]; categories: CategoryDto[]; tableStatuses: TableStatusDto[]; settings: AdminSettingsDto };
+export type AdminCategoriesScreenDto = { categories: CategoryDto[]; units: { unit: string; dishCount: number }[] };
+export type AdminDishesScreenDto = { dishes: Paged<AdminDishDto>; categories: CategoryDto[] };
+export type AdminIngredientsScreenDto = { ingredients: Paged<AdminIngredientDto> };
+export type AdminTablesScreenDto = { tables: Paged<AdminTableDto>; branches: BranchDto[]; tableStatuses: TableStatusDto[] };
+export type AdminEmployeesScreenDto = { employees: Paged<AdminEmployeeDto>; branches: BranchDto[]; roles: EmployeeRoleDto[] };
+export type AdminCustomersScreenDto = { customers: Paged<AdminCustomerDto> };
+export type AdminReportsScreenDto = { revenueDays: number; topDishDays: number; topDishTake: number; revenue: { totalRevenue: number; revenueByBranchDate: AdminRevenueReportRowDto[] }; topDishes: { items: AdminTopDishReportItemDto[] } };

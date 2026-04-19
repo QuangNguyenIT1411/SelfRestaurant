@@ -1,4 +1,4 @@
-# Phase 1 - Service Ownership Map
+﻿# Phase 1 - Service Ownership Map
 
 Tai lieu nay chot ranh gioi nghiep vu cho he thong SelfRestaurant o thoi diem hien tai. Muc tieu cua Phase 1 la thong nhat ro service nao so huu du lieu nao, endpoint nao la public/internal, va nhung dependency cheo mien nao phai duoc xu ly o Phase 2-3.
 
@@ -139,7 +139,7 @@ Internal API can chot ve sau:
 ## 3. Gateway Ownership
 
 Project:
-- `src/Gateway/SelfRestaurant.Gateway.Mvc`
+- `src/Gateway/SelfRestaurant.Gateway.Api`
 
 Gateway chi nen so huu:
 - Views
@@ -191,4 +191,5 @@ Phase 1 duoc xem la hoan tat khi:
 - Moi entity chinh deu co service so huu ro rang.
 - Moi overlap lon deu duoc danh dau de xu ly o Phase 2-3.
 - Gateway duoc xac dinh ro chi la BFF/UI layer.
+
 

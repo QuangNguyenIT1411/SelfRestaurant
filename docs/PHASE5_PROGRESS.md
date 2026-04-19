@@ -1,4 +1,4 @@
-# PHASE 5 PROGRESS
+﻿# PHASE 5 PROGRESS
 
 Dot 1 - Runtime hardening co loi ro cho van hanh local/demo
 
@@ -6,7 +6,7 @@ Date: 2026-03-27
 
 Changes:
 - Chuan hoa timeout cho giao tiep noi bo:
-  - `Gateway.Mvc`
+  - `Gateway.Api`
   - `Orders.Api`
   - `Billing.Api`
   - `Customers.Api`
@@ -28,3 +28,4 @@ Validation:
   - chef <-> customer PASS
   - cashier <-> customer PASS
   - admin 6/6 PASS
+

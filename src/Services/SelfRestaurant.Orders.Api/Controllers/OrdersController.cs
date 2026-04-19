@@ -11,35 +11,33 @@ namespace SelfRestaurant.Orders.Api.Controllers;
 [ApiController]
 public sealed class OrdersController : ControllerBase
 {
-    private readonly OrdersDbContext _db;
-    private readonly CatalogApiClient _catalogApi;
-    private readonly IIntegrationEventPublisher _eventPublisher;
+    private static readonly string[] ActiveCashierStatuses = ["PENDING", "CONFIRMED", "PREPARING", "READY", "SERVING"];
 
-    public OrdersController(OrdersDbContext db, CatalogApiClient catalogApi, IIntegrationEventPublisher eventPublisher)
+    private readonly OrdersDbContext _db;
+    private readonly ICatalogReadModel _catalogApi;
+    private readonly ICustomerLoyaltyReadModel _customersApi;
+    private readonly IIntegrationEventPublisher _eventPublisher;
+    private readonly IHostEnvironment _environment;
+
+    public OrdersController(OrdersDbContext db, ICatalogReadModel catalogApi, ICustomerLoyaltyReadModel customersApi, IIntegrationEventPublisher eventPublisher, IHostEnvironment environment)
     {
         _db = db;
         _catalogApi = catalogApi;
+        _customersApi = customersApi;
         _eventPublisher = eventPublisher;
+        _environment = environment;
     }
 
     [HttpPost("api/tables/{tableId:int}/occupy")]
     public async Task<ActionResult> OccupyTable(int tableId, CancellationToken cancellationToken)
     {
         var tableSnapshot = await _catalogApi.GetTableAsync(tableId, cancellationToken);
-        var table = await _db.DiningTables.FirstOrDefaultAsync(x => x.TableID == tableId, cancellationToken);
-        if (tableSnapshot is null || table is null)
+        if (tableSnapshot is null)
         {
             return NotFound();
         }
 
-        var occupiedId = await GetTableStatusIdAsync("OCCUPIED", cancellationToken);
-        if (occupiedId is not null)
-        {
-            table.StatusID = occupiedId.Value;
-            table.UpdatedAt = DateTime.Now;
-            await _db.SaveChangesAsync(cancellationToken);
-        }
-
+        await _catalogApi.OccupyTableAsync(tableId, currentOrderId: null, cancellationToken);
         return NoContent();
     }
 
@@ -47,31 +45,82 @@ public sealed class OrdersController : ControllerBase
     public async Task<ActionResult> ResetTable(int tableId, CancellationToken cancellationToken)
     {
         var tableSnapshot = await _catalogApi.GetTableAsync(tableId, cancellationToken);
-        var table = await _db.DiningTables.FirstOrDefaultAsync(x => x.TableID == tableId, cancellationToken);
-        if (tableSnapshot is null || table is null)
+        if (tableSnapshot is null)
         {
             return NotFound();
         }
 
-        var activeOrders = await _db.Orders
+        var activeOrder = await _db.Orders
             .Where(x => x.TableID == tableId && (x.IsActive ?? true))
-            .ToListAsync(cancellationToken);
+            .OrderByDescending(x => x.OrderTime)
+            .FirstOrDefaultAsync(cancellationToken);
 
-        foreach (var order in activeOrders)
+        if (activeOrder is not null)
         {
-            order.IsActive = false;
-            order.CompletedTime = DateTime.Now;
+            var statusCode = await GetOrderStatusCodeAsync(activeOrder.StatusID, cancellationToken);
+            if (string.Equals(statusCode, "PENDING", StringComparison.OrdinalIgnoreCase))
+            {
+                var pendingItems = await _db.OrderItems
+                    .Where(x => x.OrderID == activeOrder.OrderID)
+                    .ToListAsync(cancellationToken);
+
+                if (pendingItems.Count > 0)
+                {
+                    _db.OrderItems.RemoveRange(pendingItems);
+                }
+
+                _db.Orders.Remove(activeOrder);
+                await _db.SaveChangesAsync(cancellationToken);
+            }
         }
 
-        var availableId = await GetTableStatusIdAsync("AVAILABLE", cancellationToken);
-        if (availableId is not null)
+        await _catalogApi.ReleaseTableAsync(tableId, cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("api/dev/reset-test-state")]
+    public async Task<ActionResult<object>> ResetDevTestState(CancellationToken cancellationToken)
+    {
+        if (!_environment.IsDevelopment())
         {
-            table.StatusID = availableId.Value;
-            table.UpdatedAt = DateTime.Now;
+            return NotFound();
+        }
+
+        var orderItems = await _db.OrderItems.ToListAsync(cancellationToken);
+        var orders = await _db.Orders.ToListAsync(cancellationToken);
+        var outboxEvents = await _db.OutboxEvents.ToListAsync(cancellationToken);
+        var inboxEvents = await _db.InboxEvents.ToListAsync(cancellationToken);
+
+        if (orderItems.Count > 0)
+        {
+            _db.OrderItems.RemoveRange(orderItems);
+        }
+
+        if (orders.Count > 0)
+        {
+            _db.Orders.RemoveRange(orders);
+        }
+
+        if (outboxEvents.Count > 0)
+        {
+            _db.OutboxEvents.RemoveRange(outboxEvents);
+        }
+
+        if (inboxEvents.Count > 0)
+        {
+            _db.InboxEvents.RemoveRange(inboxEvents);
         }
 
         await _db.SaveChangesAsync(cancellationToken);
-        return NoContent();
+
+        return Ok(new
+        {
+            success = true,
+            clearedOrders = orders.Count,
+            clearedOrderItems = orderItems.Count,
+            clearedOutboxEvents = outboxEvents.Count,
+            clearedInboxEvents = inboxEvents.Count
+        });
     }
 
     [HttpGet("api/tables/{tableId:int}/order")]
@@ -99,6 +148,120 @@ public sealed class OrdersController : ControllerBase
         }
 
         return Ok(await BuildActiveOrderResponseAsync(order, cancellationToken));
+    }
+
+    [HttpGet("api/internal/customers/{customerId:int}/orders")]
+    public async Task<ActionResult<IReadOnlyList<object>>> GetCustomerOrderHistory(
+        int customerId,
+        [FromQuery] int take = 10,
+        CancellationToken cancellationToken = default)
+    {
+        take = Math.Clamp(take, 1, 50);
+
+        var orders = await _db.Orders
+            .AsNoTracking()
+            .Include(o => o.Status)
+            .Where(o => o.CustomerID == customerId)
+            .OrderByDescending(o => o.OrderTime)
+            .Take(take)
+            .Select(o => new
+            {
+                orderId = o.OrderID,
+                orderCode = o.OrderCode,
+                orderTime = o.OrderTime,
+                statusCode = o.Status.StatusCode,
+                orderStatus = o.Status.StatusName
+            })
+            .ToListAsync(cancellationToken);
+
+        if (orders.Count == 0)
+        {
+            return Ok(Array.Empty<object>());
+        }
+
+        var orderIds = orders.Select(o => o.orderId).ToArray();
+
+        var aggregates = await _db.OrderItems
+            .AsNoTracking()
+            .Where(i => orderIds.Contains(i.OrderID))
+            .GroupBy(i => i.OrderID)
+            .Select(g => new
+            {
+                orderId = g.Key,
+                totalAmount = g.Sum(x => x.LineTotal),
+                itemCount = g.Sum(x => x.Quantity)
+            })
+            .ToListAsync(cancellationToken);
+
+        var aggregateLookup = aggregates.ToDictionary(
+            x => x.orderId,
+            x => new { x.totalAmount, x.itemCount });
+
+        var payload = orders.Select(o =>
+        {
+            var totals = aggregateLookup.GetValueOrDefault(o.orderId);
+            return new
+            {
+                o.orderId,
+                o.orderCode,
+                o.orderTime,
+                o.statusCode,
+                o.orderStatus,
+                totalAmount = totals?.totalAmount ?? 0m,
+                itemCount = totals?.itemCount ?? 0
+            };
+        }).ToList();
+
+        return Ok(payload);
+    }
+
+    [HttpGet("api/internal/customers/{customerId:int}/active-order-context")]
+    public async Task<ActionResult<object>> GetCustomerActiveOrderContext(
+        int customerId,
+        CancellationToken cancellationToken = default)
+    {
+        if (customerId <= 0)
+        {
+            return BadRequest();
+        }
+
+        var order = await _db.Orders
+            .AsNoTracking()
+            .Include(o => o.Status)
+            .Where(o =>
+                o.CustomerID == customerId
+                && o.TableID.HasValue
+                && (o.IsActive ?? true)
+                && ActiveCashierStatuses.Contains(o.Status.StatusCode))
+            .OrderByDescending(o => o.OrderTime)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (order is null || !order.TableID.HasValue)
+        {
+            return NotFound();
+        }
+
+        var table = await _catalogApi.GetTableAsync(order.TableID.Value, cancellationToken);
+        if (table is null)
+        {
+            return NotFound();
+        }
+
+        var branch = (await _catalogApi.GetBranchesAsync([table.BranchId], cancellationToken))
+            ?.FirstOrDefault(x => x.BranchId == table.BranchId);
+
+        return Ok(new
+        {
+            orderId = order.OrderID,
+            orderCode = order.OrderCode,
+            orderTime = order.OrderTime,
+            statusCode = order.Status.StatusCode,
+            orderStatus = order.Status.StatusName,
+            tableId = table.TableId,
+            branchId = table.BranchId,
+            branchName = branch?.Name,
+            tableNumber = table.TableId,
+        });
     }
 
     [HttpGet("api/tables/{tableId:int}/orders/active")]
@@ -143,27 +306,7 @@ public sealed class OrdersController : ControllerBase
             return NotFound("Table not found.");
         }
 
-        var item = await _db.OrderItems
-            .FirstOrDefaultAsync(x => x.OrderID == order.OrderID && x.DishID == request.DishId && x.Note == request.Note, cancellationToken);
-
-        if (item is null)
-        {
-            item = new OrderItems
-            {
-                OrderID = order.OrderID,
-                DishID = request.DishId,
-                Quantity = request.Quantity,
-                UnitPrice = dishSnapshot.Price,
-                LineTotal = dishSnapshot.Price * request.Quantity,
-                Note = request.Note,
-            };
-            _db.OrderItems.Add(item);
-        }
-        else
-        {
-            item.Quantity += request.Quantity;
-            item.LineTotal = item.UnitPrice * item.Quantity;
-        }
+        await UpsertOrderItemAsync(order.OrderID, dishSnapshot, request, cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
         return Ok(await BuildActiveOrderResponseAsync(order, cancellationToken));
@@ -238,14 +381,7 @@ public sealed class OrdersController : ControllerBase
 
             if (order.TableID is int tableIdValue)
             {
-                var table = await _db.DiningTables.FirstOrDefaultAsync(x => x.TableID == tableIdValue, cancellationToken);
-                var availableId = await GetTableStatusIdAsync("AVAILABLE", cancellationToken);
-                if (table is not null && availableId is not null)
-                {
-                    table.StatusID = availableId.Value;
-                    table.CurrentOrderID = null;
-                    table.UpdatedAt = DateTime.Now;
-                }
+                await _catalogApi.ReleaseTableAsync(tableIdValue, cancellationToken);
             }
 
             await _db.SaveChangesAsync(cancellationToken);
@@ -328,6 +464,98 @@ public sealed class OrdersController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("api/tables/{tableId:int}/order/submit-batch")]
+    public async Task<ActionResult<object>> SubmitOrderBatch(
+        int tableId,
+        [FromBody] SubmitOrderBatchRequest request,
+        CancellationToken cancellationToken)
+    {
+        var items = (request.Items ?? Array.Empty<AddItemRequest>())
+            .Where(x => x.DishId > 0 && x.Quantity > 0)
+            .ToList();
+
+        if (items.Count == 0)
+        {
+            return BadRequest("Đơn hàng trống");
+        }
+
+        var tableSnapshot = await _catalogApi.GetTableAsync(tableId, cancellationToken);
+        if (tableSnapshot is null)
+        {
+            return NotFound("Table not found.");
+        }
+
+        var existingOrder = await _db.Orders
+            .Where(x => x.TableID == tableId && (x.IsActive ?? true))
+            .OrderByDescending(x => x.OrderTime)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (existingOrder is not null)
+        {
+            var currentStatus = await GetOrderStatusCodeAsync(existingOrder.StatusID, cancellationToken);
+            if (string.Equals(currentStatus, "PENDING", StringComparison.OrdinalIgnoreCase))
+            {
+                var existingItems = await _db.OrderItems
+                    .Where(x => x.OrderID == existingOrder.OrderID)
+                    .ToListAsync(cancellationToken);
+
+                if (existingItems.Count > 0)
+                {
+                    _db.OrderItems.RemoveRange(existingItems);
+                }
+
+                _db.Orders.Remove(existingOrder);
+                await _db.SaveChangesAsync(cancellationToken);
+            }
+        }
+
+        var order = await CreatePendingOrderAsync(tableId, cancellationToken);
+
+        foreach (var item in items)
+        {
+            var dishSnapshot = await _catalogApi.GetDishAsync(item.DishId, cancellationToken);
+            if (dishSnapshot is null || !dishSnapshot.IsActive || !dishSnapshot.Available)
+            {
+                return NotFound($"Dish {item.DishId} not found.");
+            }
+
+            await UpsertOrderItemAsync(order.OrderID, dishSnapshot, item, cancellationToken);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.CustomerPhoneNumber))
+        {
+            await AttachCustomerByPhoneAsync(order, request.CustomerPhoneNumber, cancellationToken);
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var itemCount = await _db.OrderItems.CountAsync(x => x.OrderID == order.OrderID, cancellationToken);
+        if (itemCount == 0)
+        {
+            return BadRequest("Đơn hàng trống");
+        }
+
+        var confirmedId = await GetOrderStatusIdAsync("CONFIRMED", cancellationToken);
+        if (confirmedId is null)
+        {
+            return BadRequest("Status 'CONFIRMED' is missing.");
+        }
+
+        order.StatusID = confirmedId.Value;
+        await _db.SaveChangesAsync(cancellationToken);
+
+        await PublishOrderEventAsync("order.submitted.v1", order, new
+        {
+            orderId = order.OrderID,
+            orderCode = order.OrderCode,
+            tableId = order.TableID,
+            customerId = order.CustomerID,
+            statusCode = "CONFIRMED"
+        }, cancellationToken);
+
+        return Ok(await BuildActiveOrderResponseAsync(order, cancellationToken));
+    }
+
     [HttpPost("api/tables/{tableId:int}/order/scan-loyalty-card")]
     public async Task<ActionResult<object>> ScanLoyaltyCard(
         int tableId,
@@ -344,9 +572,7 @@ public sealed class OrdersController : ControllerBase
         }
 
         var phoneNumber = request.PhoneNumber.Trim();
-        var customer = await _db.Customers
-            .Include(c => c.LoyaltyCards)
-            .FirstOrDefaultAsync(c => c.PhoneNumber == phoneNumber && (c.IsActive ?? true), cancellationToken);
+        var customer = await _customersApi.GetLoyaltyByPhoneAsync(phoneNumber, cancellationToken);
 
         if (customer is null)
         {
@@ -357,8 +583,7 @@ public sealed class OrdersController : ControllerBase
             });
         }
 
-        var order = await _db.Orders
-            .FirstOrDefaultAsync(o => o.TableID == tableId && (o.IsActive ?? true), cancellationToken);
+        var order = await GetOrCreateOrderAsync(tableId, createIfMissing: false, cancellationToken);
         if (order is null)
         {
             return Ok(new
@@ -368,13 +593,8 @@ public sealed class OrdersController : ControllerBase
             });
         }
 
-        order.CustomerID = customer.CustomerID;
+        AttachCustomer(order, customer.CustomerId);
         await _db.SaveChangesAsync(cancellationToken);
-
-        var loyaltyCard = customer.LoyaltyCards
-            .Where(lc => lc.IsActive == true)
-            .OrderByDescending(lc => lc.IssueDate)
-            .FirstOrDefault();
 
         return Ok(new
         {
@@ -383,9 +603,9 @@ public sealed class OrdersController : ControllerBase
             customer = new
             {
                 name = customer.Name,
-                phone = customer.PhoneNumber,
-                currentPoints = customer.LoyaltyPoints ?? 0,
-                cardPoints = loyaltyCard?.Points ?? 0
+                phone = customer.Phone,
+                currentPoints = customer.CurrentPoints,
+                cardPoints = customer.CardPoints
             }
         });
     }
@@ -434,62 +654,19 @@ public sealed class OrdersController : ControllerBase
         return NoContent();
     }
 
-    [HttpPost("api/orders/{orderId:int}/billing/complete")]
-    public async Task<ActionResult> CompleteCheckout(
-        int orderId,
-        [FromBody] CompleteCheckoutRequest request,
-        CancellationToken cancellationToken)
-    {
-        var order = await _db.Orders.FirstOrDefaultAsync(o => o.OrderID == orderId, cancellationToken);
-        if (order is null)
-        {
-            return NotFound();
-        }
-
-        var completedId = await GetOrderStatusIdAsync("COMPLETED", cancellationToken);
-        if (completedId is null)
-        {
-            return BadRequest("Status 'COMPLETED' is missing.");
-        }
-
-        order.StatusID = completedId.Value;
-        order.IsActive = false;
-        order.CompletedTime ??= DateTime.Now;
-        order.CashierID = request.CashierId > 0 ? request.CashierId : order.CashierID;
-
-        if (order.TableID is int tableId)
-        {
-            var table = await _db.DiningTables.FirstOrDefaultAsync(x => x.TableID == tableId, cancellationToken);
-            var availableId = await GetTableStatusIdAsync("AVAILABLE", cancellationToken);
-            if (table is not null && availableId is not null)
-            {
-                table.StatusID = availableId.Value;
-                table.UpdatedAt = DateTime.Now;
-                table.CurrentOrderID = null;
-            }
-        }
-
-        await _db.SaveChangesAsync(cancellationToken);
-        await PublishOrderEventAsync("order.checkout-completed.v1", order, new
-        {
-            orderId = order.OrderID,
-            orderCode = order.OrderCode,
-            tableId = order.TableID,
-            customerId = order.CustomerID,
-            cashierId = order.CashierID,
-            statusCode = "COMPLETED"
-        }, cancellationToken);
-        return NoContent();
-    }
-
     [HttpGet("api/branches/{branchId:int}/top-dishes")]
     public async Task<ActionResult<IReadOnlyList<int>>> GetTopDishes(int branchId, [FromQuery] int count = 5, CancellationToken cancellationToken = default)
     {
+        var branchTableIds = await _catalogApi.GetBranchTableIdsAsync(branchId, cancellationToken) ?? Array.Empty<int>();
+        if (branchTableIds.Count == 0)
+        {
+            return Ok(Array.Empty<int>());
+        }
+
         var ids = await _db.OrderItems
             .AsNoTracking()
             .Join(_db.Orders.AsNoTracking(), i => i.OrderID, o => o.OrderID, (i, o) => new { i, o })
-            .Join(_db.DiningTables.AsNoTracking(), x => x.o.TableID, t => t.TableID, (x, t) => new { x.i, x.o, t })
-            .Where(x => x.t.BranchID == branchId)
+            .Where(x => x.o.TableID != null && branchTableIds.Contains(x.o.TableID.Value))
             .GroupBy(x => x.i.DishID)
             .Select(g => new { dishId = g.Key, qty = g.Sum(x => x.i.Quantity) })
             .OrderByDescending(x => x.qty)
@@ -498,6 +675,229 @@ public sealed class OrdersController : ControllerBase
             .ToListAsync(cancellationToken);
 
         return Ok(ids);
+    }
+
+    [HttpGet("api/internal/branches/{branchId:int}/cashier/orders")]
+    public async Task<ActionResult<IReadOnlyList<object>>> GetCashierOrdersInternal(
+        int branchId,
+        CancellationToken cancellationToken)
+    {
+        var branchTableIds = await _catalogApi.GetBranchTableIdsAsync(branchId, cancellationToken) ?? Array.Empty<int>();
+        if (branchTableIds.Count == 0)
+        {
+            return Ok(Array.Empty<object>());
+        }
+
+        var orders = await _db.Orders
+            .AsNoTracking()
+            .Include(o => o.Status)
+            .Where(o =>
+                (o.IsActive ?? false)
+                && o.TableID != null
+                && branchTableIds.Contains(o.TableID.Value)
+                && ActiveCashierStatuses.Contains(o.Status.StatusCode))
+            .OrderBy(o => o.OrderTime)
+            .Select(o => new
+            {
+                orderId = o.OrderID,
+                orderCode = o.OrderCode,
+                orderTime = o.OrderTime,
+                tableId = o.TableID,
+                customerId = o.CustomerID,
+                statusCode = o.Status.StatusCode,
+                statusName = o.Status.StatusName,
+            })
+            .ToListAsync(cancellationToken);
+
+        var orderIds = orders.Select(o => o.orderId).ToList();
+        var items = await _db.OrderItems
+            .AsNoTracking()
+            .Where(i => orderIds.Contains(i.OrderID))
+            .OrderBy(i => i.OrderID)
+            .ThenBy(i => i.ItemID)
+            .Select(i => new
+            {
+                itemId = i.ItemID,
+                orderId = i.OrderID,
+                dishId = i.DishID,
+                quantity = i.Quantity,
+                unitPrice = i.UnitPrice,
+                lineTotal = i.LineTotal,
+                note = i.Note,
+            })
+            .ToListAsync(cancellationToken);
+
+        var tableLookup = (await _catalogApi.GetTablesAsync(
+                orders.Where(x => x.tableId.HasValue).Select(x => x.tableId!.Value),
+                cancellationToken)
+            ?? Array.Empty<CatalogApiClient.TableSnapshotResponse>())
+            .ToDictionary(x => x.TableId);
+
+        var dishLookup = (await _catalogApi.GetDishesAsync(items.Select(x => x.dishId).Distinct(), cancellationToken)
+            ?? Array.Empty<CatalogApiClient.DishSnapshotResponse>())
+            .ToDictionary(x => x.DishId);
+
+        var itemsByOrder = items
+            .GroupBy(i => i.orderId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var payload = orders.Select(o =>
+        {
+            itemsByOrder.TryGetValue(o.orderId, out var orderItems);
+            orderItems ??= [];
+
+            var materializedItems = orderItems.Select(i => new
+            {
+                itemId = i.itemId,
+                orderId = i.orderId,
+                dishId = i.dishId,
+                dishName = dishLookup.TryGetValue(i.dishId, out var dish) ? dish.Name : $"Món #{i.dishId}",
+                quantity = i.quantity,
+                unitPrice = i.unitPrice,
+                lineTotal = i.lineTotal,
+                image = dishLookup.TryGetValue(i.dishId, out var imageDish) ? imageDish.Image : null,
+                note = i.note,
+            }).ToList();
+
+            var tableName = o.tableId.HasValue && tableLookup.TryGetValue(o.tableId.Value, out var table)
+                ? (table.QrCode ?? ("Bàn " + o.tableId.Value))
+                : ("Bàn " + (o.tableId?.ToString() ?? "?"));
+
+            return new
+            {
+                orderId = o.orderId,
+                orderCode = o.orderCode,
+                orderTime = o.orderTime,
+                tableId = o.tableId ?? 0,
+                tableName,
+                customerId = o.customerId,
+                statusCode = o.statusCode,
+                statusName = o.statusName,
+                subtotal = materializedItems.Sum(x => x.lineTotal),
+                itemCount = materializedItems.Sum(x => x.quantity),
+                items = materializedItems
+            };
+        }).ToList();
+
+        return Ok(payload);
+    }
+
+    [HttpGet("api/internal/orders/{orderId:int}/checkout-context")]
+    public async Task<ActionResult<object>> GetCheckoutContext(int orderId, CancellationToken cancellationToken)
+    {
+        var order = await _db.Orders
+            .AsNoTracking()
+            .Include(o => o.Status)
+            .Where(o => o.OrderID == orderId)
+            .Select(o => new
+            {
+                orderId = o.OrderID,
+                orderCode = o.OrderCode,
+                tableId = o.TableID,
+                customerId = o.CustomerID,
+                statusCode = o.Status.StatusCode,
+                statusName = o.Status.StatusName,
+                isActive = o.IsActive ?? false,
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (order is null)
+        {
+            return NotFound();
+        }
+
+        CatalogApiClient.TableSnapshotResponse? table = null;
+        CatalogApiClient.BranchSnapshotResponse? branch = null;
+        if (order.tableId is int tableId)
+        {
+            table = await _catalogApi.GetTableAsync(tableId, cancellationToken);
+            if (table is not null)
+            {
+                branch = (await _catalogApi.GetBranchesAsync(new[] { table.BranchId }, cancellationToken))
+                    ?.FirstOrDefault();
+            }
+        }
+
+        var subtotal = await _db.OrderItems
+            .AsNoTracking()
+            .Where(oi => oi.OrderID == orderId)
+            .SumAsync(oi => (decimal?)oi.LineTotal, cancellationToken) ?? 0m;
+
+        return Ok(new
+        {
+            order.orderId,
+            order.orderCode,
+            order.tableId,
+            tableName = table?.QrCode ?? (order.tableId.HasValue ? ("Bàn " + order.tableId.Value) : null),
+            branchId = table?.BranchId,
+            branchName = branch?.Name,
+            order.customerId,
+            order.statusCode,
+            order.statusName,
+            order.isActive,
+            subtotal
+        });
+    }
+
+    [HttpGet("api/internal/orders:bill-context")]
+    public async Task<ActionResult<IReadOnlyList<object>>> GetOrderBillContexts([FromQuery] int[]? ids, CancellationToken cancellationToken)
+    {
+        var orderIds = (ids ?? Array.Empty<int>())
+            .Where(x => x > 0)
+            .Distinct()
+            .ToArray();
+
+        if (orderIds.Length == 0)
+        {
+            return Ok(Array.Empty<object>());
+        }
+
+        var orders = await _db.Orders
+            .AsNoTracking()
+            .Where(o => orderIds.Contains(o.OrderID))
+            .Select(o => new
+            {
+                orderId = o.OrderID,
+                orderCode = o.OrderCode,
+                tableId = o.TableID,
+            })
+            .ToListAsync(cancellationToken);
+
+        var tableLookup = (await _catalogApi.GetTablesAsync(
+                orders.Where(x => x.tableId.HasValue).Select(x => x.tableId!.Value),
+                cancellationToken)
+            ?? Array.Empty<CatalogApiClient.TableSnapshotResponse>())
+            .ToDictionary(x => x.TableId);
+
+        var branchLookup = (await _catalogApi.GetBranchesAsync(
+                tableLookup.Values.Select(x => x.BranchId),
+                cancellationToken)
+            ?? Array.Empty<CatalogApiClient.BranchSnapshotResponse>())
+            .ToDictionary(x => x.BranchId);
+
+        var payload = orders.Select(o =>
+        {
+            CatalogApiClient.TableSnapshotResponse? table = null;
+            CatalogApiClient.BranchSnapshotResponse? branch = null;
+
+            if (o.tableId.HasValue && tableLookup.TryGetValue(o.tableId.Value, out var foundTable))
+            {
+                table = foundTable;
+                branchLookup.TryGetValue(foundTable.BranchId, out branch);
+            }
+
+            return new
+            {
+                orderId = o.orderId,
+                orderCode = o.orderCode,
+                tableId = o.tableId,
+                tableName = table?.QrCode ?? ("Bàn " + (o.tableId?.ToString() ?? "?")),
+                branchId = table?.BranchId,
+                branchName = branch?.Name
+            };
+        }).ToList();
+
+        return Ok(payload);
     }
 
     [HttpGet("api/admin/stats")]
@@ -540,20 +940,47 @@ public sealed class OrdersController : ControllerBase
             .Where(x => x.o.OrderTime >= from)
             .SumAsync(x => (decimal?)x.i.LineTotal, cancellationToken) ?? 0m;
 
-        var rawRows = await _db.OrderItems
+        var orderRows = await _db.OrderItems
             .AsNoTracking()
             .Join(_db.Orders.AsNoTracking(), i => i.OrderID, o => o.OrderID, (i, o) => new { i, o })
-            .Join(_db.DiningTables.AsNoTracking(), x => x.o.TableID, t => t.TableID, (x, t) => new { x.i, x.o, t })
-            .Join(_db.Branches.AsNoTracking(), x => x.t.BranchID, b => b.BranchID, (x, b) => new
+            .Select(x => new
             {
                 x.o.OrderID,
                 x.o.OrderTime,
-                BranchId = b.BranchID,
-                BranchName = b.Name,
+                x.o.TableID,
                 Revenue = x.i.LineTotal
             })
             .Where(x => x.OrderTime >= from)
             .ToListAsync(cancellationToken);
+
+        var tableLookup = (await _catalogApi.GetTablesAsync(
+                orderRows.Where(x => x.TableID.HasValue).Select(x => x.TableID!.Value),
+                cancellationToken)
+            ?? Array.Empty<CatalogApiClient.TableSnapshotResponse>())
+            .ToDictionary(x => x.TableId);
+
+        var branchLookup = (await _catalogApi.GetBranchesAsync(
+                tableLookup.Values.Select(x => x.BranchId),
+                cancellationToken)
+            ?? Array.Empty<CatalogApiClient.BranchSnapshotResponse>())
+            .ToDictionary(x => x.BranchId);
+
+        var rawRows = orderRows
+            .Where(x => x.TableID.HasValue && tableLookup.ContainsKey(x.TableID.Value))
+            .Select(x =>
+            {
+                var table = tableLookup[x.TableID!.Value];
+                branchLookup.TryGetValue(table.BranchId, out var branch);
+                return new
+                {
+                    x.OrderID,
+                    x.OrderTime,
+                    BranchId = table.BranchId,
+                    BranchName = branch?.Name ?? $"Chi nhánh {table.BranchId}",
+                    x.Revenue
+                };
+            })
+            .ToList();
 
         var rows = rawRows
             .GroupBy(x => new { Date = DateOnly.FromDateTime(x.OrderTime), x.BranchId, x.BranchName })
@@ -583,21 +1010,33 @@ public sealed class OrdersController : ControllerBase
 
         var rawItems = await _db.OrderItems
             .AsNoTracking()
-            .Include(i => i.Dish)
-                .ThenInclude(d => d.Category)
             .Join(_db.Orders.AsNoTracking(), i => i.OrderID, o => o.OrderID, (i, o) => new { i, o })
             .Where(x => x.o.OrderTime >= from)
             .Select(x => new
             {
                 x.i.DishID,
-                DishName = x.i.Dish.Name,
-                CategoryName = x.i.Dish.Category != null ? x.i.Dish.Category.Name : "Khac",
                 x.i.Quantity,
                 x.i.LineTotal
             })
             .ToListAsync(cancellationToken);
 
+        var dishLookup = (await _catalogApi.GetDishesAsync(rawItems.Select(x => x.DishID).Distinct(), cancellationToken)
+            ?? Array.Empty<CatalogApiClient.DishSnapshotResponse>())
+            .ToDictionary(x => x.DishId);
+
         var items = rawItems
+            .Select(x =>
+            {
+                dishLookup.TryGetValue(x.DishID, out var dish);
+                return new
+                {
+                    x.DishID,
+                    DishName = dish?.Name ?? $"Món #{x.DishID}",
+                    CategoryName = string.IsNullOrWhiteSpace(dish?.CategoryName) ? "Khác" : dish!.CategoryName!,
+                    x.Quantity,
+                    x.LineTotal
+                };
+            })
             .GroupBy(x => new { x.DishID, x.DishName, x.CategoryName })
             .Select(g => new AdminTopDishReportItemResponse(
                 g.Key.DishID,
@@ -622,9 +1061,11 @@ public sealed class OrdersController : ControllerBase
         var query = _db.Orders
             .AsNoTracking()
             .Include(o => o.Status)
-            .Include(o => o.Table)
-            .Where(o => (o.IsActive ?? true) && o.Table != null && o.Table.BranchID == branchId)
+            .Where(o => (o.IsActive ?? true))
             .AsQueryable();
+
+        var branchTableIds = await _catalogApi.GetBranchTableIdsAsync(branchId, cancellationToken) ?? Array.Empty<int>();
+        query = query.Where(o => o.TableID != null && branchTableIds.Contains(o.TableID.Value));
 
         if (!string.IsNullOrWhiteSpace(status))
         {
@@ -634,8 +1075,7 @@ public sealed class OrdersController : ControllerBase
         else
         {
             query = query.Where(o =>
-                o.Status.StatusCode == "PENDING"
-                || o.Status.StatusCode == "CONFIRMED"
+                o.Status.StatusCode == "CONFIRMED"
                 || o.Status.StatusCode == "PREPARING"
                 || o.Status.StatusCode == "READY");
         }
@@ -647,39 +1087,57 @@ public sealed class OrdersController : ControllerBase
                 orderId = o.OrderID,
                 orderCode = o.OrderCode,
                 tableId = o.TableID,
-                tableName = o.Table!.QRCode ?? ("Bàn " + o.TableID),
                 statusCode = o.Status.StatusCode,
                 statusName = o.Status.StatusName,
                 orderTime = o.OrderTime,
             })
             .ToListAsync(cancellationToken);
 
+        var tableLookup = (await _catalogApi.GetTablesAsync(
+                orders.Where(x => x.tableId.HasValue).Select(x => x.tableId!.Value),
+                cancellationToken)
+            ?? Array.Empty<CatalogApiClient.TableSnapshotResponse>())
+            .ToDictionary(x => x.TableId);
+
         var orderIds = orders.Select(o => o.orderId).ToList();
         var items = await _db.OrderItems
             .AsNoTracking()
             .Where(i => orderIds.Contains(i.OrderID))
-            .Include(i => i.Dish)
             .OrderBy(i => i.ItemID)
             .Select(i => new
             {
                 orderId = i.OrderID,
                 itemId = i.ItemID,
-                dishName = i.Dish.Name,
+                dishId = i.DishID,
                 quantity = i.Quantity,
                 note = i.Note,
             })
             .ToListAsync(cancellationToken);
+
+        var dishLookup = (await _catalogApi.GetDishesAsync(items.Select(x => x.dishId).Distinct(), cancellationToken)
+            ?? Array.Empty<CatalogApiClient.DishSnapshotResponse>())
+            .ToDictionary(x => x.DishId);
 
         var payload = orders.Select(o => new
         {
             o.orderId,
             o.orderCode,
             o.tableId,
-            o.tableName,
+            tableName = o.tableId.HasValue && tableLookup.TryGetValue(o.tableId.Value, out var table)
+                ? (table.QrCode ?? ("Bàn " + o.tableId.Value))
+                : ("Bàn " + (o.tableId?.ToString() ?? "?")),
             o.statusCode,
             o.statusName,
             o.orderTime,
-            items = items.Where(i => i.orderId == o.orderId).ToList(),
+            items = items.Where(i => i.orderId == o.orderId).Select(i => new
+            {
+                i.orderId,
+                i.itemId,
+                i.dishId,
+                dishName = dishLookup.TryGetValue(i.dishId, out var dish) ? dish.Name : $"Món #{i.dishId}",
+                i.quantity,
+                i.note,
+            }).ToList(),
         }).ToList();
 
         return Ok(payload);
@@ -691,13 +1149,46 @@ public sealed class OrdersController : ControllerBase
         [FromQuery] int take = 50,
         CancellationToken cancellationToken = default)
     {
-        take = Math.Clamp(take, 1, 200);
+        var payload = await BuildChefHistoryAsync(branchId, days: 365, Math.Clamp(take, 1, 200), cancellationToken);
+
+        return Ok(payload.Select(o => new
+        {
+            o.OrderId,
+            o.OrderCode,
+            o.OrderTime,
+            o.CompletedTime,
+            o.TableName,
+            o.StatusCode,
+            o.StatusName,
+            o.DishesSummary,
+        }).ToList());
+    }
+
+    [HttpGet("api/internal/branches/{branchId:int}/chef/history")]
+    public async Task<ActionResult<IReadOnlyList<object>>> GetInternalChefHistory(
+        int branchId,
+        [FromQuery] int days = 90,
+        [FromQuery] int take = 200,
+        CancellationToken cancellationToken = default)
+    {
+        var payload = await BuildChefHistoryAsync(branchId, days, take, cancellationToken);
+        return Ok(payload);
+    }
+
+    private async Task<IReadOnlyList<ChefHistoryItemResponse>> BuildChefHistoryAsync(
+        int branchId,
+        int days,
+        int take,
+        CancellationToken cancellationToken)
+    {
+        days = Math.Clamp(days, 1, 365);
+        take = Math.Clamp(take, 1, 500);
+        var fromDate = DateTime.Today.AddDays(-days);
 
         var orders = await _db.Orders
             .AsNoTracking()
             .Include(o => o.Status)
-            .Include(o => o.Table)
-            .Where(o => o.Table != null && o.Table.BranchID == branchId)
+            .Where(o => o.TableID != null && o.OrderTime >= fromDate)
             .OrderByDescending(o => o.CompletedTime ?? o.OrderTime)
             .Take(take)
             .Select(o => new
@@ -706,38 +1197,58 @@ public sealed class OrdersController : ControllerBase
                 orderCode = o.OrderCode,
                 orderTime = o.OrderTime,
                 completedTime = o.CompletedTime,
-                tableName = o.Table!.QRCode ?? ("Bàn " + o.TableID),
+                tableId = o.TableID,
                 statusCode = o.Status.StatusCode,
                 statusName = o.Status.StatusName,
             })
             .ToListAsync(cancellationToken);
 
-        var orderIds = orders.Select(o => o.orderId).ToList();
+        var branchTableIds = await _catalogApi.GetBranchTableIdsAsync(branchId, cancellationToken) ?? Array.Empty<int>();
+        var filteredOrders = orders
+            .Where(o => o.tableId.HasValue && branchTableIds.Contains(o.tableId.Value))
+            .ToList();
+
+        var tableLookup = (await _catalogApi.GetTablesAsync(
+                filteredOrders.Where(x => x.tableId.HasValue).Select(x => x.tableId!.Value),
+                cancellationToken)
+            ?? Array.Empty<CatalogApiClient.TableSnapshotResponse>())
+            .ToDictionary(x => x.TableId);
+
+        var branchName = (await _catalogApi.GetBranchesAsync(new[] { branchId }, cancellationToken))
+            ?.FirstOrDefault()?.Name ?? $"Chi nhánh {branchId}";
+
+        var orderIds = filteredOrders.Select(o => o.orderId).ToList();
         var items = await _db.OrderItems
             .AsNoTracking()
             .Where(i => orderIds.Contains(i.OrderID))
-            .Include(i => i.Dish)
             .Select(i => new
             {
                 orderId = i.OrderID,
-                dishName = i.Dish.Name,
+                dishId = i.DishID,
                 quantity = i.Quantity,
             })
             .ToListAsync(cancellationToken);
 
-        var payload = orders.Select(o => new
-        {
+        var dishLookup = (await _catalogApi.GetDishesAsync(items.Select(x => x.dishId).Distinct(), cancellationToken)
+            ?? Array.Empty<CatalogApiClient.DishSnapshotResponse>())
+            .ToDictionary(x => x.DishId);
+
+        return filteredOrders.Select(o => new ChefHistoryItemResponse(
             o.orderId,
             o.orderCode,
             o.orderTime,
             o.completedTime,
-            o.tableName,
+            o.tableId.HasValue && tableLookup.TryGetValue(o.tableId.Value, out var table)
+                ? (table.QrCode ?? ("Bàn " + o.tableId.Value))
+                : ("Bàn " + (o.tableId?.ToString() ?? "?")),
+            branchName,
             o.statusCode,
             o.statusName,
-            dishesSummary = string.Join(", ", items.Where(i => i.orderId == o.orderId).Select(i => $"{i.quantity}x {i.dishName}")),
-        }).ToList();
-
-        return Ok(payload);
+            string.Join(", ", items.Where(i => i.orderId == o.orderId).Select(i =>
+            {
+                var dishName = dishLookup.TryGetValue(i.dishId, out var dish) ? dish.Name : $"Món #{i.dishId}";
+                return $"{i.quantity}x {dishName}";
+            })))).ToList();
     }
 
     [HttpPost("api/orders/{orderId:int}/chef/start")]
@@ -749,8 +1260,8 @@ public sealed class OrdersController : ControllerBase
         UpdateOrderStatusAsync(orderId, "READY", cancellationToken);
 
     [HttpPost("api/orders/{orderId:int}/chef/serve")]
-    public Task<ActionResult> ChefServe(int orderId, CancellationToken cancellationToken) =>
-        UpdateOrderStatusAsync(orderId, "SERVING", cancellationToken);
+    public ActionResult ChefServe(int orderId, CancellationToken cancellationToken) =>
+        BadRequest("Chef khong the xac nhan da phuc vu. Khach hang se tu xac nhan khi da nhan mon.");
 
     [HttpPost("api/orders/{orderId:int}/status")]
     public Task<ActionResult> UpdateStatus(
@@ -795,14 +1306,7 @@ public sealed class OrdersController : ControllerBase
 
         if (order.TableID is int tableId)
         {
-            var table = await _db.DiningTables.FirstOrDefaultAsync(x => x.TableID == tableId, cancellationToken);
-            var availableId = await GetTableStatusIdAsync("AVAILABLE", cancellationToken);
-            if (table is not null && availableId is not null)
-            {
-                table.StatusID = availableId.Value;
-                table.UpdatedAt = DateTime.Now;
-                table.CurrentOrderID = null;
-            }
+            await _catalogApi.ReleaseTableAsync(tableId, cancellationToken);
         }
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -867,8 +1371,7 @@ public sealed class OrdersController : ControllerBase
     private async Task<OrderEntity?> GetOrCreateOrderAsync(int tableId, bool createIfMissing, CancellationToken cancellationToken)
     {
         var tableSnapshot = await _catalogApi.GetTableAsync(tableId, cancellationToken);
-        var table = await _db.DiningTables.FirstOrDefaultAsync(x => x.TableID == tableId && (x.IsActive ?? true), cancellationToken);
-        if (tableSnapshot is null || table is null)
+        if (tableSnapshot is null)
         {
             return null;
         }
@@ -892,8 +1395,13 @@ public sealed class OrdersController : ControllerBase
             }
         }
 
+        return await CreatePendingOrderAsync(tableId, cancellationToken);
+    }
+
+    private async Task<OrderEntity> CreatePendingOrderAsync(int tableId, CancellationToken cancellationToken)
+    {
         var pendingId = await GetOrderStatusIdAsync("PENDING", cancellationToken) ?? 1;
-        order = new OrderEntity
+        var order = new OrderEntity
         {
             TableID = tableId,
             StatusID = pendingId,
@@ -903,6 +1411,7 @@ public sealed class OrdersController : ControllerBase
         };
         _db.Orders.Add(order);
         await _db.SaveChangesAsync(cancellationToken);
+        await _catalogApi.OccupyTableAsync(tableId, order.OrderID, cancellationToken);
         return order;
     }
 
@@ -939,20 +1448,6 @@ public sealed class OrdersController : ControllerBase
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    private async Task<int?> GetTableStatusIdAsync(string statusCode, CancellationToken cancellationToken)
-    {
-        var remote = await _catalogApi.GetTableStatusAsync(statusCode, cancellationToken);
-        if (remote is not null)
-        {
-            return remote.StatusId;
-        }
-
-        return await _db.TableStatus
-            .Where(x => x.StatusCode == statusCode)
-            .Select(x => (int?)x.StatusID)
-            .FirstOrDefaultAsync(cancellationToken);
-    }
-
     private async Task<object> BuildActiveOrderResponseAsync(OrderEntity order, CancellationToken cancellationToken)
     {
         var status = await _db.OrderStatus
@@ -985,22 +1480,9 @@ public sealed class OrdersController : ControllerBase
             .Distinct()
             .ToList();
 
-        var dishLookup = dishIds.Count == 0
-            ? new Dictionary<int, (string Name, string? Unit, string? Image)>()
-            : await _db.Dishes
-                .AsNoTracking()
-                .Where(x => dishIds.Contains(x.DishID))
-                .Select(x => new
-                {
-                    x.DishID,
-                    x.Name,
-                    x.Unit,
-                    x.Image,
-                })
-                .ToDictionaryAsync(
-                    x => x.DishID,
-                    x => (x.Name, x.Unit, x.Image),
-                    cancellationToken);
+        var dishLookup = (await _catalogApi.GetDishesAsync(dishIds, cancellationToken)
+            ?? Array.Empty<CatalogApiClient.DishSnapshotResponse>())
+            .ToDictionary(x => x.DishId, x => (x.Name, x.Unit, x.Image));
 
         var items = rawItems.Select(x =>
         {
@@ -1041,6 +1523,40 @@ public sealed class OrdersController : ControllerBase
             return NotFound();
         }
 
+        var currentStatusCode = await GetOrderStatusCodeAsync(order.StatusID, cancellationToken);
+        var entersKitchenFlow = IsKitchenStatus(statusCode) && !IsKitchenStatus(currentStatusCode);
+
+        if (entersKitchenFlow)
+        {
+            var orderItems = await _db.OrderItems
+                .AsNoTracking()
+                .Where(x => x.OrderID == order.OrderID)
+                .Select(x => new CatalogApiClient.OrderIngredientConsumptionItem(x.DishID, x.Quantity))
+                .ToListAsync(cancellationToken);
+
+            if (orderItems.Count == 0)
+            {
+                return BadRequest("Đơn hàng không có món để chuyển sang bếp.");
+            }
+
+            var consumption = await _catalogApi.ConsumeIngredientsForOrderAsync(order.OrderID, orderItems, cancellationToken);
+            if (!consumption.Success)
+            {
+                return Conflict(new
+                {
+                    message = consumption.Message ?? "Không thể trừ nguyên liệu trong kho.",
+                    issues = consumption.Issues.Select(x => new
+                    {
+                        ingredientId = x.IngredientId,
+                        ingredientName = x.IngredientName,
+                        requiredQuantity = x.RequiredQuantity,
+                        availableQuantity = x.AvailableQuantity,
+                        unit = x.Unit
+                    }).ToList()
+                });
+            }
+        }
+
         var statusId = await GetOrderStatusIdAsync(statusCode, cancellationToken);
         if (statusId is null)
         {
@@ -1067,6 +1583,64 @@ public sealed class OrdersController : ControllerBase
         return NoContent();
     }
 
+    private static bool IsKitchenStatus(string? statusCode) =>
+        string.Equals(statusCode, "PREPARING", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(statusCode, "READY", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(statusCode, "SERVING", StringComparison.OrdinalIgnoreCase);
+
+    private async Task UpsertOrderItemAsync(
+        int orderId,
+        CatalogApiClient.DishSnapshotResponse dishSnapshot,
+        AddItemRequest request,
+        CancellationToken cancellationToken)
+    {
+        var normalizedNote = NormalizeNote(request.Note);
+        var item = await _db.OrderItems
+            .FirstOrDefaultAsync(x => x.OrderID == orderId && x.DishID == request.DishId && x.Note == normalizedNote, cancellationToken);
+
+        if (item is null)
+        {
+            item = new OrderItems
+            {
+                OrderID = orderId,
+                DishID = request.DishId,
+                Quantity = request.Quantity,
+                UnitPrice = dishSnapshot.Price,
+                LineTotal = dishSnapshot.Price * request.Quantity,
+                Note = normalizedNote,
+            };
+            _db.OrderItems.Add(item);
+            return;
+        }
+
+        item.Quantity += request.Quantity;
+        item.LineTotal = item.UnitPrice * item.Quantity;
+    }
+
+    private async Task AttachCustomerByPhoneAsync(OrderEntity order, string phoneNumber, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(phoneNumber))
+        {
+            return;
+        }
+
+        var customer = await _customersApi.GetLoyaltyByPhoneAsync(phoneNumber.Trim(), cancellationToken);
+        if (customer is null)
+        {
+            return;
+        }
+
+        AttachCustomer(order, customer.CustomerId);
+    }
+
+    private static void AttachCustomer(OrderEntity order, int customerId)
+    {
+        if (customerId > 0)
+        {
+            order.CustomerID = customerId;
+        }
+    }
+
     private async Task PublishOrderEventAsync(string eventName, OrderEntity order, object payload, CancellationToken cancellationToken)
     {
         await _eventPublisher.PublishAsync(new IntegrationEventEnvelope(
@@ -1088,7 +1662,7 @@ public sealed class OrdersController : ControllerBase
     public sealed record UpdateItemNoteRequest(string? Note, bool? Append);
     public sealed record ScanLoyaltyCardRequest(string? PhoneNumber);
     public sealed record UpdateOrderStatusRequest(string? StatusCode);
-    public sealed record CompleteCheckoutRequest(int CashierId);
+    public sealed record SubmitOrderBatchRequest(IReadOnlyList<AddItemRequest>? Items, string? CustomerPhoneNumber);
     public sealed record CancelOrderRequest(string? Reason);
     public sealed record AdminRevenueRowResponse(
         DateOnly Date,
@@ -1096,6 +1670,16 @@ public sealed class OrdersController : ControllerBase
         string BranchName,
         int TotalOrders,
         decimal TotalRevenue);
+    public sealed record ChefHistoryItemResponse(
+        int OrderId,
+        string? OrderCode,
+        DateTime OrderTime,
+        DateTime? CompletedTime,
+        string? TableName,
+        string? BranchName,
+        string StatusCode,
+        string StatusName,
+        string DishesSummary);
     public sealed record AdminRevenueReportResponse(decimal TotalRevenue, IReadOnlyList<AdminRevenueRowResponse> RevenueByBranchDate);
     public sealed record AdminTopDishReportItemResponse(
         int DishId,

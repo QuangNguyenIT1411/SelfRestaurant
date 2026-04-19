@@ -1,0 +1,1 @@
+{"eventName":"order.submitted.v1","occurredAtUtc":"2026-04-17T08:27:21.5203472Z","source":"Orders.Api","correlationId":"4ff31d3c327842a1ba6fb149dccdc265","payload":{"orderId":246,"orderCode":"ORD-20260417004848029-724","tableId":1,"customerId":null,"statusCode":"CONFIRMED"}}

@@ -1,0 +1,1 @@
+& "$PSScriptRoot/../sql/setup-service-db-shells.ps1" -Server "(localdb)\MSSQLLocalDB" -MasterDatabase "RESTAURANT"

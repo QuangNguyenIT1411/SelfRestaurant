@@ -8,6 +8,21 @@ namespace SelfRestaurant.Catalog.Api.Persistence;
 
 public static class CatalogDbBootstrapper
 {
+    private static readonly string[] OwnedTables =
+    [
+        "Restaurants",
+        "Branches",
+        "Categories",
+        "Ingredients",
+        "Dishes",
+        "TableStatus",
+        "DiningTables",
+        "Menus",
+        "MenuCategory",
+        "CategoryDish",
+        "DishIngredients"
+    ];
+
     public static async Task EnsureReadyAsync(
         IServiceProvider services,
         ILogger logger,
@@ -17,6 +32,7 @@ public static class CatalogDbBootstrapper
         var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
 
         await WaitForDatabaseAsync(db, logger, cancellationToken);
+        await ValidateOwnedSchemaAsync(db, logger, cancellationToken);
         await SeedReferenceDataAsync(db, logger, cancellationToken);
     }
 
@@ -61,12 +77,6 @@ public static class CatalogDbBootstrapper
 
     private static async Task SeedReferenceDataAsync(CatalogDbContext db, ILogger logger, CancellationToken cancellationToken)
     {
-        if (!await TableExistsAsync(db, "TableStatus", cancellationToken))
-        {
-            logger.LogWarning("Missing expected tables; skipping seed.");
-            return;
-        }
-
         var changed = false;
 
         if (!await db.TableStatus.AnyAsync(cancellationToken))
@@ -85,34 +95,72 @@ public static class CatalogDbBootstrapper
         }
     }
 
+    private static async Task ValidateOwnedSchemaAsync(CatalogDbContext db, ILogger logger, CancellationToken cancellationToken)
+    {
+        var missing = new List<string>();
+        foreach (var table in OwnedTables)
+        {
+            if (!await TableExistsAsync(db, table, requirePhysicalTable: true, cancellationToken))
+            {
+                missing.Add(table);
+            }
+        }
+
+        if (missing.Count > 0)
+        {
+            throw new InvalidOperationException(
+                "Catalog storage is missing owned tables: " + string.Join(", ", missing) +
+                ". Run sql/setup-service-db-shells.ps1 or complete the Catalog DB cutover before starting Catalog.Api.");
+        }
+
+        if (await TableExistsAsync(db, "__CatalogOwnershipState", requirePhysicalTable: true, cancellationToken))
+        {
+            logger.LogInformation("Catalog ownership state table detected.");
+        }
+        else
+        {
+            logger.LogWarning("Catalog ownership state table was not found. Initial shell materialization may not have completed.");
+        }
+    }
+
     private static async Task<bool> TableExistsAsync(CatalogDbContext db, string tableName, CancellationToken cancellationToken)
+        => await TableExistsAsync(db, tableName, requirePhysicalTable: false, cancellationToken);
+
+    private static async Task<bool> TableExistsAsync(CatalogDbContext db, string tableName, bool requirePhysicalTable, CancellationToken cancellationToken)
     {
         await db.Database.OpenConnectionAsync(cancellationToken);
         try
         {
             await using var command = db.Database.GetDbConnection().CreateCommand();
-            command.CommandText = """
-                                 SELECT 1
-                                 FROM
-                                 (
-                                     SELECT name
-                                     FROM sys.tables
-                                     WHERE schema_id = SCHEMA_ID('dbo')
+            command.CommandText = requirePhysicalTable
+                ? """
+                  SELECT 1
+                  FROM sys.tables
+                  WHERE schema_id = SCHEMA_ID('dbo')
+                    AND name = @table
+                  """
+                : """
+                  SELECT 1
+                  FROM
+                  (
+                      SELECT name
+                      FROM sys.tables
+                      WHERE schema_id = SCHEMA_ID('dbo')
 
-                                     UNION ALL
+                      UNION ALL
 
-                                     SELECT name
-                                     FROM sys.views
-                                     WHERE schema_id = SCHEMA_ID('dbo')
+                      SELECT name
+                      FROM sys.views
+                      WHERE schema_id = SCHEMA_ID('dbo')
 
-                                     UNION ALL
+                      UNION ALL
 
-                                     SELECT name
-                                     FROM sys.synonyms
-                                     WHERE schema_id = SCHEMA_ID('dbo')
-                                 ) AS objects
-                                 WHERE name = @table
-                                 """;
+                      SELECT name
+                      FROM sys.synonyms
+                      WHERE schema_id = SCHEMA_ID('dbo')
+                  ) AS objects
+                  WHERE name = @table
+                  """;
             var parameter = command.CreateParameter();
             parameter.ParameterName = "@table";
             parameter.Value = tableName;

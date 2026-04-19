@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-
 namespace SelfRestaurant.Identity.Api.Persistence.Entities;
 
-public partial class CustomerLoyalty
+public sealed class CustomerLoyalty
 {
     public int CustomerID { get; set; }
 

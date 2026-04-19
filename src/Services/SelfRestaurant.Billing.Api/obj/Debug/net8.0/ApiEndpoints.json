@@ -57,6 +57,16 @@
     ]
   },
   {
+    "ContainingType": "SelfRestaurant.Billing.Api.Controllers.CashierController",
+    "Method": "ResetDevTestState",
+    "RelativePath": "api/dev/reset-test-state",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
     "ContainingType": "SelfRestaurant.Billing.Api.Controllers.CashierBillsController",
     "Method": "GetBills",
     "RelativePath": "api/employees/{employeeId}/cashier/bills",
@@ -124,6 +134,42 @@
     "ReturnTypes": [
       {
         "Type": "SelfRestaurant.Billing.Api.Controllers.CashierBillsController\u002BCashierReportResponse",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Billing.Api.Controllers.CashierBillsController",
+    "Method": "GetInternalCashierHistory",
+    "RelativePath": "api/internal/employees/{employeeId}/cashier/history",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "employeeId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "days",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "take",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "System.Collections.Generic.IReadOnlyList\u00601[[SelfRestaurant.Billing.Api.Controllers.CashierBillsController\u002BBillSummaryResponse, SelfRestaurant.Billing.Api, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
         "MediaTypes": [
           "text/plain",
           "application/json",

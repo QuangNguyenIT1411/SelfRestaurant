@@ -16,22 +16,16 @@ builder.Services.AddDbContext<CustomersDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("RestaurantDb")));
 
 var servicesTimeout = TimeSpan.FromSeconds(Math.Clamp(builder.Configuration.GetValue<int?>("Services:TimeoutSeconds") ?? 10, 2, 60));
+builder.Services.AddHttpClient<OrdersQueryClient>(http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Services:Orders"] ?? "http://localhost:5102");
+    http.Timeout = servicesTimeout;
+});
 builder.Services.AddHttpClient<OrdersEventsClient>(http =>
 {
     http.BaseAddress = new Uri(builder.Configuration["Services:Orders"] ?? "http://localhost:5102");
     http.Timeout = servicesTimeout;
 });
-builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
-builder.Services.PostConfigure<SmtpOptions>(options =>
-{
-    if (!string.IsNullOrWhiteSpace(options.Password))
-    {
-        return;
-    }
-
-    options.Password = Environment.GetEnvironmentVariable("SELFRESTAURANT_SMTP_PASSWORD") ?? options.Password;
-});
-builder.Services.AddSingleton<PasswordResetEmailSender>();
 builder.Services.AddHostedService<OrderReadyConsumerService>();
 
 var app = builder.Build();

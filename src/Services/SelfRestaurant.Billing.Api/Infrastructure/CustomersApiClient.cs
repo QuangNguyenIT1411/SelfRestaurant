@@ -11,6 +11,26 @@ public sealed class CustomersApiClient
         _http = http;
     }
 
+    public async Task<IReadOnlyList<CustomerSnapshotResponse>> GetCustomersAsync(IEnumerable<int> customerIds, CancellationToken cancellationToken)
+    {
+        var ids = customerIds
+            .Where(x => x > 0)
+            .Distinct()
+            .ToArray();
+
+        if (ids.Length == 0)
+        {
+            return Array.Empty<CustomerSnapshotResponse>();
+        }
+
+        var query = string.Join("&", ids.Select(id => $"ids={id}"));
+        var list = await _http.GetFromJsonAsync<IReadOnlyList<CustomerSnapshotResponse>>(
+            $"/api/internal/customers:batch?{query}",
+            cancellationToken);
+
+        return list ?? Array.Empty<CustomerSnapshotResponse>();
+    }
+
     public Task<CustomerSnapshotResponse?> GetCustomerAsync(int customerId, CancellationToken cancellationToken) =>
         _http.GetFromJsonAsync<CustomerSnapshotResponse>($"/api/customers/{customerId}", cancellationToken);
 

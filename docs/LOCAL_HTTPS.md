@@ -1,4 +1,4 @@
-# Local HTTPS
+﻿# Local HTTPS
 
 Gateway MVC supports two local launch profiles:
 
@@ -8,7 +8,7 @@ Gateway MVC supports two local launch profiles:
 ## Visual Studio
 
 1. Open `SelfRestaurant.Microservices.sln`.
-2. Set `SelfRestaurant.Gateway.Mvc` as startup project if you only want to run the gateway.
+2. Set `SelfRestaurant.Gateway.Api` as startup project if you only want to run the gateway.
 3. Choose profile `https`.
 4. Start debugging with `F5`.
 5. If Visual Studio asks to trust the ASP.NET Core certificate, choose `Yes`.
@@ -18,7 +18,7 @@ Gateway MVC supports two local launch profiles:
 Use the .NET SDK installed at `C:\Program Files\dotnet\dotnet.exe` if `dotnet` is not on `PATH`.
 
 ```powershell
-cd C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Gateway\SelfRestaurant.Gateway.Mvc
+cd C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Gateway\SelfRestaurant.Gateway.Api
 & 'C:\Program Files\dotnet\dotnet.exe' dev-certs https --trust
 & 'C:\Program Files\dotnet\dotnet.exe' run --launch-profile https
 ```
@@ -36,3 +36,4 @@ Expected result:
 - `HTTP/1.1 200 OK`
 
 If `7100` is listening but the browser still warns about the certificate, trust the ASP.NET Core development certificate again and restart the browser.
+

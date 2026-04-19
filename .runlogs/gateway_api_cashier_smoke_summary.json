@@ -1,0 +1,12 @@
+﻿{
+    "success":  true,
+    "branchId":  1,
+    "tableId":  1,
+    "orderId":  234,
+    "billCode":  "BILL-20260413-9536",
+    "totalAmount":  110000.00,
+    "changeAmount":  50000.00,
+    "historyContainsBill":  true,
+    "reportContainsBill":  true,
+    "timestampUtc":  "2026-04-13T16:11:29.8789969Z"
+}

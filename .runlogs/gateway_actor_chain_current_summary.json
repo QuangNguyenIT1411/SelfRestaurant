@@ -1,0 +1,189 @@
+﻿{
+    "total":  35,
+    "passed":  35,
+    "failed":  0,
+    "username":  "chain_20260413230015",
+    "phone":  "0913230015",
+    "branchId":  1,
+    "tableId":  1,
+    "dishId":  4,
+    "orderId":  226,
+    "billCode":  "BILL-20260413-3062",
+    "results":  [
+                    {
+                        "step":  "Gateway Health",
+                        "pass":  true,
+                        "detail":  "200"
+                    },
+                    {
+                        "step":  "Customer Branches",
+                        "pass":  true,
+                        "detail":  "branchId=1"
+                    },
+                    {
+                        "step":  "Customer Tables",
+                        "pass":  true,
+                        "detail":  "tableId=1"
+                    },
+                    {
+                        "step":  "Customer Register",
+                        "pass":  true,
+                        "detail":  "chain_20260413230015"
+                    },
+                    {
+                        "step":  "Customer Login No Context",
+                        "pass":  true,
+                        "detail":  "/Home/Index"
+                    },
+                    {
+                        "step":  "Customer Logout No Context",
+                        "pass":  true,
+                        "detail":  "/Home/Index"
+                    },
+                    {
+                        "step":  "Customer Set Table Context",
+                        "pass":  true,
+                        "detail":  "branchId=1 tableId=1"
+                    },
+                    {
+                        "step":  "Customer Login With Context",
+                        "pass":  true,
+                        "detail":  "/Menu/Index"
+                    },
+                    {
+                        "step":  "Customer Session",
+                        "pass":  true,
+                        "detail":  "customerId=2584"
+                    },
+                    {
+                        "step":  "Customer Menu",
+                        "pass":  true,
+                        "detail":  "dishId=4"
+                    },
+                    {
+                        "step":  "Customer Add Item",
+                        "pass":  true,
+                        "detail":  "orderId=226 itemId=226"
+                    },
+                    {
+                        "step":  "Customer Update Item",
+                        "pass":  true,
+                        "detail":  "quantity=2"
+                    },
+                    {
+                        "step":  "Customer Scan Loyalty",
+                        "pass":  true,
+                        "detail":  "Đã quét thẻ thành công"
+                    },
+                    {
+                        "step":  "Customer Submit Order",
+                        "pass":  true,
+                        "detail":  "Da gui mon xuong bep."
+                    },
+                    {
+                        "step":  "Chef Login",
+                        "pass":  true,
+                        "detail":  "/Staff/Chef/Index"
+                    },
+                    {
+                        "step":  "Chef Pending Order Visible",
+                        "pass":  true,
+                        "detail":  "orderId=226"
+                    },
+                    {
+                        "step":  "Chef Start Order",
+                        "pass":  true,
+                        "detail":  "Da chuyen don sang dang chuan bi."
+                    },
+                    {
+                        "step":  "Chef Ready Order",
+                        "pass":  true,
+                        "detail":  "Don da san sang."
+                    },
+                    {
+                        "step":  "Customer Ready Notification",
+                        "pass":  true,
+                        "detail":  "notificationId=105"
+                    },
+                    {
+                        "step":  "Customer Resolve Notification",
+                        "pass":  true,
+                        "detail":  "notificationId=105"
+                    },
+                    {
+                        "step":  "Chef Serve Order",
+                        "pass":  true,
+                        "detail":  "Don da chuyen sang phuc vu."
+                    },
+                    {
+                        "step":  "Customer Confirm Received",
+                        "pass":  true,
+                        "detail":  "Da xac nhan nhan mon."
+                    },
+                    {
+                        "step":  "Cashier Login",
+                        "pass":  true,
+                        "detail":  "/Staff/Cashier/Index"
+                    },
+                    {
+                        "step":  "Cashier Order Visible",
+                        "pass":  true,
+                        "detail":  "orderId=226"
+                    },
+                    {
+                        "step":  "Cashier Checkout",
+                        "pass":  true,
+                        "detail":  "BILL-20260413-3062"
+                    },
+                    {
+                        "step":  "Cashier History Contains Bill",
+                        "pass":  true,
+                        "detail":  "BILL-20260413-3062"
+                    },
+                    {
+                        "step":  "Cashier Report Contains Bill",
+                        "pass":  true,
+                        "detail":  "BILL-20260413-3062"
+                    },
+                    {
+                        "step":  "Admin Login",
+                        "pass":  true,
+                        "detail":  "/Admin/Dashboard/Index"
+                    },
+                    {
+                        "step":  "Admin Dashboard",
+                        "pass":  true,
+                        "detail":  "todayRevenue=220000.00"
+                    },
+                    {
+                        "step":  "Admin Customers Search",
+                        "pass":  true,
+                        "detail":  "customerId=2584"
+                    },
+                    {
+                        "step":  "Admin Reports",
+                        "pass":  true,
+                        "detail":  "revenueRows=1"
+                    },
+                    {
+                        "step":  "Customer Order History",
+                        "pass":  true,
+                        "detail":  "orderId=226"
+                    },
+                    {
+                        "step":  "Customer Dashboard Recent Orders",
+                        "pass":  true,
+                        "detail":  "orderId=226"
+                    },
+                    {
+                        "step":  "Customer Logout Preserves Context",
+                        "pass":  true,
+                        "detail":  "/Home/Index"
+                    },
+                    {
+                        "step":  "Customer Relogin With Preserved Context",
+                        "pass":  true,
+                        "detail":  "/Menu/Index"
+                    }
+                ]
+}

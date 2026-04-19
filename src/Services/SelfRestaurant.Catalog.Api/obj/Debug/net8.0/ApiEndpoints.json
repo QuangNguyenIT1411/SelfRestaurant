@@ -1,6 +1,73 @@
 [
   {
     "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "CreateChefDishForBranch",
+    "RelativePath": "api/admin/branches/{branchId}/chef/dishes",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "branchId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BAdminUpsertDishRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BChefDishMutationResponse",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "UpdateChefDishForBranch",
+    "RelativePath": "api/admin/branches/{branchId}/chef/dishes/{dishId}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "branchId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "dishId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BAdminUpsertDishRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BChefDishMutationResponse",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
     "Method": "GetDishes",
     "RelativePath": "api/admin/dishes",
     "HttpMethod": "GET",
@@ -574,6 +641,94 @@
   },
   {
     "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.CatalogController",
+    "Method": "ResetDevTestState",
+    "RelativePath": "api/dev/reset-test-state",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.CatalogController",
+    "Method": "GetInternalBranchesBatch",
+    "RelativePath": "api/internal/branches:batch",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "ids",
+        "Type": "System.Int32[]",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "System.Collections.Generic.IReadOnlyList\u00601[[System.Object, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.CatalogController",
+    "Method": "GetInternalBranchTableIds",
+    "RelativePath": "api/internal/branches/{branchId}/table-ids",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "branchId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "System.Collections.Generic.IReadOnlyList\u00601[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.CatalogController",
+    "Method": "GetInternalDishesBatch",
+    "RelativePath": "api/internal/dishes:batch",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "ids",
+        "Type": "System.Int32[]",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "System.Collections.Generic.IReadOnlyList\u00601[[System.Object, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.CatalogController",
     "Method": "GetInternalDish",
     "RelativePath": "api/internal/dishes/{dishId}",
     "HttpMethod": "GET",
@@ -587,6 +742,32 @@
       }
     ],
     "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.CatalogController",
+    "Method": "ConsumeInventoryForOrder",
+    "RelativePath": "api/internal/inventory/consume",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.CatalogController\u002BIngredientConsumptionRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.CatalogController\u002BIngredientConsumptionResponse",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
   },
   {
     "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.CatalogController",
@@ -606,9 +787,72 @@
   },
   {
     "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.CatalogController",
+    "Method": "GetInternalTablesBatch",
+    "RelativePath": "api/internal/tables:batch",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "ids",
+        "Type": "System.Int32[]",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "System.Collections.Generic.IReadOnlyList\u00601[[System.Object, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.CatalogController",
     "Method": "GetInternalTable",
     "RelativePath": "api/internal/tables/{tableId}",
     "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "tableId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.CatalogController",
+    "Method": "OccupyInternalTable",
+    "RelativePath": "api/internal/tables/{tableId}/occupy",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "tableId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.CatalogController\u002BTableOccupancyRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.CatalogController",
+    "Method": "ReleaseInternalTable",
+    "RelativePath": "api/internal/tables/{tableId}/release",
+    "HttpMethod": "POST",
     "IsController": true,
     "Order": 0,
     "Parameters": [

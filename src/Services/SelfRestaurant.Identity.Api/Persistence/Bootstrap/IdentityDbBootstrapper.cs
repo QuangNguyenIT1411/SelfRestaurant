@@ -2,12 +2,20 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using SelfRestaurant.Identity.Api.Persistence.Entities;
-
 namespace SelfRestaurant.Identity.Api.Persistence;
 
 public static class IdentityDbBootstrapper
 {
+    private static readonly string[] OwnedTables =
+    [
+        "CatalogBranchSnapshots",
+        "Customers",
+        "EmployeeRoles",
+        "Employees",
+        "PasswordResetTokens",
+        "LoyaltyCards"
+    ];
+
     public static async Task EnsureReadyAsync(
         IServiceProvider services,
         ILogger logger,
@@ -17,6 +25,7 @@ public static class IdentityDbBootstrapper
         var db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
 
         await WaitForDatabaseAsync(db, logger, cancellationToken);
+        await ValidateOwnedSchemaAsync(db, logger, cancellationToken);
         await SeedReferenceDataAsync(db, logger, cancellationToken);
     }
 
@@ -59,66 +68,80 @@ public static class IdentityDbBootstrapper
         }
     }
 
-    private static async Task SeedReferenceDataAsync(IdentityDbContext db, ILogger logger, CancellationToken cancellationToken)
+    private static Task SeedReferenceDataAsync(IdentityDbContext db, ILogger logger, CancellationToken cancellationToken)
     {
-        if (!await TableExistsAsync(db, "OrderStatus", cancellationToken))
-        {
-            logger.LogWarning("Missing expected tables; skipping seed.");
-            return;
-        }
-
-        var changed = false;
-
-        if (!await db.OrderStatus.AnyAsync(cancellationToken))
-        {
-            db.OrderStatus.AddRange(
-                new OrderStatus { StatusCode = "PENDING", StatusName = "Chờ xác nhận" },
-                new OrderStatus { StatusCode = "CONFIRMED", StatusName = "Đã xác nhận" },
-                new OrderStatus { StatusCode = "PREPARING", StatusName = "Đang chuẩn bị" },
-                new OrderStatus { StatusCode = "READY", StatusName = "Sẵn sàng" },
-                new OrderStatus { StatusCode = "SERVING", StatusName = "Đang phục vụ" },
-                new OrderStatus { StatusCode = "COMPLETED", StatusName = "Hoàn tất" },
-                new OrderStatus { StatusCode = "CANCELLED", StatusName = "Đã huỷ" });
-            changed = true;
-        }
-
-        if (changed)
-        {
-            await db.SaveChangesAsync(cancellationToken);
-        }
+        logger.LogInformation("Identity reference seed skipped; service no longer owns OrderStatus.");
+        return Task.CompletedTask;
     }
 
-    private static async Task<bool> TableExistsAsync(IdentityDbContext db, string tableName, CancellationToken cancellationToken)
+    private static async Task ValidateOwnedSchemaAsync(IdentityDbContext db, ILogger logger, CancellationToken cancellationToken)
+    {
+        var missing = new List<string>();
+        foreach (var table in OwnedTables)
+        {
+            if (!await ObjectExistsAsync(db, table, requirePhysicalTable: true, cancellationToken))
+            {
+                missing.Add(table);
+            }
+        }
+
+        if (missing.Count > 0)
+        {
+            throw new InvalidOperationException(
+                "Identity storage is missing owned tables: " + string.Join(", ", missing) +
+                ". Run sql/setup-service-db-shells.ps1 or complete the Identity DB cutover before starting Identity.Api.");
+        }
+
+        if (!await ObjectExistsAsync(db, "CustomerLoyalty", requirePhysicalTable: false, cancellationToken))
+        {
+            throw new InvalidOperationException("Identity storage is missing CustomerLoyalty view.");
+        }
+
+        logger.LogInformation("Identity schema validated without transitional Branches dependency.");
+    }
+
+    private static async Task<bool> ObjectExistsAsync(
+        IdentityDbContext db,
+        string objectName,
+        bool requirePhysicalTable,
+        CancellationToken cancellationToken)
     {
         await db.Database.OpenConnectionAsync(cancellationToken);
         try
         {
             await using var command = db.Database.GetDbConnection().CreateCommand();
-            command.CommandText = """
-                                 SELECT 1
-                                 FROM
-                                 (
-                                     SELECT name
-                                     FROM sys.tables
-                                     WHERE schema_id = SCHEMA_ID('dbo')
+            command.CommandText = requirePhysicalTable
+                ? """
+                  SELECT 1
+                  FROM sys.tables
+                  WHERE schema_id = SCHEMA_ID('dbo')
+                    AND name = @name
+                  """
+                : """
+                  SELECT 1
+                  FROM
+                  (
+                      SELECT name
+                      FROM sys.tables
+                      WHERE schema_id = SCHEMA_ID('dbo')
 
-                                     UNION ALL
+                      UNION ALL
 
-                                     SELECT name
-                                     FROM sys.views
-                                     WHERE schema_id = SCHEMA_ID('dbo')
+                      SELECT name
+                      FROM sys.views
+                      WHERE schema_id = SCHEMA_ID('dbo')
 
-                                     UNION ALL
+                      UNION ALL
 
-                                     SELECT name
-                                     FROM sys.synonyms
-                                     WHERE schema_id = SCHEMA_ID('dbo')
-                                 ) AS objects
-                                 WHERE name = @table
-                                 """;
+                      SELECT name
+                      FROM sys.synonyms
+                      WHERE schema_id = SCHEMA_ID('dbo')
+                  ) AS objects
+                  WHERE name = @name
+                  """;
             var parameter = command.CreateParameter();
-            parameter.ParameterName = "@table";
-            parameter.Value = tableName;
+            parameter.ParameterName = "@name";
+            parameter.Value = objectName;
             command.Parameters.Add(parameter);
 
             var result = await command.ExecuteScalarAsync(cancellationToken);

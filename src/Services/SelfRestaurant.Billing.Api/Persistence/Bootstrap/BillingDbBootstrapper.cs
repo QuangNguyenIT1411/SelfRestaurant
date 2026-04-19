@@ -2,7 +2,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using SelfRestaurant.Billing.Api.Persistence.Entities;
 
 namespace SelfRestaurant.Billing.Api.Persistence;
 
@@ -18,6 +17,10 @@ public static class BillingDbBootstrapper
 
         await WaitForDatabaseAsync(db, logger, cancellationToken);
         await EnsureOutboxTableAsync(db, cancellationToken);
+        await EnsureBillSnapshotColumnsAsync(db, cancellationToken);
+        await EnsureBillsDetachedFromLegacyOrderFkAsync(db, cancellationToken);
+        await EnsureBillsDetachedFromLegacyCustomerFkAsync(db, cancellationToken);
+        await EnsureOrderContextSnapshotTableAsync(db, cancellationToken);
         await SeedReferenceDataAsync(db, logger, cancellationToken);
     }
 
@@ -60,85 +63,10 @@ public static class BillingDbBootstrapper
         }
     }
 
-    private static async Task SeedReferenceDataAsync(BillingDbContext db, ILogger logger, CancellationToken cancellationToken)
+    private static Task SeedReferenceDataAsync(BillingDbContext db, ILogger logger, CancellationToken cancellationToken)
     {
-        if (!await TableExistsAsync(db, "OrderStatus", cancellationToken) || !await TableExistsAsync(db, "TableStatus", cancellationToken))
-        {
-            logger.LogWarning("Missing expected tables; skipping seed.");
-            return;
-        }
-
-        var changed = false;
-
-        if (!await db.OrderStatus.AnyAsync(cancellationToken))
-        {
-            db.OrderStatus.AddRange(
-                new OrderStatus { StatusCode = "PENDING", StatusName = "Chờ xác nhận" },
-                new OrderStatus { StatusCode = "CONFIRMED", StatusName = "Đã xác nhận" },
-                new OrderStatus { StatusCode = "PREPARING", StatusName = "Đang chuẩn bị" },
-                new OrderStatus { StatusCode = "READY", StatusName = "Sẵn sàng" },
-                new OrderStatus { StatusCode = "SERVING", StatusName = "Đang phục vụ" },
-                new OrderStatus { StatusCode = "COMPLETED", StatusName = "Hoàn tất" },
-                new OrderStatus { StatusCode = "CANCELLED", StatusName = "Đã huỷ" });
-            changed = true;
-        }
-
-        if (!await db.TableStatus.AnyAsync(cancellationToken))
-        {
-            db.TableStatus.AddRange(
-                new TableStatus { StatusCode = "AVAILABLE", StatusName = "Trống" },
-                new TableStatus { StatusCode = "OCCUPIED", StatusName = "Đang dùng" },
-                new TableStatus { StatusCode = "RESERVED", StatusName = "Đặt trước" },
-                new TableStatus { StatusCode = "INACTIVE", StatusName = "Không hoạt động" });
-            changed = true;
-        }
-
-        if (changed)
-        {
-            await db.SaveChangesAsync(cancellationToken);
-        }
-    }
-
-    private static async Task<bool> TableExistsAsync(BillingDbContext db, string tableName, CancellationToken cancellationToken)
-    {
-        await db.Database.OpenConnectionAsync(cancellationToken);
-        try
-        {
-            await using var command = db.Database.GetDbConnection().CreateCommand();
-            command.CommandText = """
-                                 SELECT 1
-                                 FROM
-                                 (
-                                     SELECT name
-                                     FROM sys.tables
-                                     WHERE schema_id = SCHEMA_ID('dbo')
-
-                                     UNION ALL
-
-                                     SELECT name
-                                     FROM sys.views
-                                     WHERE schema_id = SCHEMA_ID('dbo')
-
-                                     UNION ALL
-
-                                     SELECT name
-                                     FROM sys.synonyms
-                                     WHERE schema_id = SCHEMA_ID('dbo')
-                                 ) AS objects
-                                 WHERE name = @table
-                                 """;
-            var parameter = command.CreateParameter();
-            parameter.ParameterName = "@table";
-            parameter.Value = tableName;
-            command.Parameters.Add(parameter);
-
-            var result = await command.ExecuteScalarAsync(cancellationToken);
-            return result is not null;
-        }
-        finally
-        {
-            await db.Database.CloseConnectionAsync();
-        }
+        logger.LogInformation("Billing reference seed skipped; service no longer owns OrderStatus/TableStatus.");
+        return Task.CompletedTask;
     }
 
     private static async Task EnsureOutboxTableAsync(BillingDbContext db, CancellationToken cancellationToken)
@@ -161,6 +89,133 @@ public static class BillingDbBootstrapper
                                );
                                CREATE INDEX IX_OutboxEvents_Status ON dbo.OutboxEvents(Status);
                                CREATE INDEX IX_OutboxEvents_CreatedAtUtc ON dbo.OutboxEvents(CreatedAtUtc);
+                           END
+                           """;
+
+        await db.Database.ExecuteSqlRawAsync(sql, cancellationToken);
+    }
+
+    private static async Task EnsureBillSnapshotColumnsAsync(BillingDbContext db, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           DECLARE @targetObject nvarchar(512) = N'dbo.Bills';
+                           DECLARE @baseObject nvarchar(512) =
+                               (SELECT TOP 1 base_object_name
+                                FROM sys.synonyms
+                                WHERE schema_id = SCHEMA_ID(N'dbo')
+                                  AND name = N'Bills');
+
+                           IF @baseObject IS NOT NULL
+                               SET @targetObject = @baseObject;
+
+                           IF COL_LENGTH(@targetObject, 'OrderCodeSnapshot') IS NULL
+                               EXEC(N'ALTER TABLE ' + @targetObject + N' ADD OrderCodeSnapshot NVARCHAR(50) NULL;');
+
+                           IF COL_LENGTH(@targetObject, 'TableIdSnapshot') IS NULL
+                               EXEC(N'ALTER TABLE ' + @targetObject + N' ADD TableIdSnapshot INT NULL;');
+
+                           IF COL_LENGTH(@targetObject, 'TableNameSnapshot') IS NULL
+                               EXEC(N'ALTER TABLE ' + @targetObject + N' ADD TableNameSnapshot NVARCHAR(200) NULL;');
+
+                           IF COL_LENGTH(@targetObject, 'BranchIdSnapshot') IS NULL
+                               EXEC(N'ALTER TABLE ' + @targetObject + N' ADD BranchIdSnapshot INT NULL;');
+
+                           IF COL_LENGTH(@targetObject, 'BranchNameSnapshot') IS NULL
+                               EXEC(N'ALTER TABLE ' + @targetObject + N' ADD BranchNameSnapshot NVARCHAR(200) NULL;');
+                           """;
+
+        await db.Database.ExecuteSqlRawAsync(sql, cancellationToken);
+    }
+
+    private static async Task EnsureBillsDetachedFromLegacyOrderFkAsync(BillingDbContext db, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           DECLARE @targetObject nvarchar(512) = N'dbo.Bills';
+                           DECLARE @baseObject nvarchar(512) =
+                               (SELECT TOP 1 base_object_name
+                                FROM sys.synonyms
+                                WHERE schema_id = SCHEMA_ID(N'dbo')
+                                  AND name = N'Bills');
+
+                           IF @baseObject IS NOT NULL
+                               SET @targetObject = @baseObject;
+
+                           DECLARE @targetDb sysname = ISNULL(PARSENAME(@targetObject, 3), DB_NAME());
+                           DECLARE @targetSchema sysname = ISNULL(PARSENAME(@targetObject, 2), N'dbo');
+                           DECLARE @targetTable sysname = PARSENAME(@targetObject, 1);
+                           DECLARE @dynamicSql nvarchar(max) = N'
+                               IF EXISTS (
+                                   SELECT 1
+                                   FROM ' + QUOTENAME(@targetDb) + N'.sys.foreign_keys fk
+                                   INNER JOIN ' + QUOTENAME(@targetDb) + N'.sys.tables t ON fk.parent_object_id = t.object_id
+                                   INNER JOIN ' + QUOTENAME(@targetDb) + N'.sys.schemas s ON t.schema_id = s.schema_id
+                                   WHERE fk.name = N''FK_Bills_Orders''
+                                     AND s.name = N''' + REPLACE(@targetSchema, '''', '''''') + N'''
+                                     AND t.name = N''' + REPLACE(@targetTable, '''', '''''') + N'''
+                               )
+                               BEGIN
+                                   ALTER TABLE ' + QUOTENAME(@targetDb) + N'.' + QUOTENAME(@targetSchema) + N'.' + QUOTENAME(@targetTable) + N' DROP CONSTRAINT [FK_Bills_Orders];
+                               END';
+
+                           EXEC sp_executesql @dynamicSql;
+                           """;
+
+        await db.Database.ExecuteSqlRawAsync(sql, cancellationToken);
+    }
+
+    private static async Task EnsureBillsDetachedFromLegacyCustomerFkAsync(BillingDbContext db, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           DECLARE @targetObject nvarchar(512) = N'dbo.Bills';
+                           DECLARE @baseObject nvarchar(512) =
+                               (SELECT TOP 1 base_object_name
+                                FROM sys.synonyms
+                                WHERE schema_id = SCHEMA_ID(N'dbo')
+                                  AND name = N'Bills');
+
+                           IF @baseObject IS NOT NULL
+                               SET @targetObject = @baseObject;
+
+                           DECLARE @targetDb sysname = ISNULL(PARSENAME(@targetObject, 3), DB_NAME());
+                           DECLARE @targetSchema sysname = ISNULL(PARSENAME(@targetObject, 2), N'dbo');
+                           DECLARE @targetTable sysname = PARSENAME(@targetObject, 1);
+                           DECLARE @dynamicSql nvarchar(max) = N'
+                               IF EXISTS (
+                                   SELECT 1
+                                   FROM ' + QUOTENAME(@targetDb) + N'.sys.foreign_keys fk
+                                   INNER JOIN ' + QUOTENAME(@targetDb) + N'.sys.tables t ON fk.parent_object_id = t.object_id
+                                   INNER JOIN ' + QUOTENAME(@targetDb) + N'.sys.schemas s ON t.schema_id = s.schema_id
+                                   WHERE fk.name = N''FK_Bills_Customers''
+                                     AND s.name = N''' + REPLACE(@targetSchema, '''', '''''') + N'''
+                                     AND t.name = N''' + REPLACE(@targetTable, '''', '''''') + N'''
+                               )
+                               BEGIN
+                                   ALTER TABLE ' + QUOTENAME(@targetDb) + N'.' + QUOTENAME(@targetSchema) + N'.' + QUOTENAME(@targetTable) + N' DROP CONSTRAINT [FK_Bills_Customers];
+                               END';
+
+                           EXEC sp_executesql @dynamicSql;
+                           """;
+
+        await db.Database.ExecuteSqlRawAsync(sql, cancellationToken);
+    }
+
+    private static async Task EnsureOrderContextSnapshotTableAsync(BillingDbContext db, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           IF OBJECT_ID(N'dbo.OrderContextSnapshots', N'U') IS NULL
+                           BEGIN
+                               CREATE TABLE dbo.OrderContextSnapshots
+                               (
+                                   OrderId INT NOT NULL PRIMARY KEY,
+                                   OrderCode NVARCHAR(50) NULL,
+                                   TableId INT NULL,
+                                   TableName NVARCHAR(200) NULL,
+                                   BranchId INT NULL,
+                                   BranchName NVARCHAR(200) NULL,
+                                   RefreshedAtUtc DATETIME2 NOT NULL CONSTRAINT DF_OrderContextSnapshots_RefreshedAtUtc DEFAULT SYSUTCDATETIME()
+                               );
+                               CREATE INDEX IX_OrderContextSnapshots_BranchId ON dbo.OrderContextSnapshots(BranchId);
+                               CREATE INDEX IX_OrderContextSnapshots_RefreshedAtUtc ON dbo.OrderContextSnapshots(RefreshedAtUtc);
                            END
                            """;
 

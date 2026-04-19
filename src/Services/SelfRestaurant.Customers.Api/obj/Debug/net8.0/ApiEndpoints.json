@@ -1,43 +1,6 @@
 [
   {
     "ContainingType": "SelfRestaurant.Customers.Api.Controllers.CustomersController",
-    "Method": "GetCustomer",
-    "RelativePath": "api/customers/{customerId}",
-    "HttpMethod": "GET",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [
-      {
-        "Name": "customerId",
-        "Type": "System.Int32",
-        "IsRequired": true
-      }
-    ],
-    "ReturnTypes": []
-  },
-  {
-    "ContainingType": "SelfRestaurant.Customers.Api.Controllers.CustomersController",
-    "Method": "SettleLoyalty",
-    "RelativePath": "api/customers/{customerId}/loyalty/settle",
-    "HttpMethod": "POST",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [
-      {
-        "Name": "customerId",
-        "Type": "System.Int32",
-        "IsRequired": true
-      },
-      {
-        "Name": "request",
-        "Type": "SelfRestaurant.Customers.Api.Controllers.CustomersController\u002BLoyaltySettlementRequest",
-        "IsRequired": true
-      }
-    ],
-    "ReturnTypes": []
-  },
-  {
-    "ContainingType": "SelfRestaurant.Customers.Api.Controllers.CustomersController",
     "Method": "GetOrders",
     "RelativePath": "api/customers/{customerId}/orders",
     "HttpMethod": "GET",
@@ -66,27 +29,6 @@
         "StatusCode": 200
       }
     ]
-  },
-  {
-    "ContainingType": "SelfRestaurant.Customers.Api.Controllers.CustomersController",
-    "Method": "UpdateProfile",
-    "RelativePath": "api/customers/{customerId}/profile",
-    "HttpMethod": "PUT",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [
-      {
-        "Name": "customerId",
-        "Type": "System.Int32",
-        "IsRequired": true
-      },
-      {
-        "Name": "request",
-        "Type": "SelfRestaurant.Customers.Api.Controllers.CustomersController\u002BUpdateProfileRequest",
-        "IsRequired": true
-      }
-    ],
-    "ReturnTypes": []
   },
   {
     "ContainingType": "SelfRestaurant.Customers.Api.Controllers.CustomersController",
@@ -147,192 +89,12 @@
   },
   {
     "ContainingType": "SelfRestaurant.Customers.Api.Controllers.CustomersController",
-    "Method": "GetAdminCustomers",
-    "RelativePath": "api/customers/admin/customers",
-    "HttpMethod": "GET",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [
-      {
-        "Name": "search",
-        "Type": "System.String",
-        "IsRequired": false
-      },
-      {
-        "Name": "page",
-        "Type": "System.Int32",
-        "IsRequired": false
-      },
-      {
-        "Name": "pageSize",
-        "Type": "System.Int32",
-        "IsRequired": false
-      }
-    ],
-    "ReturnTypes": []
-  },
-  {
-    "ContainingType": "SelfRestaurant.Customers.Api.Controllers.CustomersController",
-    "Method": "CreateAdminCustomer",
-    "RelativePath": "api/customers/admin/customers",
+    "Method": "ResetDevTestState",
+    "RelativePath": "api/dev/reset-test-state",
     "HttpMethod": "POST",
     "IsController": true,
     "Order": 0,
-    "Parameters": [
-      {
-        "Name": "request",
-        "Type": "SelfRestaurant.Customers.Api.Controllers.CustomersController\u002BAdminUpsertCustomerRequest",
-        "IsRequired": true
-      }
-    ],
-    "ReturnTypes": []
-  },
-  {
-    "ContainingType": "SelfRestaurant.Customers.Api.Controllers.CustomersController",
-    "Method": "GetAdminCustomerById",
-    "RelativePath": "api/customers/admin/customers/{customerId}",
-    "HttpMethod": "GET",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [
-      {
-        "Name": "customerId",
-        "Type": "System.Int32",
-        "IsRequired": true
-      }
-    ],
-    "ReturnTypes": []
-  },
-  {
-    "ContainingType": "SelfRestaurant.Customers.Api.Controllers.CustomersController",
-    "Method": "UpdateAdminCustomer",
-    "RelativePath": "api/customers/admin/customers/{customerId}",
-    "HttpMethod": "PUT",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [
-      {
-        "Name": "customerId",
-        "Type": "System.Int32",
-        "IsRequired": true
-      },
-      {
-        "Name": "request",
-        "Type": "SelfRestaurant.Customers.Api.Controllers.CustomersController\u002BAdminUpsertCustomerRequest",
-        "IsRequired": true
-      }
-    ],
-    "ReturnTypes": []
-  },
-  {
-    "ContainingType": "SelfRestaurant.Customers.Api.Controllers.CustomersController",
-    "Method": "DeactivateAdminCustomer",
-    "RelativePath": "api/customers/admin/customers/{customerId}/deactivate",
-    "HttpMethod": "POST",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [
-      {
-        "Name": "customerId",
-        "Type": "System.Int32",
-        "IsRequired": true
-      }
-    ],
-    "ReturnTypes": []
-  },
-  {
-    "ContainingType": "SelfRestaurant.Customers.Api.Controllers.CustomersController",
-    "Method": "GetAdminCustomers",
-    "RelativePath": "api/identity/admin/customers",
-    "HttpMethod": "GET",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [
-      {
-        "Name": "search",
-        "Type": "System.String",
-        "IsRequired": false
-      },
-      {
-        "Name": "page",
-        "Type": "System.Int32",
-        "IsRequired": false
-      },
-      {
-        "Name": "pageSize",
-        "Type": "System.Int32",
-        "IsRequired": false
-      }
-    ],
-    "ReturnTypes": []
-  },
-  {
-    "ContainingType": "SelfRestaurant.Customers.Api.Controllers.CustomersController",
-    "Method": "CreateAdminCustomer",
-    "RelativePath": "api/identity/admin/customers",
-    "HttpMethod": "POST",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [
-      {
-        "Name": "request",
-        "Type": "SelfRestaurant.Customers.Api.Controllers.CustomersController\u002BAdminUpsertCustomerRequest",
-        "IsRequired": true
-      }
-    ],
-    "ReturnTypes": []
-  },
-  {
-    "ContainingType": "SelfRestaurant.Customers.Api.Controllers.CustomersController",
-    "Method": "GetAdminCustomerById",
-    "RelativePath": "api/identity/admin/customers/{customerId}",
-    "HttpMethod": "GET",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [
-      {
-        "Name": "customerId",
-        "Type": "System.Int32",
-        "IsRequired": true
-      }
-    ],
-    "ReturnTypes": []
-  },
-  {
-    "ContainingType": "SelfRestaurant.Customers.Api.Controllers.CustomersController",
-    "Method": "UpdateAdminCustomer",
-    "RelativePath": "api/identity/admin/customers/{customerId}",
-    "HttpMethod": "PUT",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [
-      {
-        "Name": "customerId",
-        "Type": "System.Int32",
-        "IsRequired": true
-      },
-      {
-        "Name": "request",
-        "Type": "SelfRestaurant.Customers.Api.Controllers.CustomersController\u002BAdminUpsertCustomerRequest",
-        "IsRequired": true
-      }
-    ],
-    "ReturnTypes": []
-  },
-  {
-    "ContainingType": "SelfRestaurant.Customers.Api.Controllers.CustomersController",
-    "Method": "DeactivateAdminCustomer",
-    "RelativePath": "api/identity/admin/customers/{customerId}/deactivate",
-    "HttpMethod": "POST",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [
-      {
-        "Name": "customerId",
-        "Type": "System.Int32",
-        "IsRequired": true
-      }
-    ],
+    "Parameters": [],
     "ReturnTypes": []
   },
   {

@@ -1,0 +1,4 @@
+[2026-04-13 01:36:43] [PASS] Open Register :: status=200
+[2026-04-13 01:36:43] [FAIL] Unhandled Error :: No anti-forgery token
+[2026-04-13 01:36:43] SUMMARY: 1/2 PASS
+[2026-04-13 01:36:43] SUMMARY_JSON: C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\.runlogs\customer_detailed_new_summary_20260413_013643.json

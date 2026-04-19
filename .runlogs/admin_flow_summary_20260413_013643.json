@@ -1,0 +1,15 @@
+﻿{
+    "timestamp":  "20260413_013643",
+    "total":  1,
+    "passed":  0,
+    "failed":  1,
+    "log":  "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\.runlogs\\admin_flow_test_20260413_013643.log",
+    "results":  [
+                    {
+                        "env":  "SYSTEM",
+                        "feature":  "Unhandled",
+                        "pass":  false,
+                        "detail":  "Old site not found: C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main_OLD\\SelfRestaurant"
+                    }
+                ]
+}

@@ -31,7 +31,7 @@ public sealed class OrderReadyConsumerService : BackgroundService
             return;
         }
 
-        var interval = TimeSpan.FromSeconds(Math.Clamp(_configuration.GetValue<int?>("IntegrationEvents:Consumers:OrderReady:PollIntervalSeconds") ?? 5, 2, 60));
+        var interval = TimeSpan.FromSeconds(Math.Clamp(_configuration.GetValue<int?>("IntegrationEvents:Consumers:OrderReady:PollIntervalSeconds") ?? 2, 2, 60));
         var take = Math.Clamp(_configuration.GetValue<int?>("IntegrationEvents:Consumers:OrderReady:Take") ?? 20, 1, 100);
 
         while (!stoppingToken.IsCancellationRequested)

@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SelfRestaurant.Billing.Api.Infrastructure;
 using SelfRestaurant.Billing.Api.Persistence;
 
 namespace SelfRestaurant.Billing.Api.Controllers;
@@ -8,10 +9,14 @@ namespace SelfRestaurant.Billing.Api.Controllers;
 public sealed class CashierBillsController : ControllerBase
 {
     private readonly BillingDbContext _db;
+    private readonly OrdersApiClient _ordersApi;
+    private readonly CustomersApiClient _customersApi;
 
-    public CashierBillsController(BillingDbContext db)
+    public CashierBillsController(BillingDbContext db, OrdersApiClient ordersApi, CustomersApiClient customersApi)
     {
         _db = db;
+        _ordersApi = ordersApi;
+        _customersApi = customersApi;
     }
 
     [HttpGet("api/employees/{employeeId:int}/cashier/bills")]
@@ -44,26 +49,91 @@ public sealed class CashierBillsController : ControllerBase
 
         var bills = await _db.Bills
             .AsNoTracking()
-            .Include(b => b.Order)
-            .ThenInclude(o => o.Table)
-            .Include(b => b.Customer)
             .Where(b =>
                 b.IsActive
                 && b.EmployeeID == employeeId
-                && b.Order != null
-                && b.Order.Table != null
-                && b.Order.Table.BranchID == branchId
                 && (start == null || (b.BillTime >= start && b.BillTime < end)))
             .OrderByDescending(b => b.BillTime)
             .Take(take)
-            .Select(b => new BillSummaryResponse(
+            .ToListAsync(cancellationToken);
+
+        var orderLookup = await GetFallbackOrderContextLookupAsync(bills, cancellationToken);
+        var customerLookup = (await _customersApi.GetCustomersAsync(
+                bills.Where(b => b.CustomerID.HasValue).Select(b => b.CustomerID!.Value),
+                cancellationToken))
+            .ToDictionary(x => x.CustomerId);
+
+        var payload = bills
+            .Where(b => ResolveBranchId(b, orderLookup) == branchId)
+            .Select(b =>
+            {
+                orderLookup.TryGetValue(b.OrderID, out var orderContext);
+                customerLookup.TryGetValue(b.CustomerID ?? 0, out var customer);
+
+                return new BillSummaryResponse(
+                    b.BillID,
+                    b.BillCode,
+                    b.BillTime,
+                    b.OrderID,
+                    b.OrderCodeSnapshot ?? orderContext?.OrderCode,
+                    b.TableNameSnapshot ?? orderContext?.TableName ?? "-",
+                    customer?.Name,
+                    b.Subtotal,
+                    b.Discount,
+                    b.PointsDiscount,
+                    b.PointsUsed,
+                    b.TotalAmount,
+                    b.PaymentMethod,
+                    b.PaymentAmount,
+                    b.ChangeAmount);
+            })
+            .ToList();
+
+        return Ok(payload);
+    }
+
+    [HttpGet("api/internal/employees/{employeeId:int}/cashier/history")]
+    public async Task<ActionResult<IReadOnlyList<BillSummaryResponse>>> GetInternalCashierHistory(
+        int employeeId,
+        [FromQuery] int days = 90,
+        [FromQuery] int take = 200,
+        CancellationToken cancellationToken = default)
+    {
+        if (employeeId <= 0)
+        {
+            return BadRequest(new { message = "EmployeeId is required." });
+        }
+
+        days = Math.Clamp(days, 1, 365);
+        take = Math.Clamp(take, 1, 500);
+        var fromDate = DateTime.Today.AddDays(-days);
+
+        var bills = await _db.Bills
+            .AsNoTracking()
+            .Where(b => b.IsActive && b.EmployeeID == employeeId && b.BillTime >= fromDate)
+            .OrderByDescending(b => b.BillTime)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+
+        var orderLookup = await GetFallbackOrderContextLookupAsync(bills, cancellationToken);
+        var customerLookup = (await _customersApi.GetCustomersAsync(
+                bills.Where(b => b.CustomerID.HasValue).Select(b => b.CustomerID!.Value),
+                cancellationToken))
+            .ToDictionary(x => x.CustomerId);
+
+        var payload = bills.Select(b =>
+        {
+            orderLookup.TryGetValue(b.OrderID, out var orderContext);
+            customerLookup.TryGetValue(b.CustomerID ?? 0, out var customer);
+
+            return new BillSummaryResponse(
                 b.BillID,
                 b.BillCode,
                 b.BillTime,
                 b.OrderID,
-                b.Order!.OrderCode,
-                b.Order.Table!.QRCode ?? ("Bàn " + b.Order.TableID),
-                b.Customer != null ? b.Customer.Name : null,
+                b.OrderCodeSnapshot ?? orderContext?.OrderCode,
+                b.TableNameSnapshot ?? orderContext?.TableName ?? "-",
+                customer?.Name,
                 b.Subtotal,
                 b.Discount,
                 b.PointsDiscount,
@@ -71,10 +141,10 @@ public sealed class CashierBillsController : ControllerBase
                 b.TotalAmount,
                 b.PaymentMethod,
                 b.PaymentAmount,
-                b.ChangeAmount))
-            .ToListAsync(cancellationToken);
+                b.ChangeAmount);
+        }).ToList();
 
-        return Ok(bills);
+        return Ok(payload);
     }
 
     [HttpGet("api/employees/{employeeId:int}/cashier/report")]
@@ -92,7 +162,9 @@ public sealed class CashierBillsController : ControllerBase
             return bad;
         }
 
-        var list = bills.Value ?? Array.Empty<BillSummaryResponse>();
+        var list = bills.Value
+            ?? (bills.Result as OkObjectResult)?.Value as IReadOnlyList<BillSummaryResponse>
+            ?? Array.Empty<BillSummaryResponse>();
         var revenue = list.Sum(b => b.TotalAmount);
 
         return Ok(new CashierReportResponse(
@@ -121,23 +193,54 @@ public sealed class CashierBillsController : ControllerBase
 
         var bills = await _db.Bills
             .AsNoTracking()
-            .Include(b => b.Order)
-            .ThenInclude(o => o.Table)
             .Where(b =>
                 b.IsActive
-                && b.Order != null
-                && b.Order.Table != null
-                && b.Order.Table.BranchID == branchId
                 && b.BillTime >= start
                 && b.BillTime < end)
-            .Select(b => b.TotalAmount)
             .ToListAsync(cancellationToken);
+
+        var orderLookup = await GetFallbackOrderContextLookupAsync(bills, cancellationToken);
+
+        var filteredBills = bills
+            .Where(b => ResolveBranchId(b, orderLookup) == branchId)
+            .ToList();
 
         return Ok(new BranchCashierReportResponse(
             Date: target,
             BranchId: branchId,
-            BillCount: bills.Count,
-            TotalRevenue: bills.Sum()));
+            BillCount: filteredBills.Count,
+            TotalRevenue: filteredBills.Sum(b => b.TotalAmount)));
+    }
+
+    private async Task<IReadOnlyDictionary<int, OrdersApiClient.OrderBillContextResponse>> GetFallbackOrderContextLookupAsync(
+        IReadOnlyList<Persistence.Entities.Bills> bills,
+        CancellationToken cancellationToken)
+    {
+        var missingOrderIds = bills
+            .Where(b => b.BranchIdSnapshot is null || string.IsNullOrWhiteSpace(b.TableNameSnapshot) || string.IsNullOrWhiteSpace(b.OrderCodeSnapshot))
+            .Select(b => b.OrderID)
+            .Distinct()
+            .ToArray();
+
+        if (missingOrderIds.Length == 0)
+        {
+            return new Dictionary<int, OrdersApiClient.OrderBillContextResponse>();
+        }
+
+        return (await _ordersApi.GetOrderBillContextsAsync(missingOrderIds, cancellationToken))
+            .ToDictionary(x => x.OrderId);
+    }
+
+    private static int? ResolveBranchId(
+        Persistence.Entities.Bills bill,
+        IReadOnlyDictionary<int, OrdersApiClient.OrderBillContextResponse> orderLookup)
+    {
+        if (bill.BranchIdSnapshot.HasValue)
+        {
+            return bill.BranchIdSnapshot.Value;
+        }
+
+        return orderLookup.TryGetValue(bill.OrderID, out var orderContext) ? orderContext.BranchId : null;
     }
 
     public sealed record BillSummaryResponse(
@@ -171,6 +274,3 @@ public sealed class CashierBillsController : ControllerBase
         int BillCount,
         decimal TotalRevenue);
 }
-
-
-

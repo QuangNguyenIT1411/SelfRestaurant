@@ -1,0 +1,41 @@
+﻿{
+    "staff":  {
+                  "employeeId":  3,
+                  "username":  "cashier_lan",
+                  "name":  "Thu ngan Lan",
+                  "phone":  "0903333333",
+                  "email":  "lan.cashier@selfrestaurant.com",
+                  "roleId":  3,
+                  "roleCode":  "CASHIER",
+                  "roleName":  "Thu ngân",
+                  "branchId":  1,
+                  "branchName":  "Chi nhánh Quận 1"
+              },
+    "bills":  [
+                  {
+                      "billId":  6,
+                      "billCode":  "BILL-20260410-6437",
+                      "billTime":  "2026-04-10T16:04:05.807",
+                      "orderCode":  "ORD-20260410160403858-387",
+                      "tableName":  "QR-Q1-B01",
+                      "subtotal":  110000.00,
+                      "discount":  0.00,
+                      "pointsDiscount":  0.00,
+                      "pointsUsed":  null,
+                      "totalAmount":  110000.00,
+                      "paymentMethod":  "CASH",
+                      "paymentAmount":  160000.00,
+                      "changeAmount":  50000.00,
+                      "customerName":  ""
+                  }
+              ],
+    "account":  {
+                    "employeeId":  3,
+                    "name":  "Thu ngan Lan",
+                    "username":  "cashier_lan",
+                    "email":  "lan.cashier@selfrestaurant.com",
+                    "phone":  "0903333333",
+                    "branchName":  "Chi nhánh Quận 1",
+                    "roleName":  "Thu ngân"
+                }
+}

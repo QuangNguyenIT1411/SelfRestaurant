@@ -8,6 +8,22 @@ namespace SelfRestaurant.Orders.Api.Persistence;
 
 public static class OrdersDbBootstrapper
 {
+    private static readonly string[] OwnedWriteTables =
+    [
+        "Orders",
+        "OrderItems",
+        "OrderStatus",
+        "InboxEvents",
+        "OutboxEvents"
+    ];
+
+    private static readonly string[] OwnedReadModelTables =
+    [
+        "CatalogBranchSnapshots",
+        "CatalogDishSnapshots",
+        "CatalogTableSnapshots"
+    ];
+
     public static async Task EnsureReadyAsync(
         IServiceProvider services,
         ILogger logger,
@@ -19,6 +35,8 @@ public static class OrdersDbBootstrapper
         await WaitForDatabaseAsync(db, logger, cancellationToken);
         await EnsureOutboxTableAsync(db, cancellationToken);
         await EnsureInboxTableAsync(db, cancellationToken);
+        await EnsureCatalogSnapshotTablesAsync(db, cancellationToken);
+        await ValidateOwnedSchemaAsync(db, logger, cancellationToken);
         await SeedReferenceDataAsync(db, logger, cancellationToken);
     }
 
@@ -61,9 +79,103 @@ public static class OrdersDbBootstrapper
         }
     }
 
+
+    private static async Task ValidateOwnedSchemaAsync(OrdersDbContext db, ILogger logger, CancellationToken cancellationToken)
+    {
+        var missingWriteTables = new List<string>();
+        foreach (var table in OwnedWriteTables)
+        {
+            if (!await ObjectExistsAsync(db, table, requirePhysicalTable: true, cancellationToken))
+            {
+                missingWriteTables.Add(table);
+            }
+        }
+
+        if (missingWriteTables.Count > 0)
+        {
+            throw new InvalidOperationException(
+                "Orders storage is missing owned write tables: " + string.Join(", ", missingWriteTables) +
+                ". Complete the Orders DB cutover or materialize owned tables before starting Orders.Api.");
+        }
+
+        var missingReadModels = new List<string>();
+        foreach (var table in OwnedReadModelTables)
+        {
+            if (!await ObjectExistsAsync(db, table, requirePhysicalTable: true, cancellationToken))
+            {
+                missingReadModels.Add(table);
+            }
+        }
+
+        if (missingReadModels.Count > 0)
+        {
+            throw new InvalidOperationException(
+                "Orders storage is missing local catalog snapshot tables: " + string.Join(", ", missingReadModels) +
+                ". Ensure catalog read-model tables are created before starting Orders.Api.");
+        }
+
+        logger.LogInformation(
+            "Orders write-model validated. Write tables: {WriteTables}. Read-model tables: {ReadModelTables}.",
+            string.Join(", ", OwnedWriteTables),
+            string.Join(", ", OwnedReadModelTables));
+    }
+
+    private static async Task<bool> ObjectExistsAsync(
+        OrdersDbContext db,
+        string objectName,
+        bool requirePhysicalTable,
+        CancellationToken cancellationToken)
+    {
+        await db.Database.OpenConnectionAsync(cancellationToken);
+        try
+        {
+            await using var command = db.Database.GetDbConnection().CreateCommand();
+            command.CommandText = requirePhysicalTable
+                ? """
+                  SELECT 1
+                  FROM sys.tables
+                  WHERE schema_id = SCHEMA_ID('dbo')
+                    AND name = @name
+                  """
+                : """
+                  SELECT 1
+                  FROM
+                  (
+                      SELECT name
+                      FROM sys.tables
+                      WHERE schema_id = SCHEMA_ID('dbo')
+
+                      UNION ALL
+
+                      SELECT name
+                      FROM sys.views
+                      WHERE schema_id = SCHEMA_ID('dbo')
+
+                      UNION ALL
+
+                      SELECT name
+                      FROM sys.synonyms
+                      WHERE schema_id = SCHEMA_ID('dbo')
+                  ) AS objects
+                  WHERE name = @name
+                  """;
+            var parameter = command.CreateParameter();
+            parameter.ParameterName = "@name";
+            parameter.Value = objectName;
+            command.Parameters.Add(parameter);
+
+            var result = await command.ExecuteScalarAsync(cancellationToken);
+            return result is not null;
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+    }
+
     private static async Task SeedReferenceDataAsync(OrdersDbContext db, ILogger logger, CancellationToken cancellationToken)
     {
-        if (!await TableExistsAsync(db, "OrderStatus", cancellationToken) || !await TableExistsAsync(db, "TableStatus", cancellationToken))
+        if (!await TableExistsAsync(db, "OrderStatus", cancellationToken))
         {
             logger.LogWarning("Missing expected tables; skipping seed.");
             return;
@@ -71,33 +183,38 @@ public static class OrdersDbBootstrapper
 
         var changed = false;
 
-        if (!await db.OrderStatus.AnyAsync(cancellationToken))
+        try
         {
-            db.OrderStatus.AddRange(
-                new OrderStatus { StatusCode = "PENDING", StatusName = "Chờ xác nhận" },
-                new OrderStatus { StatusCode = "CONFIRMED", StatusName = "Đã xác nhận" },
-                new OrderStatus { StatusCode = "PREPARING", StatusName = "Đang chuẩn bị" },
-                new OrderStatus { StatusCode = "READY", StatusName = "Sẵn sàng" },
-                new OrderStatus { StatusCode = "SERVING", StatusName = "Đang phục vụ" },
-                new OrderStatus { StatusCode = "COMPLETED", StatusName = "Hoàn tất" },
-                new OrderStatus { StatusCode = "CANCELLED", StatusName = "Đã huỷ" });
-            changed = true;
+            if (!await db.OrderStatus.AnyAsync(cancellationToken))
+            {
+                db.OrderStatus.AddRange(
+                    new OrderStatus { StatusCode = "PENDING", StatusName = "Chờ xác nhận" },
+                    new OrderStatus { StatusCode = "CONFIRMED", StatusName = "Đã xác nhận" },
+                    new OrderStatus { StatusCode = "PREPARING", StatusName = "Đang chuẩn bị" },
+                    new OrderStatus { StatusCode = "READY", StatusName = "Sẵn sàng" },
+                    new OrderStatus { StatusCode = "SERVING", StatusName = "Đang phục vụ" },
+                    new OrderStatus { StatusCode = "COMPLETED", StatusName = "Hoàn tất" },
+                    new OrderStatus { StatusCode = "CANCELLED", StatusName = "Đã huỷ" });
+                changed = true;
+            }
         }
-
-        if (!await db.TableStatus.AnyAsync(cancellationToken))
+        catch (Exception ex) when (IsInvalidObjectReference(ex, "OrderStatus"))
         {
-            db.TableStatus.AddRange(
-                new TableStatus { StatusCode = "AVAILABLE", StatusName = "Trống" },
-                new TableStatus { StatusCode = "OCCUPIED", StatusName = "Đang dùng" },
-                new TableStatus { StatusCode = "RESERVED", StatusName = "Đặt trước" },
-                new TableStatus { StatusCode = "INACTIVE", StatusName = "Không hoạt động" });
-            changed = true;
+            logger.LogWarning(ex, "OrderStatus backing object is unavailable; skipping reference seed.");
+            return;
         }
 
         if (changed)
         {
             await db.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    private static bool IsInvalidObjectReference(Exception ex, string objectName)
+    {
+        var message = ex.GetBaseException().Message ?? string.Empty;
+        return message.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase)
+               && message.Contains(objectName, StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<bool> TableExistsAsync(OrdersDbContext db, string tableName, CancellationToken cancellationToken)
@@ -219,6 +336,57 @@ public static class OrdersDbBootstrapper
                            IF COL_LENGTH('dbo.InboxEvents', 'NextRetryAtUtc') IS NULL
                            BEGIN
                                ALTER TABLE dbo.InboxEvents ADD NextRetryAtUtc DATETIME2 NULL;
+                           END
+                           """;
+
+        await db.Database.ExecuteSqlRawAsync(sql, cancellationToken);
+    }
+
+    private static async Task EnsureCatalogSnapshotTablesAsync(OrdersDbContext db, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           IF OBJECT_ID(N'dbo.CatalogDishSnapshots', N'U') IS NULL
+                           BEGIN
+                               CREATE TABLE dbo.CatalogDishSnapshots
+                               (
+                                   DishId INT NOT NULL PRIMARY KEY,
+                                   Name NVARCHAR(200) NOT NULL,
+                                   CategoryId INT NOT NULL,
+                                   CategoryName NVARCHAR(200) NULL,
+                                   Price DECIMAL(18,2) NOT NULL,
+                                   Unit NVARCHAR(50) NULL,
+                                   Image NVARCHAR(500) NULL,
+                                   IsActive BIT NOT NULL,
+                                   Available BIT NOT NULL,
+                                   RefreshedAtUtc DATETIME2 NOT NULL
+                               );
+                           END
+
+                           IF OBJECT_ID(N'dbo.CatalogTableSnapshots', N'U') IS NULL
+                           BEGIN
+                               CREATE TABLE dbo.CatalogTableSnapshots
+                               (
+                                   TableId INT NOT NULL PRIMARY KEY,
+                                   BranchId INT NOT NULL,
+                                   QrCode NVARCHAR(100) NULL,
+                                   IsActive BIT NOT NULL,
+                                   StatusId INT NOT NULL,
+                                   StatusCode NVARCHAR(50) NULL,
+                                   StatusName NVARCHAR(100) NULL,
+                                   RefreshedAtUtc DATETIME2 NOT NULL
+                               );
+                           END
+
+                           IF OBJECT_ID(N'dbo.CatalogBranchSnapshots', N'U') IS NULL
+                           BEGIN
+                               CREATE TABLE dbo.CatalogBranchSnapshots
+                               (
+                                   BranchId INT NOT NULL PRIMARY KEY,
+                                   Name NVARCHAR(200) NOT NULL,
+                                   Location NVARCHAR(500) NULL,
+                                   IsActive BIT NOT NULL,
+                                   RefreshedAtUtc DATETIME2 NOT NULL
+                               );
                            END
                            """;
 

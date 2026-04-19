@@ -1,0 +1,1 @@
+{"success":true,"session":{"authenticated":true,"staff":{"employeeId":1,"username":"admin","name":"Admin User","phone":"0900000000","email":"admin@example.com","roleId":1,"roleCode":"ADMIN","roleName":"Quản trị viên","branchId":1,"branchName":"Chi nhánh Quận 1"},"loginPath":"/app/admin/login"},"nextPath":"/app/admin"}

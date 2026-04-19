@@ -9,10 +9,14 @@ namespace SelfRestaurant.Catalog.Api.Controllers;
 public sealed class CatalogController : ControllerBase
 {
     private readonly CatalogDbContext _db;
+    private readonly ILogger<CatalogController> _logger;
+    private readonly IHostEnvironment _environment;
 
-    public CatalogController(CatalogDbContext db)
+    public CatalogController(CatalogDbContext db, ILogger<CatalogController> logger, IHostEnvironment environment)
     {
         _db = db;
+        _logger = logger;
+        _environment = environment;
     }
 
     [HttpGet("api/branches")]
@@ -117,7 +121,7 @@ public sealed class CatalogController : ControllerBase
         var menuCategories = new List<object>(categories.Count);
         foreach (var mc in categories)
         {
-            var dishes = await _db.CategoryDish
+            var rawDishes = await _db.CategoryDish
                 .AsNoTracking()
                 .Where(x => x.MenuCategoryID == mc.MenuCategoryID && (x.IsAvailable ?? true))
                 .Include(x => x.Dish)
@@ -144,6 +148,16 @@ public sealed class CatalogController : ControllerBase
                         .ToList(),
                 })
                 .ToListAsync(cancellationToken);
+
+            var orderableDishIds = await FilterOrderableDishIdsAsync(rawDishes.Select(x => x.dishId), cancellationToken);
+            var dishes = rawDishes
+                .Where(x => orderableDishIds.Contains(x.dishId))
+                .ToList();
+
+            if (dishes.Count == 0)
+            {
+                continue;
+            }
 
             menuCategories.Add(new
             {
@@ -206,16 +220,91 @@ public sealed class CatalogController : ControllerBase
         return table is null ? NotFound() : Ok(table);
     }
 
+    [HttpGet("api/internal/tables:batch")]
+    public async Task<ActionResult<IReadOnlyList<object>>> GetInternalTablesBatch([FromQuery] int[] ids, CancellationToken cancellationToken)
+    {
+        var tableIds = ids.Where(x => x > 0).Distinct().ToArray();
+        if (tableIds.Length == 0)
+        {
+            return Ok(Array.Empty<object>());
+        }
+
+        var tables = await _db.DiningTables
+            .AsNoTracking()
+            .Include(x => x.Status)
+            .Where(x => tableIds.Contains(x.TableID) && (x.IsActive ?? true))
+            .Select(x => new
+            {
+                tableId = x.TableID,
+                branchId = x.BranchID,
+                qrCode = x.QRCode,
+                isActive = x.IsActive ?? true,
+                statusId = x.StatusID,
+                statusCode = x.Status != null ? x.Status.StatusCode : null,
+                statusName = x.Status != null ? x.Status.StatusName : null,
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(tables);
+    }
+
+    [HttpPost("api/dev/reset-test-state")]
+    public async Task<ActionResult<object>> ResetDevTestState(CancellationToken cancellationToken)
+    {
+        if (!_environment.IsDevelopment())
+        {
+            return NotFound();
+        }
+
+        var availableStatusId = await _db.TableStatus
+            .Where(x => x.StatusCode == "AVAILABLE")
+            .Select(x => (int?)x.StatusID)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (!availableStatusId.HasValue)
+        {
+            return Problem("Missing AVAILABLE table status.", statusCode: StatusCodes.Status500InternalServerError);
+        }
+
+        var tables = await _db.DiningTables
+            .Where(x => x.IsActive ?? true)
+            .ToListAsync(cancellationToken);
+
+        foreach (var table in tables)
+        {
+            table.CurrentOrderID = null;
+            table.StatusID = availableStatusId.Value;
+            table.UpdatedAt = DateTime.Now;
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            resetTables = tables.Count
+        });
+    }
+
     [HttpGet("api/internal/dishes/{dishId:int}")]
     public async Task<ActionResult<object>> GetInternalDish(int dishId, CancellationToken cancellationToken)
     {
+        var orderableDishIds = await FilterOrderableDishIdsAsync(new[] { dishId }, cancellationToken);
+        if (!orderableDishIds.Contains(dishId))
+        {
+            return NotFound();
+        }
+
         var dish = await _db.Dishes
             .AsNoTracking()
+            .Include(x => x.Category)
             .Where(x => x.DishID == dishId && (x.IsActive ?? true))
             .Select(x => new
             {
                 dishId = x.DishID,
                 name = x.Name,
+                categoryId = x.CategoryID,
+                categoryName = x.Category != null ? x.Category.Name : null,
                 price = x.Price,
                 unit = x.Unit,
                 image = x.Image,
@@ -225,6 +314,42 @@ public sealed class CatalogController : ControllerBase
             .FirstOrDefaultAsync(cancellationToken);
 
         return dish is null ? NotFound() : Ok(dish);
+    }
+
+    [HttpGet("api/internal/dishes:batch")]
+    public async Task<ActionResult<IReadOnlyList<object>>> GetInternalDishesBatch([FromQuery] int[] ids, CancellationToken cancellationToken)
+    {
+        var dishIds = ids.Where(x => x > 0).Distinct().ToArray();
+        if (dishIds.Length == 0)
+        {
+            return Ok(Array.Empty<object>());
+        }
+
+        var orderableDishIds = await FilterOrderableDishIdsAsync(dishIds, cancellationToken);
+        if (orderableDishIds.Count == 0)
+        {
+            return Ok(Array.Empty<object>());
+        }
+
+        var dishes = await _db.Dishes
+            .AsNoTracking()
+            .Include(x => x.Category)
+            .Where(x => orderableDishIds.Contains(x.DishID) && (x.IsActive ?? true))
+            .Select(x => new
+            {
+                dishId = x.DishID,
+                name = x.Name,
+                categoryId = x.CategoryID,
+                categoryName = x.Category != null ? x.Category.Name : null,
+                price = x.Price,
+                unit = x.Unit,
+                image = x.Image,
+                isActive = x.IsActive ?? true,
+                available = x.Available ?? true,
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(dishes);
     }
 
     [HttpGet("api/internal/table-statuses/{statusCode}")]
@@ -248,6 +373,178 @@ public sealed class CatalogController : ControllerBase
             .FirstOrDefaultAsync(cancellationToken);
 
         return status is null ? NotFound() : Ok(status);
+    }
+
+    [HttpGet("api/internal/branches:batch")]
+    public async Task<ActionResult<IReadOnlyList<object>>> GetInternalBranchesBatch([FromQuery] int[] ids, CancellationToken cancellationToken)
+    {
+        var branchIds = ids.Where(x => x > 0).Distinct().ToArray();
+        if (branchIds.Length == 0)
+        {
+            return Ok(Array.Empty<object>());
+        }
+
+        var branches = await _db.Branches
+            .AsNoTracking()
+            .Where(x => branchIds.Contains(x.BranchID) && (x.IsActive ?? true))
+            .Select(x => new
+            {
+                branchId = x.BranchID,
+                name = x.Name,
+                location = x.Location,
+                isActive = x.IsActive ?? true,
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(branches);
+    }
+
+    [HttpGet("api/internal/branches/{branchId:int}/table-ids")]
+    public async Task<ActionResult<IReadOnlyList<int>>> GetInternalBranchTableIds(int branchId, CancellationToken cancellationToken)
+    {
+        var ids = await _db.DiningTables
+            .AsNoTracking()
+            .Where(x => x.BranchID == branchId && (x.IsActive ?? true))
+            .OrderBy(x => x.TableID)
+            .Select(x => x.TableID)
+            .ToListAsync(cancellationToken);
+
+        return Ok(ids);
+    }
+
+    [HttpPost("api/internal/tables/{tableId:int}/occupy")]
+    public async Task<ActionResult> OccupyInternalTable(
+        int tableId,
+        [FromBody] TableOccupancyRequest request,
+        CancellationToken cancellationToken)
+    {
+        var table = await _db.DiningTables.FirstOrDefaultAsync(x => x.TableID == tableId && (x.IsActive ?? true), cancellationToken);
+        if (table is null)
+        {
+            return NotFound();
+        }
+
+        var occupiedId = await _db.TableStatus
+            .Where(x => x.StatusCode == "OCCUPIED")
+            .Select(x => (int?)x.StatusID)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (occupiedId is null)
+        {
+            return BadRequest("Status 'OCCUPIED' is missing.");
+        }
+
+        table.StatusID = occupiedId.Value;
+        table.CurrentOrderID = request.CurrentOrderId;
+        table.UpdatedAt = DateTime.Now;
+        await _db.SaveChangesAsync(cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("api/internal/tables/{tableId:int}/release")]
+    public async Task<ActionResult> ReleaseInternalTable(int tableId, CancellationToken cancellationToken)
+    {
+        var table = await _db.DiningTables.FirstOrDefaultAsync(x => x.TableID == tableId && (x.IsActive ?? true), cancellationToken);
+        if (table is null)
+        {
+            return NotFound();
+        }
+
+        var availableId = await _db.TableStatus
+            .Where(x => x.StatusCode == "AVAILABLE")
+            .Select(x => (int?)x.StatusID)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (availableId is null)
+        {
+            return BadRequest("Status 'AVAILABLE' is missing.");
+        }
+
+        table.StatusID = availableId.Value;
+        table.CurrentOrderID = null;
+        table.UpdatedAt = DateTime.Now;
+        await _db.SaveChangesAsync(cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("api/internal/inventory/consume")]
+    public async Task<ActionResult<IngredientConsumptionResponse>> ConsumeInventoryForOrder(
+        [FromBody] IngredientConsumptionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var items = (request.Items ?? Array.Empty<IngredientConsumptionItem>())
+            .Where(x => x.DishId > 0 && x.Quantity > 0)
+            .GroupBy(x => x.DishId)
+            .Select(g => new { DishId = g.Key, Quantity = g.Sum(x => x.Quantity) })
+            .ToList();
+
+        if (items.Count == 0)
+        {
+            return BadRequest(new IngredientConsumptionResponse(
+                false,
+                "Đơn hàng không có món hợp lệ để trừ kho.",
+                Array.Empty<IngredientConsumptionIssue>()));
+        }
+
+        var dishIds = items.Select(x => x.DishId).Distinct().ToArray();
+        var recipes = await _db.DishIngredients
+            .Include(x => x.Ingredient)
+            .Where(x => dishIds.Contains(x.DishID) && x.Ingredient.IsActive)
+            .ToListAsync(cancellationToken);
+
+        if (recipes.Count == 0)
+        {
+            return Ok(new IngredientConsumptionResponse(
+                true,
+                "Không có công thức nguyên liệu cần trừ cho đơn hàng này.",
+                Array.Empty<IngredientConsumptionIssue>()));
+        }
+
+        var itemLookup = items.ToDictionary(x => x.DishId, x => x.Quantity);
+        var requirements = recipes
+            .GroupBy(x => x.IngredientID)
+            .Select(g =>
+            {
+                var first = g.First();
+                var requiredQuantity = g.Sum(recipe => recipe.QuantityPerDish * itemLookup.GetValueOrDefault(recipe.DishID, 0));
+                return new
+                {
+                    Ingredient = first.Ingredient,
+                    RequiredQuantity = requiredQuantity
+                };
+            })
+            .Where(x => x.RequiredQuantity > 0)
+            .ToList();
+
+        var insufficient = requirements
+            .Where(x => x.Ingredient.CurrentStock < x.RequiredQuantity)
+            .Select(x => new IngredientConsumptionIssue(
+                x.Ingredient.IngredientID,
+                x.Ingredient.Name,
+                x.RequiredQuantity,
+                x.Ingredient.CurrentStock,
+                x.Ingredient.Unit))
+            .ToList();
+
+        if (insufficient.Count > 0)
+        {
+            return Conflict(new IngredientConsumptionResponse(
+                false,
+                "Không đủ nguyên liệu để bắt đầu chế biến đơn này.",
+                insufficient));
+        }
+
+        foreach (var requirement in requirements)
+        {
+            requirement.Ingredient.CurrentStock -= requirement.RequiredQuantity;
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return Ok(new IngredientConsumptionResponse(
+            true,
+            "Đã trừ kho nguyên liệu cho đơn hàng.",
+            Array.Empty<IngredientConsumptionIssue>()));
     }
 
     [HttpGet("api/categories")]
@@ -336,4 +633,78 @@ public sealed class CatalogController : ControllerBase
     }
 
     public sealed record CategoryUpsertRequest(string Name, string? Description, int DisplayOrder, bool IsActive = true);
+    public sealed record TableOccupancyRequest(int? CurrentOrderId);
+    public sealed record IngredientConsumptionItem(int DishId, int Quantity);
+    public sealed record IngredientConsumptionIssue(
+        int IngredientId,
+        string IngredientName,
+        decimal RequiredQuantity,
+        decimal AvailableQuantity,
+        string? Unit);
+    public sealed record IngredientConsumptionRequest(int OrderId, IReadOnlyList<IngredientConsumptionItem>? Items);
+    public sealed record IngredientConsumptionResponse(
+        bool Success,
+        string? Message,
+        IReadOnlyList<IngredientConsumptionIssue> Issues);
+
+    private async Task<HashSet<int>> FilterOrderableDishIdsAsync(IEnumerable<int> candidateDishIds, CancellationToken cancellationToken)
+    {
+        var dishIds = candidateDishIds
+            .Where(x => x > 0)
+            .Distinct()
+            .ToArray();
+
+        if (dishIds.Length == 0)
+        {
+            return new HashSet<int>();
+        }
+
+        try
+        {
+            var connection = _db.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open)
+            {
+                await connection.OpenAsync(cancellationToken);
+            }
+
+            await using var command = connection.CreateCommand();
+            command.CommandText = BuildOrderableDishQuery(dishIds.Length);
+
+            for (var i = 0; i < dishIds.Length; i++)
+            {
+                var parameter = command.CreateParameter();
+                parameter.ParameterName = $"@p{i}";
+                parameter.Value = dishIds[i];
+                command.Parameters.Add(parameter);
+            }
+
+            var result = new HashSet<int>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                result.Add(reader.GetInt32(0));
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to validate orderable dishes against the shared restaurant source. Falling back to local catalog ids.");
+            return dishIds.ToHashSet();
+        }
+    }
+
+    private static string BuildOrderableDishQuery(int count)
+    {
+        var parameterNames = Enumerable.Range(0, count)
+            .Select(i => $"@p{i}");
+
+        return $"""
+                SELECT d.DishID
+                FROM [RESTAURANT].[dbo].[Dishes] AS d
+                WHERE d.DishID IN ({string.Join(", ", parameterNames)})
+                  AND ISNULL(d.IsActive, 1) = 1
+                  AND ISNULL(d.Available, 1) = 1
+                """;
+    }
 }

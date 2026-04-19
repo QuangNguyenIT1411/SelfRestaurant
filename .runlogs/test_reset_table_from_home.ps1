@@ -1,37 +1,121 @@
-$ErrorActionPreference='Stop'
-$base='http://localhost:5100'
-$s=New-Object Microsoft.PowerShell.Commands.WebRequestSession
+$ErrorActionPreference = 'Stop'
 
-# login
-$lp=Invoke-WebRequest "$base/Customer/Login?mode=login&force=true" -WebSession $s -UseBasicParsing
-$tok=[regex]::Match($lp.Content,'name="__RequestVerificationToken"[^>]*value="([^"]+)"').Groups[1].Value
-$lr=Invoke-WebRequest "$base/Customer/Login" -Method Post -WebSession $s -UseBasicParsing -Headers @{ 'X-Requested-With'='XMLHttpRequest'} -Body @{
-  __RequestVerificationToken=$tok
-  mode='login'
-  'Login.Username'='lan.nguyen'
-  'Login.Password'='123456'
-  'Login.ReturnUrl'=''
-}
-$lj=$lr.Content|ConvertFrom-Json
-if(-not $lj.success){ throw "Login failed: $($lr.Content)" }
+$base = 'http://localhost:5100'
+$customerBase = "$base/api/gateway/customer"
+$session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+$results = New-Object System.Collections.Generic.List[object]
+$stamp = Get-Date -Format 'yyyyMMddHHmmss'
+$username = "resetctx_$stamp"
+$password = 'Pass@123'
+$phone = '09' + $stamp.Substring($stamp.Length - 8)
 
-# enter menu to set current table
-$null=Invoke-WebRequest "$base/Menu?tableId=2&BranchId=1" -WebSession $s -UseBasicParsing
-
-# open home and post ResetTable form with antiforgery token from page
-$homePage=Invoke-WebRequest "$base/" -WebSession $s -UseBasicParsing
-$ft=[regex]::Match($homePage.Content,'name="__RequestVerificationToken"[^>]*value="([^"]+)"').Groups[1].Value
-if([string]::IsNullOrWhiteSpace($ft)){ throw 'No antiforgery token on Home reset form' }
-
-$reset=Invoke-WebRequest "$base/Menu/ResetTable" -Method Post -WebSession $s -UseBasicParsing -MaximumRedirection 0 -ErrorAction SilentlyContinue -ContentType 'application/x-www-form-urlencoded' -Body @{
-  __RequestVerificationToken=$ft
-  tableId=2
-  BranchId=1
+function Add-Result([string]$Step, [bool]$Pass, [string]$Detail) {
+    $results.Add([pscustomobject]@{
+        step = $Step
+        pass = $Pass
+        detail = $Detail
+    }) | Out-Null
+    $state = if ($Pass) { 'PASS' } else { 'FAIL' }
+    Write-Output "[$state] $Step - $Detail"
 }
 
-if($reset -eq $null){
-  throw 'Reset request returned null'
+function Get-ErrorBody {
+    param($ErrorRecord)
+
+    $response = $ErrorRecord.Exception.Response
+    if ($response -and $response.GetResponseStream()) {
+        $reader = New-Object System.IO.StreamReader($response.GetResponseStream())
+        return $reader.ReadToEnd()
+    }
+
+    return $ErrorRecord.Exception.Message
 }
 
-"RESET_STATUS=$($reset.StatusCode)"
-"RESET_LOCATION=$($reset.Headers['Location'])"
+function Invoke-Json {
+    param(
+        [ValidateSet('GET', 'POST', 'PUT', 'PATCH', 'DELETE')][string]$Method,
+        [string]$Uri,
+        [Microsoft.PowerShell.Commands.WebRequestSession]$WebSession,
+        $Body = $null
+    )
+
+    try {
+        if ($null -eq $Body) {
+            return Invoke-RestMethod -Method $Method -Uri $Uri -WebSession $WebSession -TimeoutSec 60
+        }
+
+        $json = $Body | ConvertTo-Json -Depth 20
+        $payload = [System.Text.Encoding]::UTF8.GetBytes($json)
+        return Invoke-RestMethod -Method $Method -Uri $Uri -WebSession $WebSession -TimeoutSec 60 -ContentType 'application/json; charset=utf-8' -Body $payload
+    }
+    catch {
+        throw (Get-ErrorBody $_)
+    }
+}
+
+try {
+    $branches = Invoke-Json GET "$customerBase/branches" $session
+    $branch = $branches | Select-Object -First 1
+    $tables = Invoke-Json GET "$customerBase/branches/$($branch.branchId)/tables" $session
+    $table = $tables.tables | Where-Object { $_.isAvailable } | Select-Object -First 1
+    if ($null -eq $table) {
+        $table = $tables.tables | Select-Object -First 1
+    }
+
+    $register = Invoke-Json POST "$customerBase/auth/register" $session @{
+        name = "Reset Context $stamp"
+        username = $username
+        password = $password
+        phoneNumber = $phone
+        email = "$username@example.com"
+        gender = 'Nam'
+        dateOfBirth = '2000-01-01'
+        address = 'Ho Chi Minh'
+    }
+    Add-Result 'Register Customer' ([bool]$register.success) $username
+
+    $login1 = Invoke-Json POST "$customerBase/auth/login" $session @{
+        username = $username
+        password = $password
+    }
+    Add-Result 'Login Without Context' ($login1.nextPath -eq '/Home/Index') $login1.nextPath
+
+    $setContext = Invoke-Json POST "$customerBase/context/table" $session @{
+        branchId = [int]$branch.branchId
+        tableId = [int]$table.tableId
+    }
+    Add-Result 'Set Table Context' ([int]$setContext.tableId -eq [int]$table.tableId) "tableId=$($setContext.tableId)"
+
+    $logout1 = Invoke-Json POST "$customerBase/auth/logout" $session @{}
+    Add-Result 'Logout After Set Context' ($logout1.nextPath -eq '/Home/Index') $logout1.nextPath
+
+    $login2 = Invoke-Json POST "$customerBase/auth/login" $session @{
+        username = $username
+        password = $password
+    }
+    Add-Result 'Login With Context' ($login2.nextPath -eq '/Menu/Index') $login2.nextPath
+
+    $clearContext = Invoke-Json DELETE "$customerBase/context/table" $session
+    $clearDetail = if ($null -ne $clearContext -and -not [string]::IsNullOrWhiteSpace([string]$clearContext.message)) { [string]$clearContext.message } else { 'cleared' }
+    Add-Result 'Clear Table Context' ([bool]$clearContext.success) $clearDetail
+
+    $logout2 = Invoke-Json POST "$customerBase/auth/logout" $session @{}
+    Add-Result 'Logout After Clear Context' ($logout2.nextPath -eq '/Home/Index') $logout2.nextPath
+
+    $login3 = Invoke-Json POST "$customerBase/auth/login" $session @{
+        username = $username
+        password = $password
+    }
+    Add-Result 'Relogin After Clear Context' ($login3.nextPath -eq '/Home/Index') $login3.nextPath
+
+    $homeResponse = Invoke-WebRequest "$base/Home/Index" -WebSession $session -UseBasicParsing -TimeoutSec 30
+    Add-Result 'Home Route' ($homeResponse.StatusCode -eq 200) '200'
+}
+catch {
+    Add-Result 'Reset Table From Home' $false $_.Exception.Message
+    exit 1
+}
+
+$pass = ($results | Where-Object { $_.pass }).Count
+$total = $results.Count
+Write-Output "SUMMARY: $pass/$total PASS"

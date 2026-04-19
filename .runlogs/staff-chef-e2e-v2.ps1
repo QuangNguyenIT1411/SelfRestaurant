@@ -80,17 +80,17 @@ try {
   $orderId2=[int]$active2.orderId
   Post-Form "$root/Staff/Chef/Cancel" @{orderId=$orderId2;reason='Het nguyen lieu';__RequestVerificationToken=$chefToken} $staff | Out-Null
   Start-Sleep -Milliseconds 200
-  try {
-    $check2=Invoke-WebRequest "http://localhost:5102/api/tables/$tableId2/order" -UseBasicParsing -ErrorAction Stop
-    $cancelled = ($check2.Content | ConvertFrom-Json).statusCode -eq 'CANCELLED'
-    Add-Result 'Chef Cancel order' $cancelled "orderId=$orderId2"
-  } catch {
-    Add-Result 'Chef Cancel order' $true "orderId=$orderId2 no active order"
-  }
+  $pendingAfter=Invoke-WebRequest "http://localhost:5102/api/branches/$branchId/chef/orders?status=PENDING" -UseBasicParsing | Select-Object -ExpandProperty Content
+  $preparingAfter=Invoke-WebRequest "http://localhost:5102/api/branches/$branchId/chef/orders?status=PREPARING" -UseBasicParsing | Select-Object -ExpandProperty Content
+  $readyAfter=Invoke-WebRequest "http://localhost:5102/api/branches/$branchId/chef/orders?status=READY" -UseBasicParsing | Select-Object -ExpandProperty Content
+  $cancelled = -not ($pendingAfter -match ('\"orderId\":'+$orderId2)) `
+    -and -not ($preparingAfter -match ('\"orderId\":'+$orderId2)) `
+    -and -not ($readyAfter -match ('\"orderId\":'+$orderId2))
+  Add-Result 'Chef Cancel order' $cancelled "orderId=$orderId2"
 
   # 5) Ingredient view + update
   $ingPage=Invoke-WebRequest "$root/Staff/Chef/Ingredients/$dishId" -WebSession $staff -UseBasicParsing
-  $ingOk=($ingPage.StatusCode -eq 200) -and ($ingPage.Content -match 'Dish ID')
+  $ingOk=($ingPage.StatusCode -eq 200) -and ($ingPage.Content -match 'ingredient-check' -or $ingPage.Content -match 'quantityPerDish')
   Add-Result 'View dish ingredients (Chef)' $ingOk "dishId=$dishId"
 
   $lines=Invoke-WebRequest "http://localhost:5101/api/admin/dishes/$dishId/ingredients" -UseBasicParsing | Select-Object -ExpandProperty Content | ConvertFrom-Json
@@ -106,12 +106,23 @@ try {
   Add-Result 'Update dish ingredients (Chef)' $qtyMatched "ingredientId=$($line.ingredientId) qty=$($line2.quantityPerDish)"
 
   # 6) Toggle dish availability (hide/turn off)
-  $dishBefore=Invoke-WebRequest "http://localhost:5101/api/admin/dishes/$dishId" -UseBasicParsing | Select-Object -ExpandProperty Content | ConvertFrom-Json
+  $menuBefore=Invoke-WebRequest "http://localhost:5101/api/branches/$branchId/menu" -UseBasicParsing | Select-Object -ExpandProperty Content | ConvertFrom-Json
+  $dishBefore = $null
+  foreach($cat in $menuBefore.categories){
+    $dishBefore = $cat.dishes | Where-Object { [int]$_.dishId -eq $dishId } | Select-Object -First 1
+    if($dishBefore){ break }
+  }
   $target= -not [bool]$dishBefore.available
   Post-Form "$root/Staff/Chef/SetDishAvailability" @{ dishId=$dishId; available=$target; __RequestVerificationToken=$chefToken } $staff | Out-Null
   Start-Sleep -Milliseconds 200
-  $dishAfter=Invoke-WebRequest "http://localhost:5101/api/admin/dishes/$dishId" -UseBasicParsing | Select-Object -ExpandProperty Content | ConvertFrom-Json
-  Add-Result 'Toggle dish ON/OFF (Chef)' ([bool]$dishAfter.available -eq $target) "before=$($dishBefore.available) after=$($dishAfter.available)"
+  $menuAfter=Invoke-WebRequest "http://localhost:5101/api/branches/$branchId/menu" -UseBasicParsing | Select-Object -ExpandProperty Content | ConvertFrom-Json
+  $dishAfter = $null
+  foreach($cat in $menuAfter.categories){
+    $dishAfter = $cat.dishes | Where-Object { [int]$_.dishId -eq $dishId } | Select-Object -First 1
+    if($dishAfter){ break }
+  }
+  $afterAvailable = if($null -eq $dishAfter){ $false } else { [bool]$dishAfter.available }
+  Add-Result 'Toggle dish ON/OFF (Chef)' ($afterAvailable -eq $target) "before=$($dishBefore.available) after=$afterAvailable"
 
   # rollback availability to original
   Post-Form "$root/Staff/Chef/SetDishAvailability" @{ dishId=$dishId; available=$dishBefore.available; __RequestVerificationToken=$chefToken } $staff | Out-Null

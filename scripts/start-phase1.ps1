@@ -1,4 +1,4 @@
-param(
+﻿param(
     [switch]$Rebuild,
     [switch]$EnableRabbitMq
 )
@@ -11,6 +11,24 @@ $dotnetExe = Join-Path $env:ProgramFiles "dotnet\dotnet.exe"
 if (!(Test-Path $dotnetExe)) {
     $dotnetExe = "dotnet"
 }
+$npmCmd = Join-Path $env:ProgramFiles "nodejs\npm.cmd"
+if (!(Test-Path $npmCmd)) {
+    $npmCmd = "npm.cmd"
+}
+
+$gatewayProjectRelative = "src\Gateway\SelfRestaurant.Gateway.Api\SelfRestaurant.Gateway.Api.csproj"
+if (!(Test-Path (Join-Path $root $gatewayProjectRelative))) {
+    throw "Gateway.Api project was not found under src\Gateway."
+}
+$gatewayProjectDir = Split-Path $gatewayProjectRelative -Parent
+$gatewayProjectName = [System.IO.Path]::GetFileNameWithoutExtension($gatewayProjectRelative)
+
+$frontendApps = @(
+    @{ Name = "customer"; Dir = (Join-Path $root "src\Frontend\selfrestaurant-customer-web"); Dist = (Join-Path $root "src\Frontend\selfrestaurant-customer-web\dist") },
+    @{ Name = "chef"; Dir = (Join-Path $root "src\Frontend\selfrestaurant-chef-web"); Dist = (Join-Path $root "src\Frontend\selfrestaurant-chef-web\dist") },
+    @{ Name = "cashier"; Dir = (Join-Path $root "src\Frontend\selfrestaurant-cashier-web"); Dist = (Join-Path $root "src\Frontend\selfrestaurant-cashier-web\dist") },
+    @{ Name = "admin"; Dir = (Join-Path $root "src\Frontend\selfrestaurant-admin-web"); Dist = (Join-Path $root "src\Frontend\selfrestaurant-admin-web\dist") }
+)
 
 function Invoke-DotnetChecked {
     param(
@@ -24,6 +42,21 @@ function Invoke-DotnetChecked {
     }
 }
 
+function Build-FrontendApp {
+    param([string]$Dir)
+
+    Push-Location $Dir
+    try {
+        & $npmCmd install
+        if (-not $?) { throw "npm install failed for $Dir" }
+        & $npmCmd run build
+        if (-not $?) { throw "npm run build failed for $Dir" }
+    }
+    finally {
+        Pop-Location
+    }
+}
+
 Write-Host "Stopping old running processes..."
 $names = @(
     "SelfRestaurant.Catalog.Api",
@@ -31,7 +64,7 @@ $names = @(
     "SelfRestaurant.Customers.Api",
     "SelfRestaurant.Identity.Api",
     "SelfRestaurant.Billing.Api",
-    "SelfRestaurant.Gateway.Mvc"
+    "SelfRestaurant.Gateway.Api"
 )
 foreach ($n in $names) {
     Get-Process -Name $n -ErrorAction SilentlyContinue | Stop-Process -Force
@@ -39,23 +72,29 @@ foreach ($n in $names) {
 
 Write-Host "Preparing LocalDB schema..."
 powershell.exe -ExecutionPolicy Bypass -File "$root\sql\setup-localdb.ps1"
+powershell.exe -ExecutionPolicy Bypass -File "$root\sql\materialize-owned-sql.ps1" -Database "RESTAURANT_ORDERS" -ScriptPath "$root\sql\orders-owned-tables.sql"
 
 if ($Rebuild) {
+    Write-Host "Building frontend bundles..."
+    foreach ($app in $frontendApps) {
+        Build-FrontendApp -Dir $app.Dir
+    }
+
     Write-Host "Building service binaries..."
     Invoke-DotnetChecked -Arguments @("build", "src\Services\SelfRestaurant.Catalog.Api\SelfRestaurant.Catalog.Api.csproj", "-c", "Release")
     Invoke-DotnetChecked -Arguments @("build", "src\Services\SelfRestaurant.Orders.Api\SelfRestaurant.Orders.Api.csproj", "-c", "Release")
     Invoke-DotnetChecked -Arguments @("build", "src\Services\SelfRestaurant.Customers.Api\SelfRestaurant.Customers.Api.csproj", "-c", "Release")
     Invoke-DotnetChecked -Arguments @("build", "src\Services\SelfRestaurant.Identity.Api\SelfRestaurant.Identity.Api.csproj", "-c", "Release")
     Invoke-DotnetChecked -Arguments @("build", "src\Services\SelfRestaurant.Billing.Api\SelfRestaurant.Billing.Api.csproj", "-c", "Release")
-    Invoke-DotnetChecked -Arguments @("build", "src\Gateway\SelfRestaurant.Gateway.Mvc\SelfRestaurant.Gateway.Mvc.csproj", "-c", "Release")
+    Invoke-DotnetChecked -Arguments @("build", $gatewayProjectRelative, "-c", "Release")
 }
-
-# Ensure gateway static assets are available when launching the built exe.
-$gatewayWwwrootSource = Join-Path $root "src\Gateway\SelfRestaurant.Gateway.Mvc\wwwroot"
-$gatewayWwwrootTarget = Join-Path $root "src\Gateway\SelfRestaurant.Gateway.Mvc\bin\Release\net8.0\wwwroot"
-if (Test-Path $gatewayWwwrootSource) {
-    New-Item -ItemType Directory -Force -Path $gatewayWwwrootTarget | Out-Null
-    Copy-Item -Path (Join-Path $gatewayWwwrootSource "*") -Destination $gatewayWwwrootTarget -Recurse -Force
+else {
+    foreach ($app in $frontendApps) {
+        if (!(Test-Path $app.Dist)) {
+            Write-Host "Building missing frontend bundle for $($app.Name)..."
+            Build-FrontendApp -Dir $app.Dir
+        }
+    }
 }
 
 $logDir = Join-Path $root ".runlogs"
@@ -67,7 +106,7 @@ $services = @(
     @{ Name = "customers"; Exe = "src\Services\SelfRestaurant.Customers.Api\bin\Release\net8.0\SelfRestaurant.Customers.Api.exe"; Url = "http://localhost:5103" },
     @{ Name = "identity"; Exe = "src\Services\SelfRestaurant.Identity.Api\bin\Release\net8.0\SelfRestaurant.Identity.Api.exe"; Url = "http://localhost:5104" },
     @{ Name = "billing"; Exe = "src\Services\SelfRestaurant.Billing.Api\bin\Release\net8.0\SelfRestaurant.Billing.Api.exe"; Url = "http://localhost:5105" },
-    @{ Name = "gateway"; Exe = "src\Gateway\SelfRestaurant.Gateway.Mvc\bin\Release\net8.0\SelfRestaurant.Gateway.Mvc.exe"; Url = "http://localhost:5100" }
+    @{ Name = "gateway"; Exe = (Join-Path $gatewayProjectDir ("bin\Release\net8.0\" + $gatewayProjectName + ".exe")); Url = "http://localhost:5100" }
 )
 
 Write-Host "Starting services..."
@@ -78,7 +117,24 @@ foreach ($svc in $services) {
     $err = Join-Path $logDir "$($svc.Name).err.log"
 
     $env:ASPNETCORE_URLS = $svc.Url
-    $env:ASPNETCORE_ENVIRONMENT = "Production"
+    $env:ASPNETCORE_ENVIRONMENT = if ($svc.Name -in @("identity", "gateway")) { "Development" } else { "Production" }
+    $env:Services__Catalog = "http://localhost:5101"
+    $env:Services__Orders = "http://localhost:5102"
+    $env:Services__Customers = "http://localhost:5103"
+    $env:Services__Identity = "http://localhost:5104"
+    $env:Services__Billing = "http://localhost:5105"
+    if ($svc.Name -eq "gateway") {
+        $env:Frontend__CustomerDistPath = (Join-Path $root "src\Frontend\selfrestaurant-customer-web\dist")
+        $env:Frontend__ChefDistPath = (Join-Path $root "src\Frontend\selfrestaurant-chef-web\dist")
+        $env:Frontend__CashierDistPath = (Join-Path $root "src\Frontend\selfrestaurant-cashier-web\dist")
+        $env:Frontend__AdminDistPath = (Join-Path $root "src\Frontend\selfrestaurant-admin-web\dist")
+    }
+    else {
+        $env:Frontend__CustomerDistPath = $null
+        $env:Frontend__ChefDistPath = $null
+        $env:Frontend__CashierDistPath = $null
+        $env:Frontend__AdminDistPath = $null
+    }
     if ($EnableRabbitMq -and ($svc.Name -in @("orders", "billing"))) {
         $env:RabbitMq__Enabled = "true"
         $env:RabbitMq__Host = "localhost"
@@ -99,10 +155,21 @@ foreach ($svc in $services) {
         $env:RabbitMq__Exchange = $null
         $env:RabbitMq__RoutingKeyPrefix = $null
     }
+
     Start-Process -FilePath $exe -WorkingDirectory $wd -RedirectStandardOutput $out -RedirectStandardError $err | Out-Null
 }
+
 $env:ASPNETCORE_URLS = $null
 $env:ASPNETCORE_ENVIRONMENT = $null
+$env:Services__Catalog = $null
+$env:Services__Orders = $null
+$env:Services__Customers = $null
+$env:Services__Identity = $null
+$env:Services__Billing = $null
+$env:Frontend__CustomerDistPath = $null
+$env:Frontend__ChefDistPath = $null
+$env:Frontend__CashierDistPath = $null
+$env:Frontend__AdminDistPath = $null
 $env:RabbitMq__Enabled = $null
 $env:RabbitMq__Host = $null
 $env:RabbitMq__Port = $null
@@ -121,6 +188,7 @@ $checks = @(
     "http://localhost:5103/healthz",
     "http://localhost:5104/healthz",
     "http://localhost:5105/healthz",
+    "http://localhost:5100/healthz",
     "http://localhost:5100/"
 )
 foreach ($url in $checks) {

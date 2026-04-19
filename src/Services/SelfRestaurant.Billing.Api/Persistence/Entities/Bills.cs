@@ -1,15 +1,24 @@
 ﻿using System;
-using System.Collections.Generic;
 
 namespace SelfRestaurant.Billing.Api.Persistence.Entities;
 
-public partial class Bills
+public sealed class Bills
 {
     public int BillID { get; set; }
 
     public int OrderID { get; set; }
 
     public string BillCode { get; set; } = null!;
+
+    public string? OrderCodeSnapshot { get; set; }
+
+    public int? TableIdSnapshot { get; set; }
+
+    public string? TableNameSnapshot { get; set; }
+
+    public int? BranchIdSnapshot { get; set; }
+
+    public string? BranchNameSnapshot { get; set; }
 
     public DateTime BillTime { get; set; }
 
@@ -34,10 +43,4 @@ public partial class Bills
     public int? CustomerID { get; set; }
 
     public bool IsActive { get; set; }
-
-    public virtual Customers? Customer { get; set; }
-
-    public virtual Employees? Employee { get; set; }
-
-    public virtual Orders Order { get; set; } = null!;
 }

@@ -16,13 +16,15 @@ public sealed class CashierController : ControllerBase
     private readonly CustomersApiClient _customersApi;
     private readonly OrdersApiClient _ordersApi;
     private readonly IIntegrationEventPublisher _eventPublisher;
+    private readonly IHostEnvironment _environment;
 
-    public CashierController(BillingDbContext db, CustomersApiClient customersApi, OrdersApiClient ordersApi, IIntegrationEventPublisher eventPublisher)
+    public CashierController(BillingDbContext db, CustomersApiClient customersApi, OrdersApiClient ordersApi, IIntegrationEventPublisher eventPublisher, IHostEnvironment environment)
     {
         _db = db;
         _customersApi = customersApi;
         _ordersApi = ordersApi;
         _eventPublisher = eventPublisher;
+        _environment = environment;
     }
 
     [HttpGet("api/branches/{branchId:int}/cashier/orders")]
@@ -30,71 +32,55 @@ public sealed class CashierController : ControllerBase
         int branchId,
         CancellationToken cancellationToken)
     {
-        var orders = await _db.Orders
+        var billedOrderIds = await _db.Bills
             .AsNoTracking()
-            .Include(o => o.Status)
-            .Include(o => o.Table)
-            .Include(o => o.Customer)
-            .Where(o =>
-                (o.IsActive ?? false) == true
-                && o.Table != null
-                && o.Table.BranchID == branchId
-                && ActiveStatusCodes.Contains(o.Status.StatusCode))
-            .OrderBy(o => o.OrderTime)
+            .Where(b => b.IsActive)
+            .Select(b => b.OrderID)
+            .Distinct()
             .ToListAsync(cancellationToken);
 
-        var orderIds = orders.Select(o => o.OrderID).ToList();
-        var items = await _db.OrderItems
-            .AsNoTracking()
-            .Where(oi => orderIds.Contains(oi.OrderID))
-            .Include(oi => oi.Dish)
-            .OrderBy(oi => oi.OrderID)
-            .ThenBy(oi => oi.ItemID)
-            .Select(oi => new CashierOrderItemResponse(
-                oi.ItemID,
-                oi.OrderID,
-                oi.DishID,
-                oi.Dish.Name,
-                oi.Quantity,
-                oi.UnitPrice,
-                oi.LineTotal,
-                oi.Dish.Image,
-                oi.Note))
-            .ToListAsync(cancellationToken);
+        var billedOrderLookup = billedOrderIds.ToHashSet();
 
-        var itemsByOrder = items
-            .GroupBy(i => i.OrderId)
-            .ToDictionary(g => g.Key, g => (IReadOnlyList<CashierOrderItemResponse>)g.ToList());
+        var orders = (await _ordersApi.GetCashierOrdersAsync(branchId, cancellationToken))
+            .Where(o => !billedOrderLookup.Contains(o.OrderId))
+            .ToList();
+        var customerLookup = (await _customersApi.GetCustomersAsync(
+                orders.Where(o => o.CustomerId.HasValue).Select(o => o.CustomerId!.Value),
+                cancellationToken))
+            .ToDictionary(x => x.CustomerId);
 
         var payload = orders
             .Select(o =>
             {
-                var tableName = o.Table?.QRCode;
-                if (string.IsNullOrWhiteSpace(tableName))
-                {
-                    tableName = o.TableID.HasValue ? $"Bàn {o.TableID.Value}" : "Bàn ?";
-                }
+                customerLookup.TryGetValue(o.CustomerId ?? 0, out var customer);
 
-                itemsByOrder.TryGetValue(o.OrderID, out var orderItems);
-                orderItems ??= Array.Empty<CashierOrderItemResponse>();
-
-                var subtotal = orderItems.Sum(i => i.LineTotal);
-                var itemCount = orderItems.Sum(i => i.Quantity);
+                var items = o.Items
+                    .Select(i => new CashierOrderItemResponse(
+                        i.ItemId,
+                        i.OrderId,
+                        i.DishId,
+                        i.DishName,
+                        i.Quantity,
+                        i.UnitPrice,
+                        i.LineTotal,
+                        i.Image,
+                        i.Note))
+                    .ToList();
 
                 return new CashierOrderResponse(
-                    o.OrderID,
+                    o.OrderId,
                     o.OrderCode,
                     o.OrderTime,
-                    o.TableID ?? 0,
-                    tableName,
-                    o.CustomerID,
-                    o.Customer != null ? o.Customer.Name : null,
-                    o.Customer != null ? (o.Customer.LoyaltyPoints ?? 0) : 0,
-                    o.Status.StatusCode,
-                    o.Status.StatusName,
-                    subtotal,
-                    itemCount,
-                    orderItems);
+                    o.TableId,
+                    o.TableName,
+                    o.CustomerId,
+                    customer?.Name,
+                    customer?.LoyaltyPoints ?? 0,
+                    o.StatusCode,
+                    o.StatusName,
+                    o.Subtotal,
+                    o.ItemCount,
+                    items);
             })
             .ToList();
 
@@ -107,34 +93,32 @@ public sealed class CashierController : ControllerBase
         [FromBody] CheckoutRequest request,
         CancellationToken cancellationToken)
     {
+        var alreadyBilled = await _db.Bills
+            .AsNoTracking()
+            .AnyAsync(b => b.OrderID == orderId && b.IsActive, cancellationToken);
+        if (alreadyBilled)
+        {
+            return Conflict(new { message = "Đơn hàng này đã được thanh toán." });
+        }
+
         var employeeId = request.EmployeeId;
         if (employeeId <= 0)
         {
             return BadRequest(new { message = "Thiếu thông tin nhân viên thu ngân." });
         }
 
-        var order = await _db.Orders
-            .Include(o => o.Status)
-            .Include(o => o.Table)
-            .FirstOrDefaultAsync(o => o.OrderID == orderId && (o.IsActive ?? false) == true, cancellationToken);
-
+        var order = await _ordersApi.GetCheckoutContextAsync(orderId, cancellationToken);
         if (order is null)
         {
             return NotFound(new { message = "Không tìm thấy đơn hàng." });
         }
 
-        if (!ActiveStatusCodes.Contains(order.Status.StatusCode))
+        if (!order.IsActive || !ActiveStatusCodes.Contains(order.StatusCode))
         {
             return BadRequest(new { message = "Đơn hàng không còn hoạt động." });
         }
 
-        var items = await _db.OrderItems
-            .AsNoTracking()
-            .Where(oi => oi.OrderID == order.OrderID)
-            .Select(oi => new { oi.LineTotal })
-            .ToListAsync(cancellationToken);
-
-        var subtotal = items.Sum(i => i.LineTotal);
+        var subtotal = order.Subtotal;
         var discount = request.Discount < 0 ? 0 : request.Discount;
         if (discount > subtotal)
         {
@@ -143,7 +127,7 @@ public sealed class CashierController : ControllerBase
 
         var baseTotal = subtotal - discount;
         CustomersApiClient.CustomerSnapshotResponse? customerSnapshot = null;
-        if (order.CustomerID is int customerId && customerId > 0)
+        if (order.CustomerId is int customerId && customerId > 0)
         {
             customerSnapshot = await _customersApi.GetCustomerAsync(customerId, cancellationToken);
             if (customerSnapshot is null)
@@ -203,8 +187,13 @@ public sealed class CashierController : ControllerBase
 
         var bill = new Bills
         {
-            OrderID = order.OrderID,
+            OrderID = order.OrderId,
             BillCode = billCode,
+            OrderCodeSnapshot = order.OrderCode,
+            TableIdSnapshot = order.TableId,
+            TableNameSnapshot = order.TableName,
+            BranchIdSnapshot = order.BranchId,
+            BranchNameSnapshot = order.BranchName,
             BillTime = DateTime.Now,
             Subtotal = subtotal,
             Discount = discount,
@@ -215,7 +204,7 @@ public sealed class CashierController : ControllerBase
             PaymentAmount = paymentAmount,
             ChangeAmount = changeAmount,
             EmployeeID = employeeId,
-            CustomerID = order.CustomerID,
+            CustomerID = order.CustomerId,
             IsActive = true,
         };
 
@@ -224,7 +213,7 @@ public sealed class CashierController : ControllerBase
         var earnedPoints = 0;
         var customerPointsAfter = customerSnapshot?.LoyaltyPoints ?? 0;
         var customerName = customerSnapshot?.Name;
-        if (order.CustomerID is int settlementCustomerId && settlementCustomerId > 0)
+        if (order.CustomerId is int settlementCustomerId && settlementCustomerId > 0)
         {
             var settlement = await _customersApi.SettleLoyaltyAsync(
                 settlementCustomerId,
@@ -242,12 +231,6 @@ public sealed class CashierController : ControllerBase
             customerName = settlement.CustomerName;
         }
 
-        var completedRemotely = await _ordersApi.CompleteCheckoutAsync(order.OrderID, employeeId, cancellationToken);
-        if (!completedRemotely)
-        {
-            return Problem("Khong the dong bo hoan tat thanh toan voi Orders API.", statusCode: StatusCodes.Status502BadGateway);
-        }
-
         await _eventPublisher.PublishAsync(new IntegrationEventEnvelope(
             EventName: "payment.completed.v1",
             OccurredAtUtc: DateTime.UtcNow,
@@ -255,10 +238,10 @@ public sealed class CashierController : ControllerBase
             CorrelationId: HttpContext.Response.Headers["X-Correlation-Id"].FirstOrDefault() ?? HttpContext.TraceIdentifier,
             Payload: new
             {
-                orderId = order.OrderID,
+                orderId = order.OrderId,
                 billCode,
-                tableId = order.TableID,
-                customerId = order.CustomerID,
+                tableId = order.TableId,
+                customerId = order.CustomerId,
                 employeeId,
                 subtotal,
                 discount,
@@ -277,6 +260,44 @@ public sealed class CashierController : ControllerBase
             CustomerPoints: customerPointsAfter,
             CustomerName: customerName,
             PointsBefore: pointsBefore));
+    }
+
+    [HttpPost("api/dev/reset-test-state")]
+    public async Task<ActionResult<object>> ResetDevTestState(CancellationToken cancellationToken)
+    {
+        if (!_environment.IsDevelopment())
+        {
+            return NotFound();
+        }
+
+        var bills = await _db.Bills.ToListAsync(cancellationToken);
+        var snapshots = await _db.OrderContextSnapshots.ToListAsync(cancellationToken);
+        var outboxEvents = await _db.OutboxEvents.ToListAsync(cancellationToken);
+
+        if (bills.Count > 0)
+        {
+            _db.Bills.RemoveRange(bills);
+        }
+
+        if (snapshots.Count > 0)
+        {
+            _db.OrderContextSnapshots.RemoveRange(snapshots);
+        }
+
+        if (outboxEvents.Count > 0)
+        {
+            _db.OutboxEvents.RemoveRange(outboxEvents);
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            success = true,
+            clearedBills = bills.Count,
+            clearedOrderSnapshots = snapshots.Count,
+            clearedOutboxEvents = outboxEvents.Count
+        });
     }
 
     private async Task<string> GenerateBillCodeAsync(CancellationToken cancellationToken)
