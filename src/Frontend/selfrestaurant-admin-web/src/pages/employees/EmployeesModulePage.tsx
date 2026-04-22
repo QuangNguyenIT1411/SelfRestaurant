@@ -246,7 +246,7 @@ export function EmployeesModulePage({ mode, onLogout }: Props) {
                 </select>
               </label>
               <div className="admin-filter-actions">
-                <button className="ghost" onClick={() => navigate("/Admin/Employees/Index")}>Xóa lọc</button>
+                <button className="ghost" onClick={() => navigate("/Admin/Employees/Index")}>Xóa bộ lọc</button>
               </div>
             </div>
           </div>

@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using SelfRestaurant.Catalog.Api.Infrastructure.Auditing;
 using SelfRestaurant.Catalog.Api.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -7,6 +8,7 @@ builder.Logging.ClearProviders();
 builder.Logging.AddJsonConsole(options => options.IncludeScopes = true);
 
 builder.Services.AddControllers();
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -18,6 +20,8 @@ var catalogConnectionString =
 
 builder.Services.AddDbContext<CatalogDbContext>(options =>
     options.UseSqlServer(catalogConnectionString));
+builder.Services.AddScoped<RequestActorContextAccessor>();
+builder.Services.AddScoped<BusinessAuditLogger>();
 
 var app = builder.Build();
 

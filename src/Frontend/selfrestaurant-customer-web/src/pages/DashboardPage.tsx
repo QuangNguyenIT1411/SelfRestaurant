@@ -6,6 +6,7 @@ import { toMvcPath } from "../lib/mvcPaths";
 
 const text = {
   loading: "Đang tải hồ sơ khách hàng...",
+  backHome: "Quay Về Trang Chủ",
   greetingPrefix: "Xin chào,",
   greetingSuffix: "Đây là trang quản lý hồ sơ và đơn hàng của bạn",
   points: "Điểm Thưởng",
@@ -219,6 +220,10 @@ export function DashboardPage({ initialTab = "profile" }: { initialTab?: "profil
     <div className="customer-dashboard-page">
       <div className="dashboard-header">
         <div className="container">
+          <Link to="/Home/Index" className="dashboard-back-link">
+            <i className="fas fa-arrow-left" />
+            {text.backHome}
+          </Link>
           <h1 className="mb-1">
             {text.greetingPrefix} {data.customer.name}!
           </h1>
@@ -539,7 +544,7 @@ export function DashboardPage({ initialTab = "profile" }: { initialTab?: "profil
                 <div className="empty-state">
                   <i className="fas fa-inbox fs-1 mb-3" />
                   <p>{text.noOrders}</p>
-                  <Link to="/Home/Index" className="btn btn-primary mt-3">
+                  <Link to="/Home/Index?flow=new-order" className="btn btn-primary mt-3">
                     <i className="fas fa-utensils me-2" />
                     {text.orderNow}
                   </Link>
@@ -554,7 +559,7 @@ export function DashboardPage({ initialTab = "profile" }: { initialTab?: "profil
                 <i className="fas fa-lightning-bolt me-2" />
                 {text.quickActions}
               </h4>
-              <Link to="/Home/Index" className="btn btn-primary w-100 mb-2">
+              <Link to="/Home/Index?flow=new-order" className="btn btn-primary w-100 mb-2">
                 <i className="fas fa-plus me-2" />
                 {text.newOrder}
               </Link>

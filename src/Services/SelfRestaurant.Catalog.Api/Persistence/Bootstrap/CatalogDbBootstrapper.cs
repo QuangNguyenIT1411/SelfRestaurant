@@ -32,6 +32,7 @@ public static class CatalogDbBootstrapper
         var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
 
         await WaitForDatabaseAsync(db, logger, cancellationToken);
+        await EnsureBusinessAuditTableAsync(db, cancellationToken);
         await ValidateOwnedSchemaAsync(db, logger, cancellationToken);
         await SeedReferenceDataAsync(db, logger, cancellationToken);
     }
@@ -93,6 +94,56 @@ public static class CatalogDbBootstrapper
         {
             await db.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    private static async Task EnsureBusinessAuditTableAsync(CatalogDbContext db, CancellationToken cancellationToken)
+    {
+        const string createSql = """
+                                 IF OBJECT_ID(N'dbo.BusinessAuditLogs', N'U') IS NULL
+                                 BEGIN
+                                     CREATE TABLE dbo.BusinessAuditLogs
+                                     (
+                                         BusinessAuditLogId BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                                         CreatedAtUtc DATETIME2 NOT NULL CONSTRAINT DF_CatalogBusinessAuditLogs_CreatedAtUtc DEFAULT (SYSUTCDATETIME()),
+                                         ActionType VARCHAR(100) NOT NULL,
+                                         EntityType VARCHAR(50) NOT NULL,
+                                         EntityId NVARCHAR(100) NOT NULL,
+                                         ActorType VARCHAR(30) NULL,
+                                         ActorId INT NULL,
+                                         ActorCode NVARCHAR(100) NULL,
+                                         ActorName NVARCHAR(200) NULL,
+                                         ActorRoleCode VARCHAR(50) NULL,
+                                         TableId INT NULL,
+                                         OrderId INT NULL,
+                                         OrderItemId INT NULL,
+                                         DishId INT NULL,
+                                         BillId INT NULL,
+                                         DiningSessionCode VARCHAR(64) NULL,
+                                         CorrelationId VARCHAR(100) NULL,
+                                         IdempotencyKey VARCHAR(100) NULL,
+                                         Notes NVARCHAR(500) NULL,
+                                         BeforeState NVARCHAR(MAX) NULL,
+                                         AfterState NVARCHAR(MAX) NULL
+                                     );
+                                 END
+                                 """;
+
+        const string indexSql = """
+                                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.BusinessAuditLogs') AND name = N'IX_BusinessAuditLogs_CreatedAtUtc')
+                                    CREATE INDEX IX_BusinessAuditLogs_CreatedAtUtc ON dbo.BusinessAuditLogs(CreatedAtUtc);
+
+                                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.BusinessAuditLogs') AND name = N'IX_BusinessAuditLogs_Entity')
+                                    CREATE INDEX IX_BusinessAuditLogs_Entity ON dbo.BusinessAuditLogs(EntityType, EntityId);
+
+                                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.BusinessAuditLogs') AND name = N'IX_BusinessAuditLogs_DishId')
+                                    CREATE INDEX IX_BusinessAuditLogs_DishId ON dbo.BusinessAuditLogs(DishId);
+
+                                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.BusinessAuditLogs') AND name = N'IX_BusinessAuditLogs_TableId')
+                                    CREATE INDEX IX_BusinessAuditLogs_TableId ON dbo.BusinessAuditLogs(TableId);
+                                """;
+
+        await db.Database.ExecuteSqlRawAsync(createSql, cancellationToken);
+        await db.Database.ExecuteSqlRawAsync(indexSql, cancellationToken);
     }
 
     private static async Task ValidateOwnedSchemaAsync(CatalogDbContext db, ILogger logger, CancellationToken cancellationToken)

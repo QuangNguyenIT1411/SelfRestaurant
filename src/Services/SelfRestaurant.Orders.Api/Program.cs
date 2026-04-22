@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using SelfRestaurant.Orders.Api.Infrastructure.Auditing;
 using SelfRestaurant.Orders.Api.Infrastructure;
 using SelfRestaurant.Orders.Api.Infrastructure.Eventing;
 using SelfRestaurant.Orders.Api.Persistence;
@@ -9,6 +10,7 @@ builder.Logging.ClearProviders();
 builder.Logging.AddJsonConsole(options => options.IncludeScopes = true);
 
 builder.Services.AddControllers();
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -37,7 +39,15 @@ builder.Services.AddHttpClient<BillingEventsClient>(http =>
     http.Timeout = servicesTimeout;
 });
 
+builder.Services.AddHttpClient<BillingCheckoutGuardClient>(http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Services:Billing"] ?? "http://localhost:5105");
+    http.Timeout = servicesTimeout;
+});
+
 builder.Services.AddScoped<IIntegrationEventPublisher, FileIntegrationEventPublisher>();
+builder.Services.AddScoped<RequestActorContextAccessor>();
+builder.Services.AddScoped<BusinessAuditLogger>();
 builder.Services.AddHostedService<PaymentCompletedConsumerService>();
 
 var app = builder.Build();

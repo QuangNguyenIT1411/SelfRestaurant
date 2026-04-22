@@ -37,6 +37,7 @@ export type ChefOrderItemDto = {
   dishName: string;
   quantity: number;
   note?: string | null;
+  statusCode: string;
 };
 
 export type ChefOrderDto = {

@@ -26,49 +26,57 @@ builder.Services.AddSession(options =>
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddTransient<CorrelationIdHandler>();
+builder.Services.AddTransient<ActorContextHandler>();
 var serviceTimeout = TimeSpan.FromSeconds(Math.Clamp(builder.Configuration.GetValue<int?>("Services:TimeoutSeconds") ?? 10, 2, 60));
 
 builder.Services.AddHttpClient<CatalogClient>(http =>
 {
     http.BaseAddress = new Uri(builder.Configuration["Services:Catalog"] ?? "http://localhost:5101");
     http.Timeout = serviceTimeout;
-}).AddHttpMessageHandler<CorrelationIdHandler>();
+}).AddHttpMessageHandler<CorrelationIdHandler>()
+  .AddHttpMessageHandler<ActorContextHandler>();
 
 builder.Services.AddHttpClient<OrdersClient>(http =>
 {
     http.BaseAddress = new Uri(builder.Configuration["Services:Orders"] ?? "http://localhost:5102");
     http.Timeout = serviceTimeout;
-}).AddHttpMessageHandler<CorrelationIdHandler>();
+}).AddHttpMessageHandler<CorrelationIdHandler>()
+  .AddHttpMessageHandler<ActorContextHandler>();
 
 builder.Services.AddHttpClient<CustomersClient>(http =>
 {
     http.BaseAddress = new Uri(builder.Configuration["Services:Customers"] ?? "http://localhost:5103");
     http.Timeout = serviceTimeout;
-}).AddHttpMessageHandler<CorrelationIdHandler>();
+}).AddHttpMessageHandler<CorrelationIdHandler>()
+  .AddHttpMessageHandler<ActorContextHandler>();
 
 builder.Services.AddHttpClient<IdentityClient>(http =>
 {
     http.BaseAddress = new Uri(builder.Configuration["Services:Identity"] ?? "http://localhost:5104");
     http.Timeout = serviceTimeout;
-}).AddHttpMessageHandler<CorrelationIdHandler>();
+}).AddHttpMessageHandler<CorrelationIdHandler>()
+  .AddHttpMessageHandler<ActorContextHandler>();
 
 builder.Services.AddHttpClient<BillingClient>(http =>
 {
     http.BaseAddress = new Uri(builder.Configuration["Services:Billing"] ?? "http://localhost:5105");
     http.Timeout = serviceTimeout;
-}).AddHttpMessageHandler<CorrelationIdHandler>();
+}).AddHttpMessageHandler<CorrelationIdHandler>()
+  .AddHttpMessageHandler<ActorContextHandler>();
 
 builder.Services.AddHttpClient("IdentityFallbackCustomers", http =>
 {
     http.BaseAddress = new Uri(builder.Configuration["Services:Customers"] ?? "http://localhost:5103");
     http.Timeout = serviceTimeout;
-}).AddHttpMessageHandler<CorrelationIdHandler>();
+}).AddHttpMessageHandler<CorrelationIdHandler>()
+  .AddHttpMessageHandler<ActorContextHandler>();
 
 builder.Services.AddHttpClient("CustomersFallbackIdentity", http =>
 {
     http.BaseAddress = new Uri(builder.Configuration["Services:Identity"] ?? "http://localhost:5104");
     http.Timeout = serviceTimeout;
-}).AddHttpMessageHandler<CorrelationIdHandler>();
+}).AddHttpMessageHandler<CorrelationIdHandler>()
+  .AddHttpMessageHandler<ActorContextHandler>();
 
 builder.Services.AddHttpClient("Gemini", http =>
 {

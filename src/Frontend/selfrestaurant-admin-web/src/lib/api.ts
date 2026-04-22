@@ -13,7 +13,7 @@ async function request<T>(input: string, init?: RequestInit): Promise<T> {
   const payload = text ? JSON.parse(text) : null;
   if (!response.ok) {
     const error = payload as ApiError | null;
-    throw new Error(error?.message ?? `Request failed: ${response.status}`);
+    throw new Error(error?.message ?? `Yêu cầu thất bại: ${response.status}`);
   }
   return payload as T;
 }
@@ -30,7 +30,7 @@ async function requestForm<T>(input: string, formData: FormData, method = "POST"
   const payload = text ? JSON.parse(text) : null;
   if (!response.ok) {
     const error = payload as ApiError | null;
-    throw new Error(error?.message ?? `Request failed: ${response.status}`);
+    throw new Error(error?.message ?? `Yêu cầu thất bại: ${response.status}`);
   }
   return payload as T;
 }
@@ -54,7 +54,8 @@ export const adminApi = {
   createCategory: (payload: { name: string; description?: string | null; displayOrder: number }) => request<{ success: boolean; message: string }>("/api/gateway/admin/categories", { method: "POST", body: JSON.stringify(payload) }),
   updateCategory: (categoryId: number, payload: { name: string; description?: string | null; displayOrder: number; isActive: boolean }) => request<{ success: boolean; message: string }>(`/api/gateway/admin/categories/${categoryId}`, { method: "PUT", body: JSON.stringify(payload) }),
   deleteCategory: (categoryId: number) => request<{ success: boolean; message: string }>(`/api/gateway/admin/categories/${categoryId}`, { method: "DELETE" }),
-  getDishes: (search = "", categoryId?: number) => request<AdminDishesScreenDto>(`/api/gateway/admin/dishes?search=${encodeURIComponent(search)}${categoryId ? `&categoryId=${categoryId}` : ""}`),
+  getDishes: (search = "", categoryId?: number, page = 1, pageSize = 10, includeInactive = false, vegetarianOnly = false) =>
+    request<AdminDishesScreenDto>(`/api/gateway/admin/dishes?search=${encodeURIComponent(search)}${categoryId ? `&categoryId=${categoryId}` : ""}&page=${page}&pageSize=${pageSize}&includeInactive=${includeInactive}${vegetarianOnly ? "&vegetarianOnly=true" : ""}`),
   createDish: (payload: unknown) => request<{ success: boolean; message: string }>("/api/gateway/admin/dishes", { method: "POST", body: JSON.stringify(payload) }),
   createDishWithImage: (payload: Record<string, unknown>, imageFile: File) => requestForm<{ success: boolean; message: string }>("/api/gateway/admin/dishes/upload", toDishFormData(payload, imageFile), "POST"),
   updateDish: (dishId: number, payload: unknown) => request<{ success: boolean; message: string }>(`/api/gateway/admin/dishes/${dishId}`, { method: "PUT", body: JSON.stringify(payload) }),
@@ -63,11 +64,14 @@ export const adminApi = {
   setDishAvailability: (dishId: number, available: boolean) => request<{ success: boolean; message: string }>(`/api/gateway/admin/dishes/${dishId}/availability`, { method: "POST", body: JSON.stringify({ available }) }),
   getDishIngredients: (dishId: number) => request<AdminDishIngredientLineDto[]>(`/api/gateway/admin/dishes/${dishId}/ingredients`),
   saveDishIngredients: (dishId: number, items: { ingredientId: number; quantityPerDish: number }[]) => request<{ success: boolean; message: string }>(`/api/gateway/admin/dishes/${dishId}/ingredients`, { method: "PUT", body: JSON.stringify({ items }) }),
-  getIngredients: (search = "") => request<AdminIngredientsScreenDto>(`/api/gateway/admin/ingredients?search=${encodeURIComponent(search)}`),
+  getIngredients: (search = "", page = 1, pageSize = 10, includeInactive = true) =>
+    request<AdminIngredientsScreenDto>(`/api/gateway/admin/ingredients?search=${encodeURIComponent(search)}&page=${page}&pageSize=${pageSize}&includeInactive=${includeInactive}`),
   createIngredient: (payload: unknown) => request<{ success: boolean; message: string }>("/api/gateway/admin/ingredients", { method: "POST", body: JSON.stringify(payload) }),
   updateIngredient: (ingredientId: number, payload: unknown) => request<{ success: boolean; message: string }>(`/api/gateway/admin/ingredients/${ingredientId}`, { method: "PUT", body: JSON.stringify(payload) }),
+  deleteIngredient: (ingredientId: number) => request<{ success: boolean; message: string }>(`/api/gateway/admin/ingredients/${ingredientId}`, { method: "DELETE" }),
   deactivateIngredient: (ingredientId: number) => request<{ success: boolean; message: string }>(`/api/gateway/admin/ingredients/${ingredientId}/deactivate`, { method: "POST", body: JSON.stringify({}) }),
-  getTables: (search = "", branchId?: number) => request<AdminTablesScreenDto>(`/api/gateway/admin/tables?search=${encodeURIComponent(search)}${branchId ? `&branchId=${branchId}` : ""}`),
+  getTables: (search = "", branchId?: number, page = 1, pageSize = 10) =>
+    request<AdminTablesScreenDto>(`/api/gateway/admin/tables?search=${encodeURIComponent(search)}${branchId ? `&branchId=${branchId}` : ""}&page=${page}&pageSize=${pageSize}`),
   createTable: (payload: unknown) => request<{ success: boolean; message: string }>("/api/gateway/admin/tables", { method: "POST", body: JSON.stringify(payload) }),
   updateTable: (tableId: number, payload: unknown) => request<{ success: boolean; message: string }>(`/api/gateway/admin/tables/${tableId}`, { method: "PUT", body: JSON.stringify(payload) }),
   deactivateTable: (tableId: number) => request<{ success: boolean; message: string }>(`/api/gateway/admin/tables/${tableId}/deactivate`, { method: "POST", body: JSON.stringify({}) }),

@@ -2,9 +2,9 @@
     "total":  51,
     "passed":  51,
     "failed":  0,
-    "customerUsername":  "acct_20260414074637_u",
+    "customerUsername":  "acct_20260420092942_u",
     "branchId":  1,
-    "tableId":  1,
+    "tableId":  2,
     "results":  [
                     {
                         "step":  "Gateway Health",
@@ -14,12 +14,12 @@
                     {
                         "step":  "Customer Branch/Table Seed",
                         "pass":  true,
-                        "detail":  "branchId=1 tableId=1"
+                        "detail":  "branchId=1 tableId=2"
                     },
                     {
                         "step":  "Customer Register",
                         "pass":  true,
-                        "detail":  "acct_20260414074637"
+                        "detail":  "acct_20260420092942"
                     },
                     {
                         "step":  "Customer Login Route",
@@ -29,17 +29,17 @@
                     {
                         "step":  "Customer Profile Load",
                         "pass":  true,
-                        "detail":  "customerId=2610"
+                        "detail":  "customerId=2641"
                     },
                     {
                         "step":  "Customer Update Profile",
                         "pass":  true,
-                        "detail":  "acct_20260414074637_u"
+                        "detail":  "acct_20260420092942_u"
                     },
                     {
                         "step":  "Customer Session Sync After Profile Update",
                         "pass":  true,
-                        "detail":  "acct_20260414074637_u"
+                        "detail":  "acct_20260420092942_u"
                     },
                     {
                         "step":  "Customer Change Password Validation",
@@ -49,7 +49,7 @@
                     {
                         "step":  "Customer Change Password",
                         "pass":  true,
-                        "detail":  "Doi mat khau thanh cong."
+                        "detail":  "Đổi mật khẩu thành công!"
                     },
                     {
                         "step":  "Customer Logout Route",
@@ -64,7 +64,7 @@
                     {
                         "step":  "Customer Forgot Password",
                         "pass":  true,
-                        "detail":  "/Customer/ResetPassword?token=4f4522ad01f176d2aa1d5d3f3082775b"
+                        "detail":  "/Customer/ResetPassword?token=24a86535a7ab5c776add18c188ea5041"
                     },
                     {
                         "step":  "Customer Reset Password",
@@ -79,7 +79,7 @@
                     {
                         "step":  "Customer Set Context",
                         "pass":  true,
-                        "detail":  "tableId=1"
+                        "detail":  "tableId=2"
                     },
                     {
                         "step":  "Customer Context Redirect After Relogin",
@@ -179,7 +179,7 @@
                     {
                         "step":  "Cashier Change Password",
                         "pass":  true,
-                        "detail":  "Doi mat khau thanh cong."
+                        "detail":  "Đổi mật khẩu thành công."
                     },
                     {
                         "step":  "Cashier Login With Changed Password",

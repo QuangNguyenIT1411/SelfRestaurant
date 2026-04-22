@@ -18,4 +18,8 @@ public interface ICatalogReadModel
         int orderId,
         IReadOnlyList<CatalogApiClient.OrderIngredientConsumptionItem> items,
         CancellationToken cancellationToken);
+    Task<CatalogApiClient.IngredientConsumptionResult> ValidateIngredientsForOrderAsync(
+        int orderId,
+        IReadOnlyList<CatalogApiClient.OrderIngredientConsumptionItem> items,
+        CancellationToken cancellationToken);
 }

@@ -177,6 +177,62 @@
   },
   {
     "ContainingType": "SelfRestaurant.Orders.Api.Controllers.OrdersController",
+    "Method": "GetAuditLogs",
+    "RelativePath": "api/internal/audit-logs",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "entityType",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "entityId",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "orderId",
+        "Type": "System.Nullable\u00601[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "tableId",
+        "Type": "System.Nullable\u00601[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "dishId",
+        "Type": "System.Nullable\u00601[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "billId",
+        "Type": "System.Nullable\u00601[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "take",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "System.Collections.Generic.IReadOnlyList\u00601[[System.Object, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Orders.Api.Controllers.OrdersController",
     "Method": "GetCashierOrdersInternal",
     "RelativePath": "api/internal/branches/{branchId}/cashier/orders",
     "HttpMethod": "GET",
@@ -481,6 +537,32 @@
   },
   {
     "ContainingType": "SelfRestaurant.Orders.Api.Controllers.OrdersController",
+    "Method": "CancelOrderItem",
+    "RelativePath": "api/orders/{orderId}/items/{itemId}/cancel",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "orderId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "itemId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Orders.Api.Controllers.OrdersController\u002BCancelOrderRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Orders.Api.Controllers.OrdersController",
     "Method": "ChefUpdateItemNote",
     "RelativePath": "api/orders/{orderId}/items/{itemId}/chef-note",
     "HttpMethod": "PUT",
@@ -500,6 +582,48 @@
       {
         "Name": "request",
         "Type": "SelfRestaurant.Orders.Api.Controllers.OrdersController\u002BUpdateItemNoteRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Orders.Api.Controllers.OrdersController",
+    "Method": "ChefReadyItem",
+    "RelativePath": "api/orders/{orderId}/items/{itemId}/chef/ready",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "orderId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "itemId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Orders.Api.Controllers.OrdersController",
+    "Method": "ChefStartItem",
+    "RelativePath": "api/orders/{orderId}/items/{itemId}/chef/start",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "orderId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "itemId",
+        "Type": "System.Int32",
         "IsRequired": true
       }
     ],
@@ -685,6 +809,11 @@
         "Name": "tableId",
         "Type": "System.Int32",
         "IsRequired": true
+      },
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Orders.Api.Controllers.OrdersController\u002BSubmitOrderRequest",
+        "IsRequired": false
       }
     ],
     "ReturnTypes": []
@@ -754,7 +883,7 @@
   },
   {
     "ContainingType": "Program\u002B\u003C\u003Ec",
-    "Method": "\u003C\u003CMain\u003E$\u003Eb__0_6",
+    "Method": "\u003C\u003CMain\u003E$\u003Eb__0_7",
     "RelativePath": "healthz",
     "HttpMethod": "GET",
     "IsController": false,
@@ -770,7 +899,7 @@
   },
   {
     "ContainingType": "Program\u002B\u003C\u003Ec",
-    "Method": "\u003C\u003CMain\u003E$\u003Eb__0_8",
+    "Method": "\u003C\u003CMain\u003E$\u003Eb__0_9",
     "RelativePath": "internal/diagnostics/eventing",
     "HttpMethod": "GET",
     "IsController": false,
@@ -786,7 +915,7 @@
   },
   {
     "ContainingType": "Program\u002B\u003C\u003Ec",
-    "Method": "\u003C\u003CMain\u003E$\u003Eb__0_7",
+    "Method": "\u003C\u003CMain\u003E$\u003Eb__0_8",
     "RelativePath": "readyz",
     "HttpMethod": "GET",
     "IsController": false,

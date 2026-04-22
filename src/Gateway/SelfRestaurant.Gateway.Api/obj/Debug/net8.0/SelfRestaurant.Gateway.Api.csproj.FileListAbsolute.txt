@@ -22,7 +22,6 @@ C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Gateway\Sel
 C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Gateway\SelfRestaurant.Gateway.Api\obj\Debug\net8.0\staticwebassets.development.json
 C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Gateway\SelfRestaurant.Gateway.Api\obj\Debug\net8.0\staticwebassets.build.endpoints.json
 C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Gateway\SelfRestaurant.Gateway.Api\obj\Debug\net8.0\swae.build.ex.cache
-C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Gateway\SelfRestaurant.Gateway.Api\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt
 C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Gateway\SelfRestaurant.Gateway.Api\obj\Debug\net8.0\SelfRestaurant.Gateway.Api.dll
 C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Gateway\SelfRestaurant.Gateway.Api\obj\Debug\net8.0\refint\SelfRestaurant.Gateway.Api.dll
 C:\Users\Quang\Downloads\SINH_VIEN\SINH_VIEN\SelfRestaurant-main\src\Gateway\SelfRestaurant.Gateway.Api\obj\Debug\net8.0\SelfRestaurant.Gateway.Api.pdb

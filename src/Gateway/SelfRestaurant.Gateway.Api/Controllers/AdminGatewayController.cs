@@ -129,7 +129,7 @@ public sealed class AdminGatewayController : ControllerBase
     {
         if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
         await _catalogClient.CreateCategoryAsync(request, cancellationToken);
-        return Ok(new { success = true, message = "Da tao danh muc moi." });
+        return Ok(new { success = true, message = "Đã tạo danh mục mới." });
     }
 
     [HttpPut("categories/{categoryId:int}")]
@@ -137,7 +137,7 @@ public sealed class AdminGatewayController : ControllerBase
     {
         if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
         await _catalogClient.UpdateCategoryAsync(categoryId, request, cancellationToken);
-        return Ok(new { success = true, message = "Da cap nhat danh muc." });
+        return Ok(new { success = true, message = "Đã cập nhật danh mục." });
     }
 
     [HttpDelete("categories/{categoryId:int}")]
@@ -145,14 +145,14 @@ public sealed class AdminGatewayController : ControllerBase
     {
         if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
         await _catalogClient.DeleteCategoryAsync(categoryId, cancellationToken);
-        return Ok(new { success = true, message = "Da xoa danh muc." });
+        return Ok(new { success = true, message = "Đã xóa danh mục." });
     }
 
     [HttpGet("dishes")]
-    public async Task<ActionResult<AdminDishesScreenDto>> GetDishes([FromQuery] string? search, [FromQuery] int? categoryId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] bool includeInactive = false, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<AdminDishesScreenDto>> GetDishes([FromQuery] string? search, [FromQuery] int? categoryId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] bool includeInactive = false, [FromQuery] bool vegetarianOnly = false, CancellationToken cancellationToken = default)
     {
         if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
-        var dishes = await _catalogClient.GetAdminDishesAsync(search, categoryId, page, pageSize, includeInactive, cancellationToken)
+        var dishes = await _catalogClient.GetAdminDishesAsync(search, categoryId, page, pageSize, includeInactive, vegetarianOnly, cancellationToken)
             ?? new AdminDishPagedResponse(Math.Max(1, page), Math.Clamp(pageSize, 1, 100), 0, 0, Array.Empty<AdminDishDto>());
         var categories = await _catalogClient.GetCategoriesAsync(false, cancellationToken) ?? Array.Empty<CategoryDto>();
         return Ok(new AdminDishesScreenDto(dishes, categories));
@@ -163,7 +163,7 @@ public sealed class AdminGatewayController : ControllerBase
     {
         if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
         await _catalogClient.CreateAdminDishAsync(request, cancellationToken);
-        return Ok(new { success = true, message = "Da them mon moi." });
+        return Ok(new { success = true, message = "Đã thêm món mới." });
     }
 
     [HttpPut("dishes/{dishId:int}")]
@@ -171,7 +171,7 @@ public sealed class AdminGatewayController : ControllerBase
     {
         if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
         await _catalogClient.UpdateAdminDishAsync(dishId, request, cancellationToken);
-        return Ok(new { success = true, message = "Da cap nhat mon an." });
+        return Ok(new { success = true, message = "Đã cập nhật món ăn." });
     }
 
     [HttpPost("dishes/upload")]
@@ -181,19 +181,19 @@ public sealed class AdminGatewayController : ControllerBase
         if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
         var imagePath = request.ImageFile is null ? request.Image : await SaveDishImageAsync(request.Name, request.ImageFile, null, cancellationToken);
         await _catalogClient.CreateAdminDishAsync(BuildDishRequest(request, imagePath), cancellationToken);
-        return Ok(new { success = true, message = "Da them mon moi va luu anh." });
+        return Ok(new { success = true, message = "Đã thêm món mới và lưu ảnh." });
     }
 
     [HttpPut("dishes/{dishId:int}/upload")]
     [Consumes("multipart/form-data")]
     public async Task<ActionResult<object>> UpdateDishWithImage(int dishId, [FromForm] AdminUpsertDishFormRequest request, CancellationToken cancellationToken)
     {
-        if (RequireAdmin() is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan quan tri.", 401);
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
         var current = await _catalogClient.GetAdminDishByIdAsync(dishId, cancellationToken);
         if (current is null) return Error("dish_not_found", "Không tìm thấy món ăn.", 404);
         var imagePath = request.ImageFile is null ? (request.Image ?? current.Image) : await SaveDishImageAsync(request.Name, request.ImageFile, current.Image, cancellationToken);
         await _catalogClient.UpdateAdminDishAsync(dishId, BuildDishRequest(request, imagePath), cancellationToken);
-        return Ok(new { success = true, message = "Da cap nhat mon an va dong bo anh." });
+        return Ok(new { success = true, message = "Đã cập nhật món ăn và đồng bộ ảnh." });
     }
 
     [HttpPost("dishes/{dishId:int}/deactivate")]
@@ -201,7 +201,7 @@ public sealed class AdminGatewayController : ControllerBase
     {
         if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
         await _catalogClient.DeactivateAdminDishAsync(dishId, cancellationToken);
-        return Ok(new { success = true, message = "Da vo hieu hoa mon an." });
+        return Ok(new { success = true, message = "Đã vô hiệu món ăn." });
     }
 
     [HttpPost("dishes/{dishId:int}/availability")]
@@ -211,7 +211,7 @@ public sealed class AdminGatewayController : ControllerBase
         var current = await _catalogClient.GetAdminDishByIdAsync(dishId, cancellationToken);
         if (current is null) return Error("dish_not_found", "Không tìm thấy món ăn.", 404);
         await _catalogClient.UpdateAdminDishAsync(dishId, new AdminUpsertDishRequest(current.Name, current.Price, current.CategoryId, current.Description, current.Unit, current.Image, current.IsVegetarian, current.IsDailySpecial, request.Available, current.IsActive), cancellationToken);
-        return Ok(new { success = true, message = request.Available ? "Da mo ban mon an." : "Da tam ngung ban mon an.", available = request.Available });
+        return Ok(new { success = true, message = request.Available ? "Đã mở bán món ăn." : "Đã tạm ngưng bán món ăn.", available = request.Available });
     }
 
     [HttpGet("dishes/{dishId:int}/ingredients")]
@@ -224,16 +224,16 @@ public sealed class AdminGatewayController : ControllerBase
     [HttpPut("dishes/{dishId:int}/ingredients")]
     public async Task<ActionResult<object>> UpdateDishIngredients(int dishId, [FromBody] AdminUpdateDishIngredientsRequest request, CancellationToken cancellationToken)
     {
-        if (RequireAdmin() is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan quan tri.", 401);
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
         await _catalogClient.UpdateDishIngredientsAsync(dishId, request.Items, cancellationToken);
-        return Ok(new { success = true, message = "Da cap nhat nguyen lieu mon an." });
+        return Ok(new { success = true, message = "Đã cập nhật nguyên liệu món ăn." });
     }
 
     [HttpGet("ingredients")]
-    public async Task<ActionResult<AdminIngredientsScreenDto>> GetIngredients([FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<AdminIngredientsScreenDto>> GetIngredients([FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] bool includeInactive = true, CancellationToken cancellationToken = default)
     {
         if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
-        var ingredients = await _catalogClient.GetAdminIngredientsAsync(search, page, pageSize, cancellationToken)
+        var ingredients = await _catalogClient.GetAdminIngredientsAsync(search, page, pageSize, includeInactive, cancellationToken)
             ?? new AdminIngredientPagedResponse(Math.Max(1, page), Math.Clamp(pageSize, 1, 100), 0, 0, Array.Empty<AdminIngredientDto>());
         return Ok(new AdminIngredientsScreenDto(ingredients));
     }
@@ -242,24 +242,60 @@ public sealed class AdminGatewayController : ControllerBase
     public async Task<ActionResult<object>> CreateIngredient([FromBody] AdminUpsertIngredientRequest request, CancellationToken cancellationToken)
     {
         if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
-        await _catalogClient.CreateAdminIngredientAsync(request, cancellationToken);
-        return Ok(new { success = true, message = "Da them nguyen lieu moi." });
+        try
+        {
+            await _catalogClient.CreateAdminIngredientAsync(request, cancellationToken);
+            return Ok(new { success = true, message = "Đã thêm nguyên liệu mới." });
+        }
+        catch (ApiClientException ex)
+        {
+            return HandleApiClientException("ingredient_create_failed", ex);
+        }
     }
 
     [HttpPut("ingredients/{ingredientId:int}")]
     public async Task<ActionResult<object>> UpdateIngredient(int ingredientId, [FromBody] AdminUpsertIngredientRequest request, CancellationToken cancellationToken)
     {
         if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
-        await _catalogClient.UpdateAdminIngredientAsync(ingredientId, request, cancellationToken);
-        return Ok(new { success = true, message = "Da cap nhat nguyen lieu." });
+        try
+        {
+            await _catalogClient.UpdateAdminIngredientAsync(ingredientId, request, cancellationToken);
+            return Ok(new { success = true, message = "Đã cập nhật nguyên liệu." });
+        }
+        catch (ApiClientException ex)
+        {
+            return HandleApiClientException("ingredient_update_failed", ex);
+        }
     }
 
     [HttpPost("ingredients/{ingredientId:int}/deactivate")]
     public async Task<ActionResult<object>> DeactivateIngredient(int ingredientId, CancellationToken cancellationToken)
     {
         if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
-        await _catalogClient.DeactivateAdminIngredientAsync(ingredientId, cancellationToken);
-        return Ok(new { success = true, message = "Da vo hieu hoa nguyen lieu." });
+        try
+        {
+            await _catalogClient.DeactivateAdminIngredientAsync(ingredientId, cancellationToken);
+            return Ok(new { success = true, message = "Đã vô hiệu nguyên liệu." });
+        }
+        catch (ApiClientException ex)
+        {
+            return HandleApiClientException("ingredient_deactivate_failed", ex);
+        }
+    }
+
+    [HttpDelete("ingredients/{ingredientId:int}")]
+    public async Task<ActionResult<object>> DeleteIngredient(int ingredientId, CancellationToken cancellationToken)
+    {
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        try
+        {
+            await _catalogClient.DeleteAdminIngredientAsync(ingredientId, cancellationToken);
+            return Ok(new { success = true, message = "Đã gỡ nguyên liệu khỏi danh sách quản lý." });
+        }
+        catch (ApiClientException ex)
+        {
+            return HandleApiClientException("ingredient_delete_failed", ex);
+        }
     }
 
     [HttpGet("tables")]
@@ -277,25 +313,25 @@ public sealed class AdminGatewayController : ControllerBase
     [HttpPost("tables")]
     public async Task<ActionResult<object>> CreateTable([FromBody] AdminUpsertTableRequest request, CancellationToken cancellationToken)
     {
-        if (RequireAdmin() is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan quan tri.", 401);
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
         await _catalogClient.CreateAdminTableAsync(request, cancellationToken);
-        return Ok(new { success = true, message = "Da them ban moi." });
+        return Ok(new { success = true, message = "Đã thêm bàn mới." });
     }
 
     [HttpPut("tables/{tableId:int}")]
     public async Task<ActionResult<object>> UpdateTable(int tableId, [FromBody] AdminUpsertTableRequest request, CancellationToken cancellationToken)
     {
-        if (RequireAdmin() is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan quan tri.", 401);
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
         await _catalogClient.UpdateAdminTableAsync(tableId, request, cancellationToken);
-        return Ok(new { success = true, message = "Da cap nhat ban." });
+        return Ok(new { success = true, message = "Đã cập nhật bàn." });
     }
 
     [HttpPost("tables/{tableId:int}/deactivate")]
     public async Task<ActionResult<object>> DeactivateTable(int tableId, CancellationToken cancellationToken)
     {
-        if (RequireAdmin() is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan quan tri.", 401);
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
         await _catalogClient.DeactivateAdminTableAsync(tableId, cancellationToken);
-        return Ok(new { success = true, message = "Da vo hieu hoa ban." });
+        return Ok(new { success = true, message = "Đã vô hiệu bàn." });
     }
 
     [HttpGet("employees")]
@@ -345,7 +381,7 @@ public sealed class AdminGatewayController : ControllerBase
     [HttpGet("employees/{employeeId:int}/history")]
     public async Task<ActionResult<AdminEmployeeHistoryResponse>> GetEmployeeHistory(int employeeId, [FromQuery] int days = 90, CancellationToken cancellationToken = default)
     {
-        if (RequireAdmin() is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan quan tri.", 401);
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
         var history = await _identityClient.GetAdminEmployeeHistoryAsync(employeeId, days, 200, cancellationToken);
         return history is null ? Error("history_not_found", "Không tải được lịch sử nhân viên.", 404) : Ok(history);
     }
@@ -450,7 +486,7 @@ public sealed class AdminGatewayController : ControllerBase
         }
 
         await _identityClient.StaffChangePasswordAsync(new StaffChangePasswordRequest(admin.EmployeeId, request.CurrentPassword, request.NewPassword), cancellationToken);
-        return Ok(new { success = true, message = "Doi mat khau thanh cong." });
+        return Ok(new { success = true, message = "Đổi mật khẩu thành công." });
     }
 
     private AdminUpsertDishRequest BuildDishRequest(AdminUpsertDishFormRequest request, string? imagePath) => new(
@@ -616,7 +652,7 @@ public sealed class AdminGatewayController : ControllerBase
         var page = 1;
         while (true)
         {
-            var dishes = await _catalogClient.GetAdminDishesAsync(null, null, page, 100, false, cancellationToken);
+            var dishes = await _catalogClient.GetAdminDishesAsync(null, null, page, 100, false, false, cancellationToken);
             if (dishes is null || dishes.Items.Count == 0) break;
 
             foreach (var dish in dishes.Items)
@@ -705,5 +741,12 @@ public sealed class AdminGatewayController : ControllerBase
     private ActionResult Error(string code, string message, int statusCode, object? details = null)
     {
         return StatusCode(statusCode, new ApiErrorResponse(false, code, message, details));
+    }
+
+    private ActionResult HandleApiClientException(string fallbackCode, ApiClientException exception)
+    {
+        var statusCode = exception.StatusCode is >= 400 and <= 599 ? exception.StatusCode : 400;
+        var code = string.IsNullOrWhiteSpace(exception.Code) ? fallbackCode : exception.Code!;
+        return Error(code, exception.Message, statusCode);
     }
 }

@@ -10,10 +10,12 @@ namespace SelfRestaurant.Catalog.Api.Controllers;
 public sealed class AdminCatalogController : ControllerBase
 {
     private readonly CatalogDbContext _db;
+    private readonly SelfRestaurant.Catalog.Api.Infrastructure.Auditing.BusinessAuditLogger _auditLogger;
 
-    public AdminCatalogController(CatalogDbContext db)
+    public AdminCatalogController(CatalogDbContext db, SelfRestaurant.Catalog.Api.Infrastructure.Auditing.BusinessAuditLogger auditLogger)
     {
         _db = db;
+        _auditLogger = auditLogger;
     }
 
     [HttpGet("dishes")]
@@ -23,6 +25,7 @@ public sealed class AdminCatalogController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] bool includeInactive = true,
+        [FromQuery] bool vegetarianOnly = false,
         CancellationToken cancellationToken = default)
     {
         page = Math.Max(1, page);
@@ -49,6 +52,11 @@ public sealed class AdminCatalogController : ControllerBase
         if (categoryId is > 0)
         {
             query = query.Where(d => d.CategoryID == categoryId.Value);
+        }
+
+        if (vegetarianOnly)
+        {
+            query = query.Where(d => (d.IsVegetarian ?? false) == true);
         }
 
         var totalItems = await query.CountAsync(cancellationToken);
@@ -99,7 +107,7 @@ public sealed class AdminCatalogController : ControllerBase
                 d.IsActive ?? false))
             .FirstOrDefaultAsync(cancellationToken);
 
-        return dish is null ? NotFound(new { message = "Dish not found." }) : Ok(dish);
+        return dish is null ? NotFound(new { message = "Không tìm thấy món ăn." }) : Ok(dish);
     }
 
     [HttpPost("dishes")]
@@ -129,7 +137,22 @@ public sealed class AdminCatalogController : ControllerBase
 
         _db.Dishes.Add(entity);
         await _db.SaveChangesAsync(cancellationToken);
-        return Ok(new { message = "Created.", dishId = entity.DishID });
+        _auditLogger.Add(
+            actionType: "DISH_CREATED",
+            entityType: "DISH",
+            entityId: entity.DishID.ToString(),
+            dishId: entity.DishID,
+            beforeState: null,
+            afterState: new
+            {
+                entity.Name,
+                entity.Price,
+                entity.CategoryID,
+                entity.Available,
+                entity.IsActive
+            });
+        await _db.SaveChangesAsync(cancellationToken);
+        return Ok(new { message = "Đã tạo món ăn.", dishId = entity.DishID });
     }
 
     [HttpPost("branches/{branchId:int}/chef/dishes")]
@@ -143,7 +166,7 @@ public sealed class AdminCatalogController : ControllerBase
             cancellationToken);
         if (!branchExists)
         {
-            return BadRequest(new { message = "Branch is invalid." });
+            return BadRequest(new { message = "Chi nhánh không hợp lệ." });
         }
 
         var validation = await ValidateDishRequest(request, cancellationToken);
@@ -170,6 +193,22 @@ public sealed class AdminCatalogController : ControllerBase
 
         _db.Dishes.Add(entity);
         await _db.SaveChangesAsync(cancellationToken);
+        _auditLogger.Add(
+            actionType: "DISH_CREATED_FOR_BRANCH",
+            entityType: "DISH",
+            entityId: entity.DishID.ToString(),
+            dishId: entity.DishID,
+            beforeState: null,
+            afterState: new
+            {
+                branchId,
+                entity.Name,
+                entity.Price,
+                entity.CategoryID,
+                entity.Available,
+                entity.IsActive
+            });
+        await _db.SaveChangesAsync(cancellationToken);
 
         var todayMenu = await EnsureTodayMenuAsync(branchId, cancellationToken);
         var menuCategory = await EnsureMenuCategoryAsync(todayMenu.MenuID, entity.CategoryID, cancellationToken);
@@ -190,13 +229,13 @@ public sealed class AdminCatalogController : ControllerBase
             cancellationToken);
         if (!branchExists)
         {
-            return BadRequest(new { message = "Branch is invalid." });
+            return BadRequest(new { message = "Chi nhánh không hợp lệ." });
         }
 
         var entity = await _db.Dishes.FirstOrDefaultAsync(d => d.DishID == dishId, cancellationToken);
         if (entity is null)
         {
-            return NotFound(new { message = "Dish not found." });
+            return NotFound(new { message = "Không tìm thấy món ăn." });
         }
 
         var validation = await ValidateDishRequest(request, cancellationToken);
@@ -204,6 +243,15 @@ public sealed class AdminCatalogController : ControllerBase
         {
             return validation;
         }
+
+        var beforeAudit = new
+        {
+            entity.Name,
+            entity.Price,
+            entity.CategoryID,
+            entity.Available,
+            entity.IsActive
+        };
 
         entity.Name = request.Name!.Trim();
         entity.Price = request.Price!.Value;
@@ -216,6 +264,21 @@ public sealed class AdminCatalogController : ControllerBase
         entity.Available = request.Available ?? true;
         entity.IsActive = request.IsActive ?? true;
         entity.UpdatedAt = DateTime.Now;
+        _auditLogger.Add(
+            actionType: "DISH_UPDATED_FOR_BRANCH",
+            entityType: "DISH",
+            entityId: entity.DishID.ToString(),
+            dishId: entity.DishID,
+            beforeState: beforeAudit,
+            afterState: new
+            {
+                request.Name,
+                request.Price,
+                request.CategoryId,
+                entity.Available,
+                entity.IsActive,
+                branchId
+            });
 
         var todayMenu = await EnsureTodayMenuAsync(branchId, cancellationToken);
         var targetCategory = await EnsureMenuCategoryAsync(todayMenu.MenuID, entity.CategoryID, cancellationToken);
@@ -244,7 +307,7 @@ public sealed class AdminCatalogController : ControllerBase
         var entity = await _db.Dishes.FirstOrDefaultAsync(d => d.DishID == dishId, cancellationToken);
         if (entity is null)
         {
-            return NotFound(new { message = "Dish not found." });
+            return NotFound(new { message = "Không tìm thấy món ăn." });
         }
 
         var validation = await ValidateDishRequest(request, cancellationToken);
@@ -252,6 +315,15 @@ public sealed class AdminCatalogController : ControllerBase
         {
             return validation;
         }
+
+        var beforeAudit = new
+        {
+            entity.Name,
+            entity.Price,
+            entity.CategoryID,
+            entity.Available,
+            entity.IsActive
+        };
 
         entity.Name = request.Name!.Trim();
         entity.Price = request.Price!.Value;
@@ -264,9 +336,23 @@ public sealed class AdminCatalogController : ControllerBase
         entity.Available = request.Available ?? true;
         entity.IsActive = request.IsActive ?? true;
         entity.UpdatedAt = DateTime.Now;
+        _auditLogger.Add(
+            actionType: "DISH_UPDATED",
+            entityType: "DISH",
+            entityId: entity.DishID.ToString(),
+            dishId: entity.DishID,
+            beforeState: beforeAudit,
+            afterState: new
+            {
+                request.Name,
+                request.Price,
+                request.CategoryId,
+                entity.Available,
+                entity.IsActive
+            });
 
         await _db.SaveChangesAsync(cancellationToken);
-        return Ok(new { message = "Updated." });
+        return Ok(new { message = "Đã cập nhật món ăn." });
     }
 
     [HttpPost("dishes/{dishId:int}/deactivate")]
@@ -275,14 +361,22 @@ public sealed class AdminCatalogController : ControllerBase
         var entity = await _db.Dishes.FirstOrDefaultAsync(d => d.DishID == dishId, cancellationToken);
         if (entity is null)
         {
-            return NotFound(new { message = "Dish not found." });
+            return NotFound(new { message = "Không tìm thấy món ăn." });
         }
 
+        var beforeAudit = new { entity.IsActive, entity.Available };
         entity.IsActive = false;
         entity.Available = false;
         entity.UpdatedAt = DateTime.Now;
+        _auditLogger.Add(
+            actionType: "DISH_DEACTIVATED",
+            entityType: "DISH",
+            entityId: entity.DishID.ToString(),
+            dishId: entity.DishID,
+            beforeState: beforeAudit,
+            afterState: new { isActive = false, available = false });
         await _db.SaveChangesAsync(cancellationToken);
-        return Ok(new { message = "Deactivated." });
+        return Ok(new { message = "Đã vô hiệu món ăn." });
     }
 
     [HttpGet("dishes/{dishId:int}/ingredients")]
@@ -291,7 +385,7 @@ public sealed class AdminCatalogController : ControllerBase
         var dishExists = await _db.Dishes.AnyAsync(d => d.DishID == dishId, cancellationToken);
         if (!dishExists)
         {
-            return NotFound(new { message = "Dish not found." });
+            return NotFound(new { message = "Không tìm thấy món ăn." });
         }
 
         var selected = await _db.DishIngredients
@@ -324,7 +418,7 @@ public sealed class AdminCatalogController : ControllerBase
         var dishExists = await _db.Dishes.AnyAsync(d => d.DishID == dishId, cancellationToken);
         if (!dishExists)
         {
-            return NotFound(new { message = "Dish not found." });
+            return NotFound(new { message = "Không tìm thấy món ăn." });
         }
 
         var incoming = request.Items ?? Array.Empty<UpdateDishIngredientItem>();
@@ -343,7 +437,7 @@ public sealed class AdminCatalogController : ControllerBase
                 .ToListAsync(cancellationToken);
             if (exists.Count != incomingIds.Count)
             {
-                return BadRequest(new { message = "Some ingredients are invalid." });
+                return BadRequest(new { message = "Có nguyên liệu không hợp lệ." });
             }
         }
 
@@ -360,8 +454,19 @@ public sealed class AdminCatalogController : ControllerBase
             });
         }
 
+        _auditLogger.Add(
+            actionType: "DISH_INGREDIENTS_UPDATED",
+            entityType: "DISH",
+            entityId: dishId.ToString(),
+            dishId: dishId,
+            beforeState: new { ingredientCount = current.Count },
+            afterState: new
+            {
+                ingredientCount = cleaned.Count,
+                ingredientIds = cleaned.Select(x => x.IngredientId).ToArray()
+            });
         await _db.SaveChangesAsync(cancellationToken);
-        return Ok(new { message = "Updated." });
+        return Ok(new { message = "Đã cập nhật nguyên liệu món ăn." });
     }
 
     [HttpGet("ingredients")]
@@ -421,7 +526,7 @@ public sealed class AdminCatalogController : ControllerBase
                 i.IsActive))
             .FirstOrDefaultAsync(cancellationToken);
 
-        return item is null ? NotFound(new { message = "Ingredient not found." }) : Ok(item);
+        return item is null ? NotFound(new { message = "Không tìm thấy nguyên liệu." }) : Ok(item);
     }
 
     [HttpPost("ingredients")]
@@ -444,7 +549,21 @@ public sealed class AdminCatalogController : ControllerBase
 
         _db.Ingredients.Add(entity);
         await _db.SaveChangesAsync(cancellationToken);
-        return Ok(new { message = "Created.", ingredientId = entity.IngredientID });
+        _auditLogger.Add(
+            actionType: "INGREDIENT_CREATED",
+            entityType: "INGREDIENT",
+            entityId: entity.IngredientID.ToString(),
+            beforeState: null,
+            afterState: new
+            {
+                entity.Name,
+                entity.Unit,
+                entity.CurrentStock,
+                entity.ReorderLevel,
+                entity.IsActive
+            });
+        await _db.SaveChangesAsync(cancellationToken);
+        return Ok(new { message = "Đã tạo nguyên liệu.", ingredientId = entity.IngredientID });
     }
 
     [HttpPut("ingredients/{ingredientId:int}")]
@@ -456,7 +575,7 @@ public sealed class AdminCatalogController : ControllerBase
         var entity = await _db.Ingredients.FirstOrDefaultAsync(i => i.IngredientID == ingredientId, cancellationToken);
         if (entity is null)
         {
-            return NotFound(new { message = "Ingredient not found." });
+            return NotFound(new { message = "Không tìm thấy nguyên liệu." });
         }
 
         var validation = ValidateIngredientRequest(request);
@@ -465,14 +584,36 @@ public sealed class AdminCatalogController : ControllerBase
             return validation;
         }
 
+        var beforeAudit = new
+        {
+            entity.Name,
+            entity.Unit,
+            entity.CurrentStock,
+            entity.ReorderLevel,
+            entity.IsActive
+        };
+
         entity.Name = request.Name!.Trim();
         entity.Unit = request.Unit!.Trim();
         entity.CurrentStock = request.CurrentStock!.Value;
         entity.ReorderLevel = request.ReorderLevel!.Value;
         entity.IsActive = request.IsActive ?? true;
 
+        _auditLogger.Add(
+            actionType: "INGREDIENT_UPDATED",
+            entityType: "INGREDIENT",
+            entityId: entity.IngredientID.ToString(),
+            beforeState: beforeAudit,
+            afterState: new
+            {
+                entity.Name,
+                entity.Unit,
+                entity.CurrentStock,
+                entity.ReorderLevel,
+                entity.IsActive
+            });
         await _db.SaveChangesAsync(cancellationToken);
-        return Ok(new { message = "Updated." });
+        return Ok(new { message = "Đã cập nhật nguyên liệu." });
     }
 
     [HttpPost("ingredients/{ingredientId:int}/deactivate")]
@@ -481,12 +622,58 @@ public sealed class AdminCatalogController : ControllerBase
         var entity = await _db.Ingredients.FirstOrDefaultAsync(i => i.IngredientID == ingredientId, cancellationToken);
         if (entity is null)
         {
-            return NotFound(new { message = "Ingredient not found." });
+            return NotFound(new { message = "Không tìm thấy nguyên liệu." });
         }
 
+        var beforeAudit = new { entity.IsActive };
         entity.IsActive = false;
+        _auditLogger.Add(
+            actionType: "INGREDIENT_DEACTIVATED",
+            entityType: "INGREDIENT",
+            entityId: entity.IngredientID.ToString(),
+            beforeState: beforeAudit,
+            afterState: new { isActive = false });
         await _db.SaveChangesAsync(cancellationToken);
-        return Ok(new { message = "Deactivated." });
+        return Ok(new { message = "Đã vô hiệu nguyên liệu." });
+    }
+
+    [HttpDelete("ingredients/{ingredientId:int}")]
+    public async Task<IActionResult> DeleteIngredient(int ingredientId, CancellationToken cancellationToken = default)
+    {
+        var entity = await _db.Ingredients
+            .Include(i => i.DishIngredients)
+            .FirstOrDefaultAsync(i => i.IngredientID == ingredientId, cancellationToken);
+        if (entity is null)
+        {
+            return NotFound(new { message = "Không tìm thấy nguyên liệu." });
+        }
+
+        if (entity.DishIngredients.Count > 0)
+        {
+            return Conflict(new
+            {
+                message = "Nguyên liệu đang được dùng trong công thức món ăn. Hãy dùng 'Vô hiệu' nếu bạn muốn ngừng sử dụng."
+            });
+        }
+
+        var beforeAudit = new
+        {
+            entity.Name,
+            entity.Unit,
+            entity.CurrentStock,
+            entity.ReorderLevel,
+            entity.IsActive
+        };
+
+        _db.Ingredients.Remove(entity);
+        _auditLogger.Add(
+            actionType: "INGREDIENT_DELETED",
+            entityType: "INGREDIENT",
+            entityId: entity.IngredientID.ToString(),
+            beforeState: beforeAudit,
+            afterState: null);
+        await _db.SaveChangesAsync(cancellationToken);
+        return Ok(new { message = "Đã xóa nguyên liệu." });
     }
 
     [HttpGet("table-statuses")]
@@ -533,7 +720,10 @@ public sealed class AdminCatalogController : ControllerBase
             var key = search.Trim();
             query = query.Where(t =>
                 (t.QRCode != null && t.QRCode.Contains(key)) ||
-                t.TableID.ToString().Contains(key));
+                t.TableID.ToString().Contains(key) ||
+                t.NumberOfSeats.ToString().Contains(key) ||
+                t.Branch.Name.Contains(key) ||
+                t.Status.StatusName.Contains(key));
         }
 
         var totalItems = await query.CountAsync(cancellationToken);
@@ -579,7 +769,7 @@ public sealed class AdminCatalogController : ControllerBase
                 t.IsActive ?? false))
             .FirstOrDefaultAsync(cancellationToken);
 
-        return table is null ? NotFound(new { message = "Table not found." }) : Ok(table);
+        return table is null ? NotFound(new { message = "Không tìm thấy bàn." }) : Ok(table);
     }
 
     [HttpPost("tables")]
@@ -614,6 +804,21 @@ public sealed class AdminCatalogController : ControllerBase
 
         _db.DiningTables.Add(entity);
         await _db.SaveChangesAsync(cancellationToken);
+        _auditLogger.Add(
+            actionType: "TABLE_CREATED",
+            entityType: "TABLE",
+            entityId: entity.TableID.ToString(),
+            tableId: entity.TableID,
+            beforeState: null,
+            afterState: new
+            {
+                entity.BranchID,
+                entity.NumberOfSeats,
+                entity.StatusID,
+                entity.QRCode,
+                entity.IsActive
+            });
+        await _db.SaveChangesAsync(cancellationToken);
 
         if (string.IsNullOrWhiteSpace(entity.QRCode))
         {
@@ -622,7 +827,7 @@ public sealed class AdminCatalogController : ControllerBase
             await _db.SaveChangesAsync(cancellationToken);
         }
 
-        return Ok(new { message = "Created.", tableId = entity.TableID });
+        return Ok(new { message = "Đã tạo bàn.", tableId = entity.TableID });
     }
 
     [HttpPut("tables/{tableId:int}")]
@@ -634,7 +839,7 @@ public sealed class AdminCatalogController : ControllerBase
         var entity = await _db.DiningTables.FirstOrDefaultAsync(t => t.TableID == tableId, cancellationToken);
         if (entity is null)
         {
-            return NotFound(new { message = "Table not found." });
+            return NotFound(new { message = "Không tìm thấy bàn." });
         }
 
         var validation = await ValidateTableRequest(request, cancellationToken);
@@ -643,6 +848,15 @@ public sealed class AdminCatalogController : ControllerBase
             return validation;
         }
 
+        var beforeAudit = new
+        {
+            entity.BranchID,
+            entity.NumberOfSeats,
+            entity.StatusID,
+            entity.QRCode,
+            entity.IsActive
+        };
+
         entity.BranchID = request.BranchId!.Value;
         entity.NumberOfSeats = request.NumberOfSeats!.Value;
         entity.StatusID = request.StatusId ?? entity.StatusID;
@@ -650,8 +864,22 @@ public sealed class AdminCatalogController : ControllerBase
         entity.IsActive = request.IsActive ?? true;
         entity.UpdatedAt = DateTime.Now;
 
+        _auditLogger.Add(
+            actionType: "TABLE_UPDATED",
+            entityType: "TABLE",
+            entityId: entity.TableID.ToString(),
+            tableId: entity.TableID,
+            beforeState: beforeAudit,
+            afterState: new
+            {
+                entity.BranchID,
+                entity.NumberOfSeats,
+                entity.StatusID,
+                entity.QRCode,
+                entity.IsActive
+            });
         await _db.SaveChangesAsync(cancellationToken);
-        return Ok(new { message = "Updated." });
+        return Ok(new { message = "Đã cập nhật bàn." });
     }
 
     [HttpPost("tables/{tableId:int}/deactivate")]
@@ -660,36 +888,108 @@ public sealed class AdminCatalogController : ControllerBase
         var entity = await _db.DiningTables.FirstOrDefaultAsync(t => t.TableID == tableId, cancellationToken);
         if (entity is null)
         {
-            return NotFound(new { message = "Table not found." });
+            return NotFound(new { message = "Không tìm thấy bàn." });
         }
 
+        var beforeAudit = new { entity.IsActive, entity.StatusID };
         entity.IsActive = false;
         entity.UpdatedAt = DateTime.Now;
+        _auditLogger.Add(
+            actionType: "TABLE_DEACTIVATED",
+            entityType: "TABLE",
+            entityId: entity.TableID.ToString(),
+            tableId: entity.TableID,
+            beforeState: beforeAudit,
+            afterState: new { isActive = false, entity.StatusID });
         await _db.SaveChangesAsync(cancellationToken);
-        return Ok(new { message = "Deactivated." });
+        return Ok(new { message = "Đã vô hiệu bàn." });
+    }
+
+    [HttpGet("internal/audit-logs")]
+    public async Task<ActionResult<IReadOnlyList<object>>> GetAuditLogs(
+        [FromQuery] string? entityType,
+        [FromQuery] string? entityId,
+        [FromQuery] int? dishId,
+        [FromQuery] int? tableId,
+        [FromQuery] int take = 100,
+        CancellationToken cancellationToken = default)
+    {
+        take = Math.Clamp(take, 1, 200);
+        var query = _db.BusinessAuditLogs.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(entityType))
+        {
+            query = query.Where(x => x.EntityType == entityType.Trim());
+        }
+
+        if (!string.IsNullOrWhiteSpace(entityId))
+        {
+            query = query.Where(x => x.EntityId == entityId.Trim());
+        }
+
+        if (dishId is > 0)
+        {
+            query = query.Where(x => x.DishId == dishId.Value);
+        }
+
+        if (tableId is > 0)
+        {
+            query = query.Where(x => x.TableId == tableId.Value);
+        }
+
+        var items = await query
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .Take(take)
+            .Select(x => new
+            {
+                auditId = x.BusinessAuditLogId,
+                timestampUtc = x.CreatedAtUtc,
+                actorType = x.ActorType,
+                actorId = x.ActorId,
+                actorCode = x.ActorCode,
+                actorName = x.ActorName,
+                actorRoleCode = x.ActorRoleCode,
+                actionType = x.ActionType,
+                entityType = x.EntityType,
+                entityId = x.EntityId,
+                tableId = x.TableId,
+                orderId = x.OrderId,
+                orderItemId = x.OrderItemId,
+                dishId = x.DishId,
+                billId = x.BillId,
+                diningSessionCode = x.DiningSessionCode,
+                correlationId = x.CorrelationId,
+                idempotencyKey = x.IdempotencyKey,
+                notes = x.Notes,
+                beforeState = x.BeforeState,
+                afterState = x.AfterState
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(items);
     }
 
     private async Task<ActionResult?> ValidateDishRequest(AdminUpsertDishRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
         {
-            return BadRequest(new { message = "Name is required." });
+            return BadRequest(new { message = "Tên món không được để trống." });
         }
 
         if (request.Price is null || request.Price < 0)
         {
-            return BadRequest(new { message = "Price is invalid." });
+            return BadRequest(new { message = "Giá bán không hợp lệ." });
         }
 
         if (request.CategoryId is null || request.CategoryId <= 0)
         {
-            return BadRequest(new { message = "Category is required." });
+            return BadRequest(new { message = "Vui lòng chọn danh mục." });
         }
 
         var categoryExists = await _db.Categories.AnyAsync(c => c.CategoryID == request.CategoryId && (c.IsActive ?? false), cancellationToken);
         if (!categoryExists)
         {
-            return BadRequest(new { message = "Category is invalid." });
+            return BadRequest(new { message = "Danh mục không hợp lệ." });
         }
 
         return null;
@@ -835,22 +1135,22 @@ public sealed class AdminCatalogController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.Name))
         {
-            return new BadRequestObjectResult(new { message = "Name is required." });
+            return new BadRequestObjectResult(new { message = "Tên nguyên liệu không được để trống." });
         }
 
         if (string.IsNullOrWhiteSpace(request.Unit))
         {
-            return new BadRequestObjectResult(new { message = "Unit is required." });
+            return new BadRequestObjectResult(new { message = "Đơn vị không được để trống." });
         }
 
         if (request.CurrentStock is null || request.CurrentStock < 0)
         {
-            return new BadRequestObjectResult(new { message = "CurrentStock is invalid." });
+            return new BadRequestObjectResult(new { message = "Tồn kho không hợp lệ." });
         }
 
         if (request.ReorderLevel is null || request.ReorderLevel < 0)
         {
-            return new BadRequestObjectResult(new { message = "ReorderLevel is invalid." });
+            return new BadRequestObjectResult(new { message = "Mức cảnh báo không hợp lệ." });
         }
 
         return null;
@@ -860,18 +1160,18 @@ public sealed class AdminCatalogController : ControllerBase
     {
         if (request.BranchId is null || request.BranchId <= 0)
         {
-            return BadRequest(new { message = "Branch is required." });
+            return BadRequest(new { message = "Vui lòng chọn chi nhánh." });
         }
 
         var branchExists = await _db.Branches.AnyAsync(b => b.BranchID == request.BranchId && (b.IsActive ?? false), cancellationToken);
         if (!branchExists)
         {
-            return BadRequest(new { message = "Branch is invalid." });
+            return BadRequest(new { message = "Chi nhánh không hợp lệ." });
         }
 
         if (request.NumberOfSeats is null || request.NumberOfSeats <= 0)
         {
-            return BadRequest(new { message = "NumberOfSeats is invalid." });
+            return BadRequest(new { message = "Số ghế không hợp lệ." });
         }
 
         if (request.StatusId is > 0)
@@ -879,7 +1179,7 @@ public sealed class AdminCatalogController : ControllerBase
             var statusExists = await _db.TableStatus.AnyAsync(s => s.StatusID == request.StatusId, cancellationToken);
             if (!statusExists)
             {
-                return BadRequest(new { message = "Status is invalid." });
+                return BadRequest(new { message = "Trạng thái bàn không hợp lệ." });
             }
         }
 

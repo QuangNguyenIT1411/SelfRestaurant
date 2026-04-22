@@ -43,8 +43,9 @@ public sealed record UpdateCustomerProfileApiRequest(
     string? Gender,
     DateOnly? DateOfBirth,
     string? Address);
-public sealed record AddOrderItemApiRequest(int DishId, int Quantity, string? Note = null);
-public sealed record SubmitMenuOrderApiRequest(int TableId, int BranchId, IReadOnlyList<AddOrderItemApiRequest>? Items);
+public sealed record AddOrderItemApiRequest(int DishId, int Quantity, string? Note = null, string? ExpectedDiningSessionCode = null);
+public sealed record SubmitOrderApiRequest(string? IdempotencyKey = null, string? ExpectedDiningSessionCode = null);
+public sealed record SubmitMenuOrderApiRequest(int TableId, int BranchId, IReadOnlyList<AddOrderItemApiRequest>? Items, string? IdempotencyKey = null, string? ExpectedDiningSessionCode = null);
 public sealed record UpdateOrderItemQuantityApiRequest(int Quantity);
 public sealed record UpdateOrderItemNoteApiRequest(string? Note);
 public sealed record ScanLoyaltyApiRequest(string PhoneNumber);
@@ -59,6 +60,17 @@ public sealed record CustomerMenuScreenDto(
 
 public sealed record CustomerDishRecommendationDto(
     int DishId,
+    string Name,
+    string? Description,
+    decimal Price,
+    string? Image,
+    string? Unit,
+    bool IsVegetarian,
+    bool IsDailySpecial,
+    bool Available,
+    IReadOnlyList<MenuDishIngredientDto>? Ingredients,
+    int CategoryId,
+    string CategoryName,
     string Reason);
 
 public sealed record CustomerMenuRecommendationsDto(

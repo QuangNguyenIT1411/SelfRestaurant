@@ -130,7 +130,8 @@ public sealed class StaffCashierGatewayController : ControllerBase
                 Discount: Math.Max(0, request.Discount),
                 PointsUsed: Math.Max(0, request.PointsUsed),
                 PaymentMethod: string.IsNullOrWhiteSpace(request.PaymentMethod) ? "CASH" : request.PaymentMethod.Trim().ToUpperInvariant(),
-                PaymentAmount: Math.Max(0, request.PaymentAmount)), cancellationToken);
+                PaymentAmount: Math.Max(0, request.PaymentAmount),
+                IdempotencyKey: request.IdempotencyKey), cancellationToken);
 
             if (response is null)
             {
@@ -228,7 +229,7 @@ public sealed class StaffCashierGatewayController : ControllerBase
             o.CustomerPoints,
             o.Subtotal,
             o.ItemCount,
-            o.Items.Select(i => new CashierOrderItemCardDto(i.DishName, i.Quantity, i.UnitPrice, i.LineTotal, ResolveDishImage(i.Image, i.DishName))).ToArray())).ToArray();
+            o.Items.Select(i => new CashierOrderItemCardDto(i.DishName, i.Quantity, i.UnitPrice, i.LineTotal, ResolveDishImage(i.Image, i.DishName), i.StatusCode)).ToArray())).ToArray();
 
         var activeOrderByTableId = orders
             .Where(o => o.TableId > 0 && !string.Equals(o.StatusCode, "COMPLETED", StringComparison.OrdinalIgnoreCase))

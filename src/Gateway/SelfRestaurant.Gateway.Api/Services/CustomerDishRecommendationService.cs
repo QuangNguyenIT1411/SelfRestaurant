@@ -293,6 +293,7 @@ public sealed class CustomerDishRecommendationService
                 dish.DishId,
                 dish.Name,
                 dish.Description,
+                dish.Image,
                 category.CategoryId,
                 category.CategoryName,
                 dish.Unit ?? string.Empty,
@@ -300,7 +301,8 @@ public sealed class CustomerDishRecommendationService
                 dish.IsDailySpecial,
                 topDishIds.Contains(dish.DishId),
                 dish.Available,
-                dish.Price)))
+                dish.Price,
+                dish.Ingredients)))
             .Where(candidate => candidate.Available)
             .ToList();
 
@@ -439,7 +441,7 @@ public sealed class CustomerDishRecommendationService
 
             selectedDishIds.Add(dishId);
             selectedCategoryIds.Add(candidate.Dish.CategoryId);
-            selected.Add(new CustomerDishRecommendationDto(dishId, TrimReasonForUi(reason ?? candidate.Reason)));
+            selected.Add(ToRecommendationDto(candidate, reason ?? candidate.Reason));
         }
 
         foreach (var item in aiRecommendations)
@@ -464,6 +466,22 @@ public sealed class CustomerDishRecommendationService
 
         return selected;
     }
+
+    private static CustomerDishRecommendationDto ToRecommendationDto(RankedRecommendationCandidate candidate, string reason)
+        => new(
+            candidate.Dish.DishId,
+            candidate.Dish.Name,
+            candidate.Dish.Description,
+            candidate.Dish.Price,
+            candidate.Dish.Image,
+            string.IsNullOrWhiteSpace(candidate.Dish.Unit) ? null : candidate.Dish.Unit,
+            candidate.Dish.IsVegetarian,
+            candidate.Dish.IsDailySpecial,
+            candidate.Dish.Available,
+            candidate.Dish.Ingredients,
+            candidate.Dish.CategoryId,
+            candidate.Dish.CategoryName,
+            TrimReasonForUi(reason));
 
     private static string TrimReasonForUi(string value)
     {
@@ -509,6 +527,7 @@ public sealed class CustomerDishRecommendationService
         int DishId,
         string Name,
         string? Description,
+        string? Image,
         int CategoryId,
         string CategoryName,
         string Unit,
@@ -516,7 +535,8 @@ public sealed class CustomerDishRecommendationService
         bool IsDailySpecial,
         bool IsTopSeller,
         bool Available,
-        decimal Price);
+        decimal Price,
+        IReadOnlyList<MenuDishIngredientDto>? Ingredients);
 
     private sealed record RankedRecommendationCandidate(
         RecommendationCandidate Dish,

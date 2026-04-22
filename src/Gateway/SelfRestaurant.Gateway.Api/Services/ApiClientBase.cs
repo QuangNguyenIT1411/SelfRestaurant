@@ -69,6 +69,7 @@ public abstract class ApiClientBase
         var message = $"{(int)response.StatusCode} {response.ReasonPhrase}";
         if (!string.IsNullOrWhiteSpace(body))
         {
+            string? code = null;
             try
             {
                 using var doc = JsonDocument.Parse(body);
@@ -82,11 +83,21 @@ public abstract class ApiClientBase
                          && messageProp.ValueKind == JsonValueKind.String)
                 {
                     message = messageProp.GetString() ?? body;
+                    if (root.TryGetProperty("code", out var codeProp) && codeProp.ValueKind == JsonValueKind.String)
+                    {
+                        code = codeProp.GetString();
+                    }
                 }
                 else
                 {
                     message = body;
                 }
+
+                throw new ApiClientException(message, (int)response.StatusCode, code, body);
+            }
+            catch (ApiClientException)
+            {
+                throw;
             }
             catch
             {
@@ -94,6 +105,21 @@ public abstract class ApiClientBase
             }
         }
 
-        throw new InvalidOperationException(message);
+        throw new ApiClientException(message, (int)response.StatusCode, null, body);
     }
+}
+
+public sealed class ApiClientException : InvalidOperationException
+{
+    public ApiClientException(string message, int statusCode, string? code = null, string? responseBody = null)
+        : base(message)
+    {
+        StatusCode = statusCode;
+        Code = code;
+        ResponseBody = responseBody;
+    }
+
+    public int StatusCode { get; }
+    public string? Code { get; }
+    public string? ResponseBody { get; }
 }

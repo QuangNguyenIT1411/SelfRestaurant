@@ -7,6 +7,8 @@ public sealed class Bills
     public int BillID { get; set; }
 
     public int OrderID { get; set; }
+    public string? DiningSessionCode { get; set; }
+    public string? CheckoutIdempotencyKey { get; set; }
 
     public string BillCode { get; set; } = null!;
 

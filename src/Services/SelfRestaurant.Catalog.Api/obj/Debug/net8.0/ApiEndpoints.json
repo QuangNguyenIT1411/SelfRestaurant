@@ -360,6 +360,52 @@
   },
   {
     "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "GetAuditLogs",
+    "RelativePath": "api/admin/internal/audit-logs",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "entityType",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "entityId",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "dishId",
+        "Type": "System.Nullable\u00601[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "tableId",
+        "Type": "System.Nullable\u00601[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "take",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "System.Collections.Generic.IReadOnlyList\u00601[[System.Object, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
     "Method": "GetTableStatuses",
     "RelativePath": "api/admin/table-statuses",
     "HttpMethod": "GET",
@@ -747,6 +793,32 @@
     "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.CatalogController",
     "Method": "ConsumeInventoryForOrder",
     "RelativePath": "api/internal/inventory/consume",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.CatalogController\u002BIngredientConsumptionRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.CatalogController\u002BIngredientConsumptionResponse",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.CatalogController",
+    "Method": "ValidateInventoryForOrder",
+    "RelativePath": "api/internal/inventory/validate",
     "HttpMethod": "POST",
     "IsController": true,
     "Order": 0,

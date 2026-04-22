@@ -53,6 +53,27 @@ function Invoke-Json {
     }
 }
 
+function Invoke-JsonNoSession {
+    param(
+        [ValidateSet('GET', 'POST', 'PUT', 'PATCH', 'DELETE')][string]$Method,
+        [string]$Uri,
+        $Body = $null
+    )
+
+    try {
+        if ($null -eq $Body) {
+            return Invoke-RestMethod -Method $Method -Uri $Uri -TimeoutSec 60
+        }
+
+        $json = $Body | ConvertTo-Json -Depth 20
+        $payload = [System.Text.Encoding]::UTF8.GetBytes($json)
+        return Invoke-RestMethod -Method $Method -Uri $Uri -TimeoutSec 60 -ContentType 'application/json; charset=utf-8' -Body $payload
+    }
+    catch {
+        throw (Get-ErrorBody $_)
+    }
+}
+
 function Expect-ApiError {
     param(
         [ValidateSet('GET', 'POST', 'PUT', 'PATCH', 'DELETE')][string]$Method,
@@ -83,14 +104,17 @@ function Find-AvailableTable([int]$BranchId, [int[]]$ExcludeTableIds) {
 function New-TestOrder([int]$BranchId, [int]$DishId, [string]$Note, [int[]]$ExcludeTableIds) {
     $table = Find-AvailableTable $BranchId $ExcludeTableIds
     $tableId = [int]$table.tableId
-    Invoke-WebRequest "$orders/api/tables/$tableId/reset" -Method POST -UseBasicParsing -TimeoutSec 60 | Out-Null
-    Invoke-WebRequest "$orders/api/tables/$tableId/order/items" -Method POST -UseBasicParsing -TimeoutSec 60 -ContentType 'application/json' -Body (@{
+    Invoke-JsonNoSession POST "$orders/api/tables/$tableId/reset" @{} | Out-Null
+    Invoke-JsonNoSession POST "$orders/api/tables/$tableId/order/items" @{
         dishId = $DishId
         quantity = 1
         note = $Note
-    } | ConvertTo-Json) | Out-Null
-    Invoke-WebRequest "$orders/api/tables/$tableId/order/submit" -Method POST -UseBasicParsing -TimeoutSec 60 -ContentType 'application/json' -Body '{}' | Out-Null
-    $active = Invoke-RestMethod -Method GET -Uri "$orders/api/tables/$tableId/order" -TimeoutSec 60
+    } | Out-Null
+    Invoke-JsonNoSession POST "$orders/api/tables/$tableId/order/submit" @{
+        idempotencyKey = [guid]::NewGuid().ToString('N')
+        expectedDiningSessionCode = $null
+    } | Out-Null
+    $active = Invoke-JsonNoSession GET "$orders/api/tables/$tableId/order"
     return [pscustomobject]@{
         TableId = $tableId
         OrderId = [int]$active.orderId
@@ -98,6 +122,9 @@ function New-TestOrder([int]$BranchId, [int]$DishId, [string]$Note, [int[]]$Excl
 }
 
 try {
+    Invoke-JsonNoSession POST "$base/api/gateway/customer/dev/reset-test-state" @{} | Out-Null
+    Add-Result 'Reset test state' $true 'ok'
+
     $login = Invoke-Json POST "$cashierBase/auth/login" $session @{
         username = $cashierUser
         password = $cashierPasswordCurrent
@@ -160,6 +187,7 @@ try {
         pointsUsed = 0
         paymentMethod = 'CASH'
         paymentAmount = 999999
+        idempotencyKey = [guid]::NewGuid().ToString('N')
     }
     Add-Result 'Thanh toan CASH' (-not [string]::IsNullOrWhiteSpace($checkout1.billCode)) $checkout1.billCode
 
@@ -170,6 +198,7 @@ try {
         pointsUsed = 0
         paymentMethod = 'CARD'
         paymentAmount = 0
+        idempotencyKey = [guid]::NewGuid().ToString('N')
     }
     Add-Result 'Thanh toan CARD' (-not [string]::IsNullOrWhiteSpace($checkout2.billCode)) $checkout2.billCode
 
@@ -179,6 +208,7 @@ try {
         pointsUsed = 0
         paymentMethod = 'TRANSFER'
         paymentAmount = 0
+        idempotencyKey = [guid]::NewGuid().ToString('N')
     }
     Add-Result 'Thanh toan TRANSFER' (-not [string]::IsNullOrWhiteSpace($checkout3.billCode)) $checkout3.billCode
 

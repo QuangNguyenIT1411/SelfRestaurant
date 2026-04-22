@@ -1,0 +1,18 @@
+﻿{
+    "timestamp":  "20260420_084053",
+    "passed":  1,
+    "total":  2,
+    "log":  "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\.runlogs\\customer_detailed_new_20260420_084053.log",
+    "results":  [
+                    {
+                        "Step":  "Open Register",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Unhandled Error",
+                        "Pass":  false,
+                        "Detail":  "No anti-forgery token"
+                    }
+                ]
+}

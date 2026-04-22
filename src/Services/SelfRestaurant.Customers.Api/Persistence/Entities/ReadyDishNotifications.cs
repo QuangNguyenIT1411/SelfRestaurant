@@ -4,6 +4,9 @@ public sealed class ReadyDishNotifications
 {
     public long ReadyDishNotificationId { get; set; }
     public int OrderId { get; set; }
+    public int? OrderItemId { get; set; }
+    public int? DishId { get; set; }
+    public string? DishName { get; set; }
     public int? CustomerId { get; set; }
     public int? TableId { get; set; }
     public string EventName { get; set; } = "order.status-ready.v1";

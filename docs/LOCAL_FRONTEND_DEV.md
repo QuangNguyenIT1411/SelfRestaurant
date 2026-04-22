@@ -55,6 +55,14 @@ Start these projects in Visual Studio:
 
 After this change, the gateway is the only project that opens a browser automatically.
 
+If Visual Studio reports `address already in use` on one of the standard local service ports (`5100-5105`), clear stale listeners first:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\stop-dev-ports.ps1
+```
+
+This is the expected recovery step when a previous debug session or local start script left a service process running.
+
 ### Customer web
 
 ```bash

@@ -45,10 +45,16 @@ public sealed record ActiveOrderResponse(
     string OrderStatus,
     decimal Subtotal,
     int TotalItems,
-    IReadOnlyList<ActiveOrderItemDto> Items);
+    IReadOnlyList<ActiveOrderItemDto> Items,
+    string? DiningSessionCode = null,
+    bool HasActiveDiningSession = false,
+    IReadOnlyList<int>? ActiveOrderIds = null,
+    bool HasPendingRound = false,
+    int? PendingOrderId = null);
 
 public sealed record ActiveOrderItemDto(
     int ItemId,
+    int OrderId,
     int DishId,
     string DishName,
     int Quantity,
@@ -91,14 +97,17 @@ public sealed record CustomerActiveOrderContextDto(
     int? TableNumber);
 
 public sealed record ReadyDishNotificationDto(
-    [property: JsonPropertyName("readyDishNotificationId")] long NotificationId,
+    [property: JsonPropertyName("notificationId")] long NotificationId,
     int OrderId,
+    int? OrderItemId,
+    int? DishId,
+    string? DishName,
     int? CustomerId,
     int? TableId,
     string EventName,
     string Message,
     string Status,
-    DateTime CreatedAtUtc);
+    [property: JsonPropertyName("createdAt")] DateTime CreatedAtUtc);
 
 public sealed record CategoryDto(int CategoryId, string Name, string? Description, int DisplayOrder, bool IsActive);
 
@@ -187,7 +196,7 @@ public sealed record CreateCategoryRequest(string Name, string? Description, int
 
 public sealed record UpdateCategoryRequest(string Name, string? Description, int DisplayOrder, bool IsActive);
 
-public sealed record ChefOrderItemDto(int ItemId, int DishId, string DishName, int Quantity, string? Note);
+public sealed record ChefOrderItemDto(int ItemId, int DishId, string DishName, int Quantity, string? Note, string StatusCode);
 
 public sealed record ChefOrderDto(
     int OrderId,
@@ -218,7 +227,8 @@ public sealed record CashierOrderItemDto(
     decimal UnitPrice,
     decimal LineTotal,
     string? Image,
-    string? Note);
+    string? Note,
+    string StatusCode);
 
 public sealed record CashierOrderDto(
     int OrderId,
@@ -240,7 +250,8 @@ public sealed record CashierCheckoutRequest(
     decimal Discount = 0,
     int PointsUsed = 0,
     string PaymentMethod = "CASH",
-    decimal PaymentAmount = 0);
+    decimal PaymentAmount = 0,
+    string? IdempotencyKey = null);
 
 public sealed record CashierCheckoutResponse(
     string BillCode,

@@ -108,18 +108,26 @@ public sealed class OrderReadyConsumerService : BackgroundService
                 }
 
                 var alreadyProjected = await db.ReadyDishNotifications.AnyAsync(
-                    x => x.OrderId == payload.OrderId && x.EventName == item.EventName,
+                    x => x.OrderId == payload.OrderId
+                        && x.OrderItemId == payload.OrderItemId
+                        && x.EventName == item.EventName,
                     cancellationToken);
 
                 if (!alreadyProjected)
                 {
+                    var dishName = string.IsNullOrWhiteSpace(payload.DishName)
+                        ? (payload.DishId is int dishId ? $"Món #{dishId}" : "Món ăn")
+                        : payload.DishName.Trim();
                     db.ReadyDishNotifications.Add(new ReadyDishNotifications
                     {
                         OrderId = payload.OrderId,
+                        OrderItemId = payload.OrderItemId,
+                        DishId = payload.DishId,
+                        DishName = dishName,
                         CustomerId = payload.CustomerId,
                         TableId = payload.TableId,
                         EventName = item.EventName,
-                        Message = $"Mon an cua ban da san sang. Vui long den nhan mon cho don {payload.OrderCode}.",
+                        Message = $"{dishName} đã sẵn sàng. Vui lòng đến nhận món cho đơn {payload.OrderCode}.",
                         Status = "OPEN",
                         CreatedAtUtc = DateTime.UtcNow
                     });
@@ -180,5 +188,10 @@ public sealed class OrderReadyConsumerService : BackgroundService
         string OrderCode,
         int? TableId,
         int? CustomerId,
-        string StatusCode);
+        string StatusCode,
+        int? OrderItemId,
+        int? DishId,
+        string? DishName,
+        int? Quantity,
+        string? ItemStatusCode);
 }

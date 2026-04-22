@@ -52,10 +52,10 @@ public sealed class CatalogApiClient : ICatalogReadModel
             $"catalog:branch-table-ids:{branchId}",
             () => GetBranchTableIdsCoreAsync(branchId, cancellationToken));
 
+    // Dish availability is business-critical for add-item/submit flows, so these reads
+    // must prefer live Catalog state over Orders-local snapshots.
     public Task<DishSnapshotResponse?> GetDishAsync(int dishId, CancellationToken cancellationToken) =>
-        GetOrCreateAsync(
-            $"catalog:dish:{dishId}",
-            () => GetDishCoreAsync(dishId, cancellationToken));
+        GetDishCoreAsync(dishId, cancellationToken);
 
     public Task<IReadOnlyList<DishSnapshotResponse>?> GetDishesAsync(IEnumerable<int> dishIds, CancellationToken cancellationToken)
     {
@@ -66,9 +66,7 @@ public sealed class CatalogApiClient : ICatalogReadModel
         }
 
         var query = string.Join("&", ids.Select(id => $"ids={id}"));
-        return GetOrCreateAsync(
-            $"catalog:dishes:{string.Join(",", ids)}",
-            () => GetDishesCoreAsync(ids, query, cancellationToken));
+        return GetDishesCoreAsync(ids, query, cancellationToken);
     }
 
     public Task<IReadOnlyList<BranchSnapshotResponse>?> GetBranchesAsync(IEnumerable<int> branchIds, CancellationToken cancellationToken)
@@ -117,6 +115,32 @@ public sealed class CatalogApiClient : ICatalogReadModel
         {
             return await response.Content.ReadFromJsonAsync<IngredientConsumptionResult>(cancellationToken)
                 ?? new IngredientConsumptionResult(false, "Không thể trừ nguyên liệu trong kho.", Array.Empty<IngredientConsumptionIssue>());
+        }
+
+        response.EnsureSuccessStatusCode();
+        return new IngredientConsumptionResult(true, null, Array.Empty<IngredientConsumptionIssue>());
+    }
+
+    public async Task<IngredientConsumptionResult> ValidateIngredientsForOrderAsync(
+        int orderId,
+        IReadOnlyList<OrderIngredientConsumptionItem> items,
+        CancellationToken cancellationToken)
+    {
+        var response = await _http.PostAsJsonAsync(
+            "/api/internal/inventory/validate",
+            new IngredientConsumptionRequest(orderId, items),
+            cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<IngredientConsumptionResult>(cancellationToken)
+                ?? new IngredientConsumptionResult(true, null, Array.Empty<IngredientConsumptionIssue>());
+        }
+
+        if ((int)response.StatusCode is 400 or 409)
+        {
+            return await response.Content.ReadFromJsonAsync<IngredientConsumptionResult>(cancellationToken)
+                ?? new IngredientConsumptionResult(false, "Không thể kiểm tra kho nguyên liệu.", Array.Empty<IngredientConsumptionIssue>());
         }
 
         response.EnsureSuccessStatusCode();
@@ -187,10 +211,6 @@ public sealed class CatalogApiClient : ICatalogReadModel
     {
         var cached = await _db.CatalogDishSnapshots.AsNoTracking()
             .FirstOrDefaultAsync(x => x.DishId == dishId, cancellationToken);
-        if (IsDishSnapshotFresh(cached?.RefreshedAtUtc))
-        {
-            return Map(cached!);
-        }
 
         try
         {
@@ -213,10 +233,6 @@ public sealed class CatalogApiClient : ICatalogReadModel
         var cached = await _db.CatalogDishSnapshots.AsNoTracking()
             .Where(x => ids.Contains(x.DishId))
             .ToListAsync(cancellationToken);
-        if (cached.Count == ids.Length && cached.All(x => IsDishSnapshotFresh(x.RefreshedAtUtc)))
-        {
-            return cached.Select(Map).ToArray();
-        }
 
         try
         {

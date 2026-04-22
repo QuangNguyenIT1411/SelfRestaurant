@@ -1099,6 +1099,39 @@ button:disabled { opacity: 0.65; cursor: not-allowed; }
   left: 0.5rem;
   font-weight: 700;
 }
+.badge-unavailable {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  background: rgba(108, 117, 125, 0.95);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.badge-unavailable-inline {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  background: #f8d7da;
+  color: #842029;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.dish-card-unavailable {
+  opacity: 0.92;
+}
+.dish-card-unavailable .dish-image {
+  filter: grayscale(0.2);
+}
+.dish-unavailable-text {
+  margin-bottom: 0.5rem;
+  color: #842029;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
 .dish-suggestion-reason {
   display: block;
   margin-bottom: .5rem;
@@ -1163,6 +1196,17 @@ button:disabled { opacity: 0.65; cursor: not-allowed; }
   border-radius: 0.5rem;
   font-weight: 600;
   transition: all 0.3s;
+}
+.btn-add:disabled {
+  background: #adb5bd;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.quantity-control.disabled {
+  opacity: 0.65;
+}
+.quantity-control button:disabled {
+  cursor: not-allowed;
 }
 .btn-add:hover { background: var(--primary-hover); box-shadow: 0 4px 8px rgba(13, 110, 253, 0.3); }
 .cart-sidebar {

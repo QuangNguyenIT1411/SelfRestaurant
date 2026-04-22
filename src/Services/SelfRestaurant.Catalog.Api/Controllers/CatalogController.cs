@@ -150,8 +150,22 @@ public sealed class CatalogController : ControllerBase
                 .ToListAsync(cancellationToken);
 
             var orderableDishIds = await FilterOrderableDishIdsAsync(rawDishes.Select(x => x.dishId), cancellationToken);
+            // Keep dishes visible in the menu even when they are temporarily not orderable,
+            // so the MVC-like customer flow can show "Tạm hết" instead of silently hiding them.
             var dishes = rawDishes
-                .Where(x => orderableDishIds.Contains(x.dishId))
+                .Select(x => new
+                {
+                    x.dishId,
+                    x.name,
+                    x.description,
+                    x.price,
+                    x.image,
+                    x.unit,
+                    x.isVegetarian,
+                    x.isDailySpecial,
+                    available = x.available && orderableDishIds.Contains(x.dishId),
+                    x.ingredients,
+                })
                 .ToList();
 
             if (dishes.Count == 0)
@@ -290,10 +304,6 @@ public sealed class CatalogController : ControllerBase
     public async Task<ActionResult<object>> GetInternalDish(int dishId, CancellationToken cancellationToken)
     {
         var orderableDishIds = await FilterOrderableDishIdsAsync(new[] { dishId }, cancellationToken);
-        if (!orderableDishIds.Contains(dishId))
-        {
-            return NotFound();
-        }
 
         var dish = await _db.Dishes
             .AsNoTracking()
@@ -309,7 +319,7 @@ public sealed class CatalogController : ControllerBase
                 unit = x.Unit,
                 image = x.Image,
                 isActive = x.IsActive ?? true,
-                available = x.Available ?? true,
+                available = (x.Available ?? true) && orderableDishIds.Contains(x.DishID),
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -326,15 +336,10 @@ public sealed class CatalogController : ControllerBase
         }
 
         var orderableDishIds = await FilterOrderableDishIdsAsync(dishIds, cancellationToken);
-        if (orderableDishIds.Count == 0)
-        {
-            return Ok(Array.Empty<object>());
-        }
-
         var dishes = await _db.Dishes
             .AsNoTracking()
             .Include(x => x.Category)
-            .Where(x => orderableDishIds.Contains(x.DishID) && (x.IsActive ?? true))
+            .Where(x => dishIds.Contains(x.DishID) && (x.IsActive ?? true))
             .Select(x => new
             {
                 dishId = x.DishID,
@@ -345,7 +350,7 @@ public sealed class CatalogController : ControllerBase
                 unit = x.Unit,
                 image = x.Image,
                 isActive = x.IsActive ?? true,
-                available = x.Available ?? true,
+                available = (x.Available ?? true) && orderableDishIds.Contains(x.DishID),
             })
             .ToListAsync(cancellationToken);
 
@@ -547,6 +552,79 @@ public sealed class CatalogController : ControllerBase
             Array.Empty<IngredientConsumptionIssue>()));
     }
 
+    [HttpPost("api/internal/inventory/validate")]
+    public async Task<ActionResult<IngredientConsumptionResponse>> ValidateInventoryForOrder(
+        [FromBody] IngredientConsumptionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var items = (request.Items ?? Array.Empty<IngredientConsumptionItem>())
+            .Where(x => x.DishId > 0 && x.Quantity > 0)
+            .GroupBy(x => x.DishId)
+            .Select(g => new { DishId = g.Key, Quantity = g.Sum(x => x.Quantity) })
+            .ToList();
+
+        if (items.Count == 0)
+        {
+            return BadRequest(new IngredientConsumptionResponse(
+                false,
+                "Đơn hàng không có món hợp lệ để kiểm tra kho.",
+                Array.Empty<IngredientConsumptionIssue>()));
+        }
+
+        var dishIds = items.Select(x => x.DishId).Distinct().ToArray();
+        var recipes = await _db.DishIngredients
+            .Include(x => x.Ingredient)
+            .Where(x => dishIds.Contains(x.DishID) && x.Ingredient.IsActive)
+            .ToListAsync(cancellationToken);
+
+        if (recipes.Count == 0)
+        {
+            return Ok(new IngredientConsumptionResponse(
+                true,
+                "Không có công thức nguyên liệu cần kiểm tra cho đơn hàng này.",
+                Array.Empty<IngredientConsumptionIssue>()));
+        }
+
+        var itemLookup = items.ToDictionary(x => x.DishId, x => x.Quantity);
+        var requirements = recipes
+            .GroupBy(x => x.IngredientID)
+            .Select(g =>
+            {
+                var first = g.First();
+                var requiredQuantity = g.Sum(recipe => recipe.QuantityPerDish * itemLookup.GetValueOrDefault(recipe.DishID, 0));
+                return new
+                {
+                    Ingredient = first.Ingredient,
+                    RequiredQuantity = requiredQuantity
+                };
+            })
+            .Where(x => x.RequiredQuantity > 0)
+            .ToList();
+
+        var insufficient = requirements
+            .Where(x => x.Ingredient.CurrentStock < x.RequiredQuantity)
+            .Select(x => new IngredientConsumptionIssue(
+                x.Ingredient.IngredientID,
+                x.Ingredient.Name,
+                x.RequiredQuantity,
+                x.Ingredient.CurrentStock,
+                x.Ingredient.Unit))
+            .ToList();
+
+        if (insufficient.Count > 0)
+        {
+            return Conflict(new IngredientConsumptionResponse(
+                false,
+                "Không đủ nguyên liệu để tiếp tục gửi món này xuống bếp.",
+                insufficient));
+        }
+
+        return Ok(new IngredientConsumptionResponse(
+            true,
+            "Đủ nguyên liệu để tiếp tục gửi món.",
+            Array.Empty<IngredientConsumptionIssue>()));
+    }
+
     [HttpGet("api/categories")]
     public async Task<ActionResult<IReadOnlyList<object>>> GetCategories([FromQuery] bool includeInactive = false, CancellationToken cancellationToken = default)
     {
@@ -659,52 +737,20 @@ public sealed class CatalogController : ControllerBase
             return new HashSet<int>();
         }
 
-        try
-        {
-            var connection = _db.Database.GetDbConnection();
-            if (connection.State != System.Data.ConnectionState.Open)
-            {
-                await connection.OpenAsync(cancellationToken);
-            }
+        // Availability has to come from the Catalog service's current owned data.
+        // The older hard-coded shared-database query could drift from local runtime
+        // state and falsely advertise sold-out dishes as orderable.
+        var orderableDishIds = await _db.Dishes
+            .AsNoTracking()
+            .Where(x => dishIds.Contains(x.DishID)
+                && (x.IsActive ?? true)
+                && (x.Available ?? true)
+                && !x.DishIngredients.Any(di =>
+                    !di.Ingredient.IsActive
+                    || di.Ingredient.CurrentStock < di.QuantityPerDish))
+            .Select(x => x.DishID)
+            .ToListAsync(cancellationToken);
 
-            await using var command = connection.CreateCommand();
-            command.CommandText = BuildOrderableDishQuery(dishIds.Length);
-
-            for (var i = 0; i < dishIds.Length; i++)
-            {
-                var parameter = command.CreateParameter();
-                parameter.ParameterName = $"@p{i}";
-                parameter.Value = dishIds[i];
-                command.Parameters.Add(parameter);
-            }
-
-            var result = new HashSet<int>();
-            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-            while (await reader.ReadAsync(cancellationToken))
-            {
-                result.Add(reader.GetInt32(0));
-            }
-
-            return result;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to validate orderable dishes against the shared restaurant source. Falling back to local catalog ids.");
-            return dishIds.ToHashSet();
-        }
-    }
-
-    private static string BuildOrderableDishQuery(int count)
-    {
-        var parameterNames = Enumerable.Range(0, count)
-            .Select(i => $"@p{i}");
-
-        return $"""
-                SELECT d.DishID
-                FROM [RESTAURANT].[dbo].[Dishes] AS d
-                WHERE d.DishID IN ({string.Join(", ", parameterNames)})
-                  AND ISNULL(d.IsActive, 1) = 1
-                  AND ISNULL(d.Available, 1) = 1
-                """;
+        return orderableDishIds.ToHashSet();
     }
 }

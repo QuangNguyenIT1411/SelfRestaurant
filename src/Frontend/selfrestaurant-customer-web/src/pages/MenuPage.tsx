@@ -6,6 +6,7 @@ import {
   addDishToGuestCart,
   clearGuestMenuCart,
   clearPendingSubmitIntent,
+  getOrCreatePendingSubmitKey,
   getGuestCartSubtotal,
   getGuestMenuCart,
   readPendingSubmitIntent,
@@ -90,7 +91,7 @@ const t = {
   confirmReceived: "T\u00f4i \u0111\u00e3 nh\u1eadn m\u00f3n",
   later: "\u0110\u1ec3 sau",
   available: "\u0110ang b\u00e1n",
-  unavailable: "T\u1ea1m ng\u01b0ng",
+  unavailable: "T\u1ea1m h\u1ebft",
   price: "Gi\u00e1 b\u00e1n",
   unit: "\u0110\u01a1n v\u1ecb",
   desc: "M\u00f4 t\u1ea3 m\u00f3n",
@@ -99,6 +100,8 @@ const t = {
   ingredientsFallback: "Ch\u01b0a khai b\u00e1o th\u00e0nh ph\u1ea7n cho m\u00f3n n\u00e0y.",
   quickAdd: "Th\u00eam v\u00e0o gi\u1ecf",
   noDish: "Kh\u00f4ng c\u00f3 m\u00f3n \u0103n n\u00e0o",
+  unavailableHint: "M\u00f3n \u0111ang t\u1ea1m h\u1ebft ho\u1eb7c ng\u1eebng b\u00e1n",
+  unavailableCartHint: "Gi\u1ecf h\u00e0ng c\u00f3 m\u00f3n \u0111ang t\u1ea1m h\u1ebft. Vui l\u00f2ng x\u00f3a ho\u1eb7c gi\u1ea3m m\u00f3n \u0111\u00f3 tr\u01b0\u1edbc khi g\u1eedi b\u1ebfp.",
 } as const;
 
 const vnd = (n: number) => `${n.toLocaleString("vi-VN")} \u0111`;
@@ -163,14 +166,19 @@ function normalizeDishText(value: string | null | undefined) {
 
 function group(item: ActiveOrderItemDto, orderStatus: string) {
   const status = (item.status ?? orderStatus ?? "").toUpperCase();
+  if (status === "CANCELLED") return "cancelled";
   if (status === "READY") return "ready";
-  if (status === "SERVING") return "ready";
+  // Customer confirm-received moves READY items to SERVING in Orders.Api.
+  // Treating SERVING as "ready" causes the acknowledged ready modal to
+  // reappear after a reload even though the notification was already resolved.
+  if (status === "SERVING") return "received";
   if (["SERVED", "COMPLETED"].includes(status)) return "received";
   if (["CONFIRMED", "PREPARING"].includes(status)) return "kitchen";
   return "pending";
 }
 
-function badge(kind: "pending" | "kitchen" | "ready" | "received") {
+function badge(kind: "pending" | "kitchen" | "ready" | "received" | "cancelled") {
+  if (kind === "cancelled") return <span className="badge bg-danger"><i className="bi bi-x-circle me-1" />Đã hủy</span>;
   if (kind === "ready") return <span className="badge bg-success"><i className="bi bi-check-circle me-1" />{t.done}</span>;
   if (kind === "received") return <span className="badge bg-secondary"><i className="bi bi-bag-check me-1" />{t.receivedDone}</span>;
   if (kind === "kitchen") return <span className="badge bg-primary"><i className="bi bi-fire me-1" />{t.prep}</span>;
@@ -199,6 +207,7 @@ export function MenuPage() {
     queryKey: ["menu"],
     queryFn: api.getMenu,
     staleTime: 60000,
+    refetchInterval: 10000,
     refetchOnWindowFocus: false,
   });
   const session = useQuery({
@@ -249,6 +258,9 @@ export function MenuPage() {
       await queryClient.invalidateQueries({ queryKey: ["order"] });
       await queryClient.invalidateQueries({ queryKey: ["orderItems"] });
     },
+    onError: (error) => {
+      setToast({ type: "info", message: (error as Error).message });
+    },
   });
   const removeItem = useMutation({
     mutationFn: api.removeItem,
@@ -275,6 +287,9 @@ export function MenuPage() {
     mutationFn: api.submitMenuOrder,
     onSuccess: async () => {
       await queryClient.invalidateQueries();
+    },
+    onError: (error) => {
+      setToast({ type: "info", message: (error as Error).message });
     },
   });
   const clearTable = useMutation({
@@ -349,6 +364,7 @@ export function MenuPage() {
   const items = hasGuestCart
     ? guestCartItems.map((item) => ({
       ...item,
+      orderId: 0,
       status: "PENDING",
     } as ActiveOrderItemDto))
     : (orderItems.data?.items ?? []);
@@ -357,13 +373,15 @@ export function MenuPage() {
   const currentLoyaltyPoints = menuPayload?.customer?.loyaltyPoints ?? session.data?.customer?.loyaltyPoints ?? 0;
   const orderStatus = hasGuestCart ? "PENDING" : (order.data?.statusCode || order.data?.orderStatus || "").toUpperCase();
   const currentOrderId = hasGuestCart ? null : (order.data?.orderId ?? null);
+  const activeOrderIds = hasGuestCart ? [] : (order.data?.activeOrderIds ?? (currentOrderId ? [currentOrderId] : []));
+  const hasPendingRound = hasGuestCart || Boolean(order.data?.hasPendingRound);
   const customerName = session.data?.customer?.name ?? "";
-  const activeReadyNotification = currentOrderId
-    ? (readyNotifications.data?.items ?? []).find((item) => item.orderId === currentOrderId) ?? null
+  const activeReadyNotification = activeOrderIds.length > 0
+    ? (readyNotifications.data?.items ?? []).find((item) => item.orderId != null && activeOrderIds.includes(item.orderId)) ?? null
     : (readyNotifications.data?.items ?? [])[0] ?? null;
   const visibleCategories = useMemo(
     () => categoryList.filter((category) => (
-      category.dishes.some((dish) => dish.available && (!vegOnly || dish.isVegetarian))
+      category.dishes.some((dish) => (!vegOnly || dish.isVegetarian))
     )),
     [categoryList, vegOnly],
   );
@@ -385,20 +403,22 @@ export function MenuPage() {
   const kitchen = items.filter((item) => group(item, orderStatus) === "kitchen");
   const ready = items.filter((item) => group(item, orderStatus) === "ready");
   const received = items.filter((item) => group(item, orderStatus) === "received");
+  const cancelled = items.filter((item) => group(item, orderStatus) === "cancelled");
   const hasReadyItems = ready.length > 0;
   const hasReceivedItems = received.length > 0;
-  const isReadyLikeStatus = orderStatus === "READY" || orderStatus === "SERVING";
-  const checkoutItems = [...kitchen, ...ready, ...received];
-  const totalCartCount = items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalDishCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const currentReadyOrderId = activeReadyNotification?.orderId ?? (ready[0]?.orderId ?? null);
+  const isReadyLikeStatus = ready.length > 0 || Boolean(activeReadyNotification);
+  const checkoutItems = [...kitchen, ...ready, ...received, ...cancelled];
+  const totalCartCount = items.filter((item) => group(item, orderStatus) !== "cancelled").reduce((sum, item) => sum + item.quantity, 0);
+  const totalDishCount = items.filter((item) => group(item, orderStatus) !== "cancelled").reduce((sum, item) => sum + item.quantity, 0);
 
   useEffect(() => {
-    if (!currentOrderId || !isReadyLikeStatus || !hasReadyItems) {
+    if (!currentReadyOrderId || !isReadyLikeStatus || !hasReadyItems) {
       return;
     }
 
-    if (lastReadySignalOrderId !== currentOrderId) {
-      setLastReadySignalOrderId(currentOrderId);
+    if (lastReadySignalOrderId !== currentReadyOrderId) {
+      setLastReadySignalOrderId(currentReadyOrderId);
       setShowReadyNotification(true);
       setToast({
         type: "success",
@@ -406,20 +426,39 @@ export function MenuPage() {
       });
     }
 
-    if (!dismissedReadyOrderIds.includes(currentOrderId)) {
+    if (!dismissedReadyOrderIds.includes(currentReadyOrderId)) {
       setShowReadyModal(true);
     }
-  }, [currentOrderId, dismissedReadyOrderIds, hasReadyItems, isReadyLikeStatus, lastReadySignalOrderId]);
+  }, [currentReadyOrderId, dismissedReadyOrderIds, hasReadyItems, isReadyLikeStatus, lastReadySignalOrderId]);
 
   useEffect(() => {
-    if (!currentOrderId) {
+    if (!currentReadyOrderId) {
       setShowReadyModal(false);
       setShowReadyNotification(false);
       return;
     }
 
-    setDismissedReadyOrderIds((current) => current.filter((orderId) => orderId === currentOrderId));
-  }, [currentOrderId]);
+    setDismissedReadyOrderIds((current) => current.filter((orderId) => orderId === currentReadyOrderId));
+  }, [currentReadyOrderId]);
+
+  useEffect(() => {
+    if (!selectedDish) {
+      return;
+    }
+
+    const latestDish = categoryList
+      .flatMap((category) => category.dishes)
+      .find((dish) => dish.dishId === selectedDish.dishId);
+
+    if (!latestDish) {
+      setSelectedDish(null);
+      return;
+    }
+
+    if (latestDish !== selectedDish) {
+      setSelectedDish(latestDish);
+    }
+  }, [categoryList, selectedDish]);
 
   if (menu.isLoading || order.isLoading || orderItems.isLoading || session.isLoading) {
     return (
@@ -470,30 +509,46 @@ export function MenuPage() {
     .map((category) => ({
       ...category,
       dishes: category.dishes.filter((dish) => (
-        dish.available
-        && (!vegOnly || dish.isVegetarian)
+        (!vegOnly || dish.isVegetarian)
         && (!search.trim() || dish.name.toLowerCase().includes(search.trim().toLowerCase()))
       )),
     }))
     .filter((category) => category.dishes.length > 0)
     .filter((category) => (activeCategoryId ? category.categoryId === activeCategoryId : true));
 
+  const allMenuDishes = safeData.menu.categories
+    .flatMap((category) => category.dishes.map((dish) => ({ ...dish, categoryId: category.categoryId })));
+  const menuDishLookup = new Map(allMenuDishes.map((dish) => [dish.dishId, dish]));
   const allAvailableDishes = safeData.menu.categories
     .flatMap((category) => category.dishes.map((dish) => ({ ...dish, categoryId: category.categoryId })))
     .filter((dish) => dish.available);
 
   const topDishIds = safeData.topDishIds.slice(0, 5);
   const recommendationLookup = new Map(
-    (recommendations.data?.recommendations ?? []).map((item) => [item.dishId, item.reason]),
+    (recommendations.data?.recommendations ?? []).map((item) => [item.dishId, item]),
   );
   const recommendedDishes = (recommendations.data?.recommendations?.length
     ? recommendations.data.recommendations.map((item) => ({
-      dish: allAvailableDishes.find((dish) => dish.dishId === item.dishId),
+      dish: {
+        ...(allAvailableDishes.find((dish) => dish.dishId === item.dishId) ?? {
+          dishId: item.dishId,
+          name: item.name,
+          description: item.description,
+          price: item.price,
+          image: item.image,
+          unit: item.unit,
+          isVegetarian: item.isVegetarian,
+          isDailySpecial: item.isDailySpecial,
+          available: item.available,
+          ingredients: item.ingredients ?? [],
+        }),
+        categoryId: allAvailableDishes.find((dish) => dish.dishId === item.dishId)?.categoryId ?? item.categoryId,
+      },
       reason: item.reason,
     }))
     : topDishIds.map((dishId) => ({
       dish: allAvailableDishes.find((dish) => dish.dishId === dishId),
-      reason: recommendationLookup.get(dishId) ?? "Được nhiều khách gọi hôm nay",
+      reason: recommendationLookup.get(dishId)?.reason ?? "Được nhiều khách gọi hôm nay",
     })))
     .filter((item): item is { dish: MenuDishDto & { categoryId: number }; reason: string } => Boolean(item.dish))
     .filter((item) => !vegOnly || item.dish.isVegetarian)
@@ -503,6 +558,15 @@ export function MenuPage() {
     .filter((dish): dish is (MenuDishDto & { categoryId: number }) => Boolean(dish))
     .filter((dish) => !vegOnly || dish.isVegetarian)
     .map((dish) => dish.dishId);
+  const unavailablePendingItems = pending.filter((item) => {
+    const latestDish = menuDishLookup.get(item.dishId);
+    return !latestDish || !latestDish.available;
+  });
+  const hasUnavailablePendingItems = unavailablePendingItems.length > 0;
+  const unavailablePendingNames = unavailablePendingItems
+    .map((item) => item.dishName)
+    .filter((name, index, array) => array.indexOf(name) === index)
+    .slice(0, 4);
 
   function getDishQuantity(dishId: number) {
     return dishQuantities[dishId] ?? 1;
@@ -518,12 +582,20 @@ export function MenuPage() {
 
   function addDishToCart(dishId: number) {
     const quantity = getDishQuantity(dishId);
-    const dish = allAvailableDishes.find((item) => item.dishId === dishId);
+    const dish = menuDishLookup.get(dishId);
     if (!dish || !activeTableContext) {
       return;
     }
+    if (!dish.available) {
+      setToast({ type: "info", message: `Món "${normalizeDishText(dish.name)}" hiện đang tạm hết.` });
+      return;
+    }
 
-    if (hasGuestCart || !isAuthenticated) {
+    // Once a dining session is already serving, new dishes should stay local
+    // until the customer explicitly sends the next round to kitchen.
+    const shouldUseGuestRoundCart = hasGuestCart || !isAuthenticated || (Boolean(order.data?.hasActiveDiningSession) && !hasPendingRound);
+
+    if (shouldUseGuestRoundCart) {
       const nextItems = addDishToGuestCart(activeTableContext, dish, quantity);
       setGuestCartItems(nextItems);
       setDishQuantities((current) => ({ ...current, [dishId]: 1 }));
@@ -546,7 +618,7 @@ export function MenuPage() {
       return;
     }
 
-    addItem.mutate({ dishId, quantity }, {
+    addItem.mutate({ dishId, quantity, expectedDiningSessionCode: order.data?.diningSessionCode ?? null }, {
       onSuccess: async () => {
         setDishQuantities((current) => ({ ...current, [dishId]: 1 }));
         await queryClient.invalidateQueries({ queryKey: ["order"] });
@@ -579,7 +651,9 @@ export function MenuPage() {
               <div className="flex-grow-1">
                 <div className="fw-bold">Món ăn sẵn sàng!</div>
                 <div className="small text-muted">
-                  Bếp đã chuẩn bị xong món ăn cho bàn {safeData.tableContext.tableNumber ?? safeData.tableContext.tableId}.
+                  {activeReadyNotification?.dishName
+                    ? `${activeReadyNotification.dishName} đã sẵn sàng cho bàn ${safeData.tableContext.tableNumber ?? safeData.tableContext.tableId}.`
+                    : `Bếp đã chuẩn bị xong món ăn cho bàn ${safeData.tableContext.tableNumber ?? safeData.tableContext.tableId}.`}
                 </div>
               </div>
               <button type="button" className="btn btn-sm btn-link text-muted p-0" onClick={() => setShowReadyNotification(false)}>
@@ -596,6 +670,12 @@ export function MenuPage() {
             <div className="col-6">
               <h1 className="mb-0 h3">Self Restaurant</h1>
               <small className="opacity-75 d-block mb-1">{t.branch} {safeData.menu.branchName}</small>
+              {order.data?.hasActiveDiningSession ? (
+                <span className="soft-badge warning mb-2">
+                  <i className="bi bi-cup-hot me-1" />
+                  Phiên bàn đang hoạt động
+                </span>
+              ) : null}
               <Link to="/Home/Index" className="btn btn-outline-light btn-sm">
                 <i className="bi bi-house-door me-1" />
                 {t.home}
@@ -624,7 +704,7 @@ export function MenuPage() {
                 <div className="row g-3" id="topDishesSection">
                   {recommendedDishes.length > 0 ? recommendedDishes.map(({ dish, reason }) => (
                     <div key={`top-${dish.dishId}`} className="col-md-6">
-                      <article className="card dish-card">
+                      <article className={`card dish-card ${dish.available ? "" : "dish-card-unavailable"}`}>
                         <div className="position-relative">
                           <img className="dish-image" src={resolveDishImage(dish.image, dish.name)} alt={normalizeDishText(dish.name)} onError={handleDishImageError} />
                           {dish.isVegetarian ? <span className="badge-vegetarian"><i className="bi bi-leaf" /> {t.vegBadge}</span> : null}
@@ -639,11 +719,15 @@ export function MenuPage() {
                               <div className="price">{vnd(dish.price)}</div>
                               <small className="text-muted">{normalizeDishText(dish.unit) || "Phần"}</small>
                             </div>
-                            <button type="button" className="btn-add" onClick={() => addDishToCart(dish.dishId)}>
+                            <button type="button" className="btn-add" disabled={!dish.available} onClick={() => addDishToCart(dish.dishId)}>
                               <i className="bi bi-plus-lg me-1" />
-                              {t.add}
+                              {dish.available ? t.add : t.unavailable}
                             </button>
                           </div>
+                          <button type="button" className="btn btn-link p-0 mt-2 small dish-detail-link" onClick={() => setSelectedDish(dish)}>
+                            <i className="bi bi-info-circle me-1" />
+                            {t.detail}
+                          </button>
                         </div>
                       </article>
                     </div>
@@ -693,15 +777,17 @@ export function MenuPage() {
             <div className="row g-3" id="dishesGrid">
               {categories.flatMap((category) => category.dishes.map((dish) => (
                 <div key={dish.dishId} className="col-md-6">
-                  <article className="card dish-card">
+                  <article className={`card dish-card ${dish.available ? "" : "dish-card-unavailable"}`}>
                     <div className="position-relative">
                       <img className="dish-image" src={resolveDishImage(dish.image, dish.name)} alt={normalizeDishText(dish.name)} onError={handleDishImageError} />
                       {dish.isDailySpecial ? <span className="badge-special">{t.today}</span> : null}
                       {dish.isVegetarian ? <span className="badge-vegetarian"><i className="bi bi-leaf" /> {t.vegBadge}</span> : null}
                       {topSellerDishIds.includes(dish.dishId) ? <span className="badge-top-seller">{t.topBadge}</span> : null}
+                      {!dish.available ? <span className="badge-unavailable">{t.unavailable}</span> : null}
                     </div>
                     <div className="card-body d-flex flex-column">
                       <h5 className="card-title">{normalizeDishText(dish.name)}</h5>
+                      {!dish.available ? <div className="dish-unavailable-text">{t.unavailableHint}</div> : null}
                       <p className="card-text text-muted small flex-grow-1">{normalizeDishText(dish.description) || t.cardDescFallback}</p>
                       <div className="d-flex justify-content-between align-items-center mt-2">
                         <div>
@@ -709,18 +795,18 @@ export function MenuPage() {
                           <small className="text-muted">{normalizeDishText(dish.unit) || "Phần"}</small>
                         </div>
                         <div className="d-flex align-items-center gap-2">
-                          <div className="quantity-control">
-                            <button type="button" onClick={() => decreaseDishQuantity(dish.dishId)}>
+                          <div className={`quantity-control ${dish.available ? "" : "disabled"}`}>
+                            <button type="button" disabled={!dish.available} onClick={() => decreaseDishQuantity(dish.dishId)}>
                               <i className="bi bi-dash" />
                             </button>
                             <span className="px-3 fw-bold quantity-display">{getDishQuantity(dish.dishId)}</span>
-                            <button type="button" onClick={() => increaseDishQuantity(dish.dishId)}>
+                            <button type="button" disabled={!dish.available} onClick={() => increaseDishQuantity(dish.dishId)}>
                               <i className="bi bi-plus" />
                             </button>
                           </div>
-                          <button type="button" className="btn-add" onClick={() => addDishToCart(dish.dishId)}>
+                          <button type="button" className="btn-add" disabled={!dish.available} onClick={() => addDishToCart(dish.dishId)}>
                             <i className="bi bi-plus-lg me-1" />
-                            {t.add}
+                            {dish.available ? t.add : t.unavailable}
                           </button>
                         </div>
                       </div>
@@ -768,7 +854,10 @@ export function MenuPage() {
                             <div className="flex-grow-1">
                               <div className="fw-bold">{item.dishName}</div>
                               <small className="text-muted">{line(item.unitPrice, item.quantity)}</small>
-                              <div className="mt-1">{badge("pending")}</div>
+                              <div className="mt-1 d-flex flex-wrap gap-2 align-items-center">
+                                {badge("pending")}
+                                {(!menuDishLookup.get(item.dishId)?.available) ? <span className="badge-unavailable-inline">{t.unavailable}</span> : null}
+                              </div>
                             </div>
                             <button
                               type="button"
@@ -800,7 +889,7 @@ export function MenuPage() {
                             }}
                           />
                           <div className="d-flex justify-content-between align-items-center">
-                            <div className="quantity-control">
+                            <div className={`quantity-control ${menuDishLookup.get(item.dishId)?.available === false ? "disabled" : ""}`}>
                               <button
                                 type="button"
                                 onClick={() => {
@@ -816,6 +905,7 @@ export function MenuPage() {
                               <span className="px-2 fw-bold">{item.quantity}</span>
                               <button
                                 type="button"
+                                disabled={menuDishLookup.get(item.dishId)?.available === false}
                                 onClick={() => {
                                   const nextQuantity = item.quantity + 1;
                                   if (hasGuestCart && activeTableContext) {
@@ -895,6 +985,13 @@ export function MenuPage() {
                       <span className="h5 fw-bold">{t.total}</span>
                       <span id="totalAmount" className="h4 fw-bold" style={{ color: "var(--primary-color)" }}>{vnd(subtotal)}</span>
                     </div>
+                    {hasUnavailablePendingItems ? (
+                      <div className="alert alert-warning small py-2 mb-3">
+                        <i className="bi bi-exclamation-triangle me-2" />
+                        {t.unavailableCartHint}
+                        {unavailablePendingNames.length > 0 ? ` (${unavailablePendingNames.join(", ")})` : ""}
+                      </div>
+                    ) : null}
                     {customerName ? (
                       <div id="loyaltyInfo" className="bg-warning bg-opacity-10 border border-warning rounded p-3 mb-3">
                         <div className="d-flex align-items-center small">
@@ -911,7 +1008,7 @@ export function MenuPage() {
                         type="button"
                         id="btnSendKitchen"
                         className="btn btn-success w-100 py-3"
-                        disabled={submitOrder.isPending || pending.length === 0 || orderStatus !== "PENDING"}
+                        disabled={submitOrder.isPending || pending.length === 0 || orderStatus !== "PENDING" || hasUnavailablePendingItems}
                         onClick={() => {
                           if (!activeTableContext) {
                             return;
@@ -987,6 +1084,12 @@ export function MenuPage() {
                     </div>
                   ))}
                 </div>
+                {hasUnavailablePendingItems ? (
+                  <div className="alert alert-warning">
+                    <i className="bi bi-exclamation-triangle me-2" />
+                    {t.unavailableCartHint}
+                  </div>
+                ) : null}
                 <div className="alert alert-info mb-0">
                   <i className="bi bi-info-circle me-2" />
                   <small>{t.sendConfirmHint}</small>
@@ -997,10 +1100,12 @@ export function MenuPage() {
                 <button
                   type="button"
                   className="btn btn-success"
-                  disabled={submitOrder.isPending || pending.length === 0}
+                  disabled={submitOrder.isPending || pending.length === 0 || hasUnavailablePendingItems}
                   onClick={() => submitOrder.mutate({
                     tableId: safeData.tableContext.tableId,
                     branchId: safeData.tableContext.branchId,
+                    idempotencyKey: getOrCreatePendingSubmitKey(safeData.tableContext),
+                    expectedDiningSessionCode: order.data?.diningSessionCode ?? null,
                     items: pending.map((item) => ({
                       dishId: item.dishId,
                       quantity: item.quantity,
@@ -1010,9 +1115,9 @@ export function MenuPage() {
                     onSuccess: async () => {
                       if (hasGuestCart) {
                         clearGuestMenuCart(safeData.tableContext);
-                        clearPendingSubmitIntent();
                         setGuestCartItems([]);
                       }
+                      clearPendingSubmitIntent();
                       setShowSendConfirm(false);
                       await queryClient.invalidateQueries();
                     },
@@ -1164,6 +1269,12 @@ export function MenuPage() {
                     onError={handleDishImageError}
                   />
                 </div>
+                {!selectedDish.available ? (
+                  <div className="alert alert-warning small">
+                    <i className="bi bi-exclamation-triangle me-2" />
+                    {t.unavailableHint}
+                  </div>
+                ) : null}
                 <p className="text-muted dish-detail-description">{normalizeDishText(selectedDish.description) || t.descFallback}</p>
                 <hr />
                 <h6 className="fw-bold mb-2">Thành phần</h6>
@@ -1190,13 +1301,17 @@ export function MenuPage() {
                       return;
                     }
 
-                    if (hasGuestCart || !isAuthenticated) {
+                    if (hasGuestCart || !isAuthenticated || (Boolean(order.data?.hasActiveDiningSession) && !hasPendingRound)) {
                       setGuestCartItems(addDishToGuestCart(activeTableContext, selectedDish, 1));
                       setSelectedDish(null);
                       return;
                     }
 
-                    addItem.mutate({ dishId: selectedDish.dishId, quantity: 1 });
+                    addItem.mutate({
+                      dishId: selectedDish.dishId,
+                      quantity: 1,
+                      expectedDiningSessionCode: order.data?.diningSessionCode ?? null,
+                    });
                     setSelectedDish(null);
                   }}
                 >
@@ -1209,9 +1324,9 @@ export function MenuPage() {
         </div>
       ) : null}
 
-      {showReadyModal && currentOrderId && isReadyLikeStatus && hasReadyItems ? (
+      {showReadyModal && currentReadyOrderId && isReadyLikeStatus && hasReadyItems ? (
         <div className="modal fade show d-block menu-static-modal" tabIndex={-1} aria-modal="true" role="dialog" onClick={() => {
-          setDismissedReadyOrderIds((current) => (current.includes(currentOrderId) ? current : [...current, currentOrderId]));
+          setDismissedReadyOrderIds((current) => (current.includes(currentReadyOrderId) ? current : [...current, currentReadyOrderId]));
           setShowReadyModal(false);
         }}>
           <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
@@ -1223,7 +1338,7 @@ export function MenuPage() {
                   className="btn-close"
                   aria-label={t.close}
                   onClick={() => {
-                    setDismissedReadyOrderIds((current) => (current.includes(currentOrderId) ? current : [...current, currentOrderId]));
+                    setDismissedReadyOrderIds((current) => (current.includes(currentReadyOrderId) ? current : [...current, currentReadyOrderId]));
                     setShowReadyModal(false);
                   }}
                 />
@@ -1243,7 +1358,7 @@ export function MenuPage() {
                   type="button"
                   className="btn btn-outline-secondary"
                   onClick={() => {
-                    setDismissedReadyOrderIds((current) => (current.includes(currentOrderId) ? current : [...current, currentOrderId]));
+                    setDismissedReadyOrderIds((current) => (current.includes(currentReadyOrderId) ? current : [...current, currentReadyOrderId]));
                     setShowReadyModal(false);
                   }}
                 >
@@ -1254,10 +1369,10 @@ export function MenuPage() {
                   className="btn btn-success"
                   disabled={confirmReceived.isPending || resolveNotification.isPending}
                   onClick={() => {
-                    const orderId = currentOrderId;
+                    const orderId = currentReadyOrderId;
                     const notificationId = activeReadyNotification?.notificationId;
                     const alreadyReceived = !hasReadyItems || hasReceivedItems || ["SERVING", "SERVED", "COMPLETED"].includes(orderStatus);
-                    setDismissedReadyOrderIds((current) => (current.includes(currentOrderId) ? current : [...current, currentOrderId]));
+                    setDismissedReadyOrderIds((current) => (current.includes(currentReadyOrderId) ? current : [...current, currentReadyOrderId]));
                     setShowReadyModal(false);
                     void (async () => {
                       try {

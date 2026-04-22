@@ -35,8 +35,9 @@ public sealed class CustomersDbContext : DbContext
         modelBuilder.Entity<ReadyDishNotifications>(entity =>
         {
             entity.HasKey(e => e.ReadyDishNotificationId);
-            entity.HasIndex(e => new { e.OrderId, e.EventName }).HasDatabaseName("IX_ReadyDishNotifications_Order_Event");
+            entity.HasIndex(e => new { e.OrderId, e.OrderItemId, e.EventName }).HasDatabaseName("IX_ReadyDishNotifications_Order_Item_Event");
             entity.Property(e => e.EventName).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.DishName).HasMaxLength(200);
             entity.Property(e => e.Message).HasMaxLength(500);
             entity.Property(e => e.Status).HasMaxLength(30).IsUnicode(false).HasDefaultValue("OPEN");
             entity.Property(e => e.CreatedAtUtc).HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");

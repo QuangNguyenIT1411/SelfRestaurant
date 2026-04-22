@@ -50,6 +50,20 @@ label { display: grid; gap: 0.35rem; font-size: 0.95rem; }
   background: rgba(255,255,255,0.12);
   color: #fff;
 }
+.cashier-hero .cashier-link-button {
+  background: rgba(255,255,255,0.14);
+  border-color: rgba(255,255,255,0.28);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.cashier-hero .cashier-link-button:hover {
+  background: rgba(255,255,255,0.2);
+  border-color: rgba(255,255,255,0.4);
+  color: #fff;
+}
+.cashier-hero .cashier-link-button i {
+  color: rgba(255,255,255,0.92);
+}
 .cashier-hero .soft-badge.success {
   background: rgba(255,255,255,0.16);
   color: #fff;
@@ -402,6 +416,59 @@ label { display: grid; gap: 0.35rem; font-size: 0.95rem; }
 }
 .checkout-quick-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; }
 .checkout-quick-button { padding: .72rem .8rem; }
+.qr-payment-panel {
+  display: grid;
+  grid-template-columns: minmax(190px, 220px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  padding: 1rem;
+  border: 1px solid #dce7f7;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+}
+.qr-payment-preview {
+  display: grid;
+  place-items: center;
+  padding: .9rem;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid #d7e2ea;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+}
+.qr-payment-preview img {
+  display: block;
+  width: min(100%, 190px);
+  height: auto;
+}
+.qr-payment-details {
+  display: grid;
+  gap: .75rem;
+}
+.qr-payment-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  padding: .8rem .95rem;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+}
+.qr-payment-summary span {
+  color: #64748b;
+}
+.qr-payment-summary strong {
+  text-align: right;
+  color: #0f172a;
+}
+.qr-payment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem;
+}
+.qr-payment-note {
+  margin: 0;
+}
 .login-shell { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
 .login-card { width: 100%; max-width: 450px; border: none; border-radius: 16px; box-shadow: 0 8px 25px rgba(0,0,0,.1); background: #fff; padding: 2.5rem; }
 .login-header { text-align: center; margin-bottom: 2rem; }
@@ -454,4 +521,5 @@ label { display: grid; gap: 0.35rem; font-size: 0.95rem; }
   .checkout-field-grid,
   .checkout-quick-grid,
   .payment-method-grid { grid-template-columns: 1fr; }
+  .qr-payment-panel { grid-template-columns: 1fr; }
 }

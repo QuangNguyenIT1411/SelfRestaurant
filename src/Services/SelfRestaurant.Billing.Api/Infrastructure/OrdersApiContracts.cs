@@ -22,11 +22,13 @@ public sealed record CashierOrderItemAggregateResponse(
     decimal UnitPrice,
     decimal LineTotal,
     string? Image,
-    string? Note);
+    string? Note,
+    string StatusCode);
 
 public sealed record CheckoutContextResponse(
     int OrderId,
     string? OrderCode,
+    string? DiningSessionCode,
     int? TableId,
     string? TableName,
     int? BranchId,

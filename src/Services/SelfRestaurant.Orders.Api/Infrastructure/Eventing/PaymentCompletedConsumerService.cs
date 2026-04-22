@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using SelfRestaurant.Orders.Api.Infrastructure.Auditing;
 using SelfRestaurant.Orders.Api.Persistence;
 using SelfRestaurant.Orders.Api.Persistence.Entities;
 
@@ -66,6 +67,7 @@ public sealed class PaymentCompletedConsumerService : BackgroundService
         var billingEvents = scope.ServiceProvider.GetRequiredService<BillingEventsClient>();
         var db = scope.ServiceProvider.GetRequiredService<OrdersDbContext>();
         var catalogApi = scope.ServiceProvider.GetRequiredService<ICatalogReadModel>();
+        var auditLogger = scope.ServiceProvider.GetRequiredService<BusinessAuditLogger>();
 
         var events = await billingEvents.GetPendingPaymentCompletedAsync(take, cancellationToken);
         if (events.Count == 0)
@@ -108,7 +110,7 @@ public sealed class PaymentCompletedConsumerService : BackgroundService
                     throw new InvalidOperationException($"Unable to deserialize payload for outbox event {item.OutboxEventId}.");
                 }
 
-                await ReconcileAsync(db, payload, catalogApi, cancellationToken);
+                await ReconcileAsync(db, payload, catalogApi, auditLogger, item.CorrelationId, cancellationToken);
 
                 var inbox = existingInbox ?? new InboxEvents
                 {
@@ -163,6 +165,8 @@ public sealed class PaymentCompletedConsumerService : BackgroundService
         OrdersDbContext db,
         PaymentCompletedPayload payload,
         ICatalogReadModel catalogApi,
+        BusinessAuditLogger auditLogger,
+        string? correlationId,
         CancellationToken cancellationToken)
     {
         var order = await db.Orders.FirstOrDefaultAsync(x => x.OrderID == payload.OrderId, cancellationToken);
@@ -176,19 +180,58 @@ public sealed class PaymentCompletedConsumerService : BackgroundService
             .Select(x => (int?)x.StatusID)
             .FirstOrDefaultAsync(cancellationToken);
 
+        var sessionOrders = string.IsNullOrWhiteSpace(order.DiningSessionCode)
+            ? [order]
+            : await db.Orders
+                .Where(x =>
+                    x.TableID == order.TableID
+                    && (x.IsActive ?? true)
+                    && x.DiningSessionCode == order.DiningSessionCode)
+                .ToListAsync(cancellationToken);
+
         if (completedId is int statusId)
         {
-            order.StatusID = statusId;
+            foreach (var sessionOrder in sessionOrders)
+            {
+                sessionOrder.StatusID = statusId;
+                sessionOrder.IsActive = false;
+                sessionOrder.CompletedTime ??= DateTime.Now;
+                sessionOrder.CashierID = payload.EmployeeId > 0 ? payload.EmployeeId : sessionOrder.CashierID;
+            }
         }
-
-        order.IsActive = false;
-        order.CompletedTime ??= DateTime.Now;
-        order.CashierID = payload.EmployeeId > 0 ? payload.EmployeeId : order.CashierID;
+        else
+        {
+            foreach (var sessionOrder in sessionOrders)
+            {
+                sessionOrder.IsActive = false;
+                sessionOrder.CompletedTime ??= DateTime.Now;
+                sessionOrder.CashierID = payload.EmployeeId > 0 ? payload.EmployeeId : sessionOrder.CashierID;
+            }
+        }
 
         if (order.TableID is int tableId)
         {
             await catalogApi.ReleaseTableAsync(tableId, cancellationToken);
         }
+
+        auditLogger.Add(
+            actionType: "DINING_SESSION_CLOSED",
+            entityType: "DINING_SESSION",
+            entityId: string.IsNullOrWhiteSpace(order.DiningSessionCode) ? order.OrderID.ToString() : order.DiningSessionCode,
+            tableId: order.TableID,
+            orderId: order.OrderID,
+            diningSessionCode: order.DiningSessionCode,
+            actorOverride: RequestActorContext.System(correlationId),
+            beforeState: new
+            {
+                isActive = true,
+                activeOrderIds = sessionOrders.Select(x => x.OrderID).ToArray()
+            },
+            afterState: new
+            {
+                isActive = false,
+                activeOrderIds = Array.Empty<int>()
+            });
 
         await db.SaveChangesAsync(cancellationToken);
     }

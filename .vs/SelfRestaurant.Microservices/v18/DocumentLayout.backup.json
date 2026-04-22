@@ -3,6 +3,10 @@
   "WorkspaceRootPath": "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{B6FF257D-AB11-4CC9-A46D-749694A13C8F}|src\\Services\\SelfRestaurant.Orders.Api\\SelfRestaurant.Orders.Api.csproj|c:\\users\\quang\\downloads\\sinh_vien\\sinh_vien\\selfrestaurant-main\\src\\services\\selfrestaurant.orders.api\\controllers\\orderscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B6FF257D-AB11-4CC9-A46D-749694A13C8F}|src\\Services\\SelfRestaurant.Orders.Api\\SelfRestaurant.Orders.Api.csproj|solutionrelative:src\\services\\selfrestaurant.orders.api\\controllers\\orderscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{141F4E4C-9C7E-4E0C-AA0C-6D9978B78E7E}|src\\Gateway\\SelfRestaurant.Gateway.Api\\SelfRestaurant.Gateway.Api.csproj|c:\\users\\quang\\downloads\\sinh_vien\\sinh_vien\\selfrestaurant-main\\src\\gateway\\selfrestaurant.gateway.api\\services\\identityclient.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{141F4E4C-9C7E-4E0C-AA0C-6D9978B78E7E}|src\\Gateway\\SelfRestaurant.Gateway.Api\\SelfRestaurant.Gateway.Api.csproj|solutionrelative:src\\gateway\\selfrestaurant.gateway.api\\services\\identityclient.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
@@ -19,6 +23,19 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
+              "Title": "OrdersController.cs",
+              "DocumentMoniker": "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\src\\Services\\SelfRestaurant.Orders.Api\\Controllers\\OrdersController.cs",
+              "RelativeDocumentMoniker": "src\\Services\\SelfRestaurant.Orders.Api\\Controllers\\OrdersController.cs",
+              "ToolTip": "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\src\\Services\\SelfRestaurant.Orders.Api\\Controllers\\OrdersController.cs",
+              "RelativeToolTip": "src\\Services\\SelfRestaurant.Orders.Api\\Controllers\\OrdersController.cs",
+              "ViewState": "AgIAAOIJAAAAAAAAAAAAwKsJAAAbAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-19T17:22:44.113Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
               "Title": "IdentityClient.cs",
               "DocumentMoniker": "C:\\Users\\Quang\\Downloads\\SINH_VIEN\\SINH_VIEN\\SelfRestaurant-main\\src\\Gateway\\SelfRestaurant.Gateway.Api\\Services\\IdentityClient.cs",
               "RelativeDocumentMoniker": "src\\Gateway\\SelfRestaurant.Gateway.Api\\Services\\IdentityClient.cs",
@@ -26,8 +43,7 @@
               "RelativeToolTip": "src\\Gateway\\SelfRestaurant.Gateway.Api\\Services\\IdentityClient.cs",
               "ViewState": "AgIAAI0AAAAAAAAAAAAMwJsAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-17T19:25:16.157Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-17T19:25:16.157Z"
             }
           ]
         }

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SelfRestaurant.Orders.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+641d2bd1263e30bca225c407331e722f3905d26d")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7bb092bbda5e96616a71a05966316082d6e1e8b9")]
 [assembly: System.Reflection.AssemblyProductAttribute("SelfRestaurant.Orders.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SelfRestaurant.Orders.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

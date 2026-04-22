@@ -11,6 +11,7 @@ public sealed class CatalogDbContext : DbContext
     }
 
     public DbSet<Branches> Branches => Set<Branches>();
+    public DbSet<BusinessAuditLogs> BusinessAuditLogs => Set<BusinessAuditLogs>();
     public DbSet<Categories> Categories => Set<Categories>();
     public DbSet<CategoryDish> CategoryDish => Set<CategoryDish>();
     public DbSet<DiningTables> DiningTables => Set<DiningTables>();
@@ -39,6 +40,29 @@ public sealed class CatalogDbContext : DbContext
             entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
             entity.Ignore(e => e.Employees);
             entity.Ignore(e => e.Restaurant);
+        });
+
+        modelBuilder.Entity<BusinessAuditLogs>(entity =>
+        {
+            entity.HasKey(e => e.BusinessAuditLogId);
+            entity.HasIndex(e => e.CreatedAtUtc).HasDatabaseName("IX_BusinessAuditLogs_CreatedAtUtc");
+            entity.HasIndex(e => new { e.EntityType, e.EntityId }).HasDatabaseName("IX_BusinessAuditLogs_Entity");
+            entity.HasIndex(e => e.DishId).HasDatabaseName("IX_BusinessAuditLogs_DishId");
+            entity.HasIndex(e => e.TableId).HasDatabaseName("IX_BusinessAuditLogs_TableId");
+            entity.Property(e => e.CreatedAtUtc).HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");
+            entity.Property(e => e.ActionType).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.EntityType).HasMaxLength(50).IsUnicode(false);
+            entity.Property(e => e.EntityId).HasMaxLength(100);
+            entity.Property(e => e.ActorType).HasMaxLength(30).IsUnicode(false);
+            entity.Property(e => e.ActorCode).HasMaxLength(100);
+            entity.Property(e => e.ActorName).HasMaxLength(200);
+            entity.Property(e => e.ActorRoleCode).HasMaxLength(50).IsUnicode(false);
+            entity.Property(e => e.DiningSessionCode).HasMaxLength(64).IsUnicode(false);
+            entity.Property(e => e.CorrelationId).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.IdempotencyKey).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.Notes).HasMaxLength(500);
+            entity.Property(e => e.BeforeState).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.AfterState).HasColumnType("nvarchar(max)");
         });
 
         modelBuilder.Entity<Categories>(entity =>

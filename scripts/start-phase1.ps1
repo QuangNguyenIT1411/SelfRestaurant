@@ -117,7 +117,10 @@ foreach ($svc in $services) {
     $err = Join-Path $logDir "$($svc.Name).err.log"
 
     $env:ASPNETCORE_URLS = $svc.Url
-    $env:ASPNETCORE_ENVIRONMENT = if ($svc.Name -in @("identity", "gateway")) { "Development" } else { "Production" }
+    # Keep the local phase-1 stack in one environment so developer-only
+    # orchestration endpoints (for example reset-test-state) are consistently
+    # available across gateway and downstream services during QA validation.
+    $env:ASPNETCORE_ENVIRONMENT = "Development"
     $env:Services__Catalog = "http://localhost:5101"
     $env:Services__Orders = "http://localhost:5102"
     $env:Services__Customers = "http://localhost:5103"

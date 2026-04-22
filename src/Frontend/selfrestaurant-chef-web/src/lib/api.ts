@@ -157,13 +157,28 @@ export const chefApi = {
       method: "POST",
       body: JSON.stringify({}),
     }),
+  startItem: (orderId: number, itemId: number) =>
+    request<{ success: boolean; message: string }>(`/api/gateway/staff/chef/orders/${orderId}/items/${itemId}/start`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
   readyOrder: (orderId: number) =>
     request<{ success: boolean; message: string }>(`/api/gateway/staff/chef/orders/${orderId}/ready`, {
       method: "POST",
       body: JSON.stringify({}),
     }),
+  readyItem: (orderId: number, itemId: number) =>
+    request<{ success: boolean; message: string }>(`/api/gateway/staff/chef/orders/${orderId}/items/${itemId}/ready`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
   cancelOrder: (orderId: number, reason: string) =>
     request<{ success: boolean; message: string }>(`/api/gateway/staff/chef/orders/${orderId}/cancel`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
+  cancelItem: (orderId: number, itemId: number, reason: string) =>
+    request<{ success: boolean; message: string }>(`/api/gateway/staff/chef/orders/${orderId}/items/${itemId}/cancel`, {
       method: "POST",
       body: JSON.stringify({ reason }),
     }),

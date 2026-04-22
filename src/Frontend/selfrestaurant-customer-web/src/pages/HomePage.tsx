@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { clearGuestMenuCart } from "../lib/guestCart";
 import { clearPersistentTableContext, savePersistentTableContext } from "../lib/persistentTable";
@@ -26,6 +26,8 @@ const copy = {
   noBranchMatch: "Không tìm thấy chi nhánh phù hợp",
   tryAnotherKeyword: "Vui lòng thử từ khóa khác",
   branchLoadFailed: "Không thể tải danh sách chi nhánh lúc này.",
+  noBranches: "Hiện chưa có chi nhánh hoạt động để phục vụ.",
+  noBranchesHint: "Vui lòng quay lại sau hoặc liên hệ nhà hàng để được hỗ trợ.",
   backToBranches: "Quay lại chọn chi nhánh",
   selectedBranch: "Chi nhánh đã chọn",
   loading: "Đang tải...",
@@ -41,9 +43,11 @@ const copy = {
 
 export function HomePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null);
   const [branchSearch, setBranchSearch] = useState("");
+  const forceNewOrderFlow = searchParams.get("flow") === "new-order";
 
   const { data: session } = useQuery({ queryKey: ["session"], queryFn: api.getSession });
   const branches = useQuery({ queryKey: ["branches"], queryFn: api.getBranches });
@@ -104,15 +108,15 @@ export function HomePage() {
 
   const tableList = tables.data?.tables ?? [];
   const allTablesBusy = tableList.length > 0 && tableList.every((table) => !table.isAvailable);
-  const showPendingTable = Boolean(session?.tableContext);
+  const showPendingTable = Boolean(session?.tableContext) && !forceNewOrderFlow;
   const currentStep = showPendingTable ? 3 : selectedBranchId ? 2 : 1;
 
   useEffect(() => {
-    if (!session?.authenticated || syncSessionFromActiveOrder.isPending) return;
+    if (forceNewOrderFlow || !session?.authenticated || syncSessionFromActiveOrder.isPending) return;
     syncSessionFromActiveOrder.mutate();
   // Intentionally run when authenticated state flips or page remounts on Home/Index.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.authenticated]);
+  }, [forceNewOrderFlow, session?.authenticated]);
 
   useEffect(() => {
     if (!session?.authenticated || !session.customer) return;
@@ -234,11 +238,26 @@ export function HomePage() {
             ))}
           </div>
 
+          {branches.isPending ? (
+            <div className="no-results">
+              <i className="fas fa-spinner fa-spin" />
+              <p>{copy.loadingData}</p>
+            </div>
+          ) : null}
+
           {branches.error ? (
             <div className="no-results">
               <i className="fas fa-circle-exclamation" />
               <p>{copy.branchLoadFailed}</p>
               <small className="text-muted">{(branches.error as Error).message}</small>
+            </div>
+          ) : null}
+
+          {!branches.isPending && !branches.error && filteredBranches.length === 0 && branches.data && branches.data.length === 0 ? (
+            <div className="no-results">
+              <i className="fas fa-store-slash" />
+              <p>{copy.noBranches}</p>
+              <small className="text-muted">{copy.noBranchesHint}</small>
             </div>
           ) : null}
 

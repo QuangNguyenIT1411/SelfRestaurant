@@ -44,6 +44,7 @@ public sealed class CatalogClient : ApiClientBase
         int page,
         int pageSize,
         bool includeInactive,
+        bool vegetarianOnly,
         CancellationToken cancellationToken)
     {
         var qs = new List<string>
@@ -60,6 +61,10 @@ public sealed class CatalogClient : ApiClientBase
         if (categoryId is > 0)
         {
             qs.Add($"categoryId={categoryId.Value}");
+        }
+        if (vegetarianOnly)
+        {
+            qs.Add("vegetarianOnly=true");
         }
 
         return GetAsync<AdminDishPagedResponse>($"/api/admin/dishes?{string.Join("&", qs)}", cancellationToken);
@@ -96,12 +101,14 @@ public sealed class CatalogClient : ApiClientBase
         string? search,
         int page,
         int pageSize,
+        bool includeInactive,
         CancellationToken cancellationToken)
     {
         var qs = new List<string>
         {
             $"page={Math.Max(1, page)}",
             $"pageSize={Math.Clamp(pageSize, 1, 100)}",
+            $"includeInactive={(includeInactive ? "true" : "false")}",
         };
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -123,6 +130,9 @@ public sealed class CatalogClient : ApiClientBase
 
     public Task DeactivateAdminIngredientAsync(int ingredientId, CancellationToken cancellationToken) =>
         PostAsync<object>($"/api/admin/ingredients/{ingredientId}/deactivate", new { }, cancellationToken);
+
+    public Task DeleteAdminIngredientAsync(int ingredientId, CancellationToken cancellationToken) =>
+        DeleteAsync($"/api/admin/ingredients/{ingredientId}", cancellationToken);
 
     public async Task<IReadOnlyList<TableStatusDto>> GetTableStatusesAsync(CancellationToken cancellationToken)
     {

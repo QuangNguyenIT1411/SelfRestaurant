@@ -4,7 +4,8 @@ public sealed record CashierCheckoutApiRequest(
     decimal Discount = 0,
     int PointsUsed = 0,
     string PaymentMethod = "CASH",
-    decimal PaymentAmount = 0);
+    decimal PaymentAmount = 0,
+    string? IdempotencyKey = null);
 
 public sealed record CashierAccountUpdateApiRequest(string Name, string Phone, string? Email = null);
 public sealed record CashierChangePasswordApiRequest(string CurrentPassword, string NewPassword, string ConfirmPassword);
@@ -16,7 +17,8 @@ public sealed record CashierOrderItemCardDto(
     int Quantity,
     decimal UnitPrice,
     decimal LineTotal,
-    string Image);
+    string Image,
+    string StatusCode);
 
 public sealed record CashierOrderCardDto(
     int OrderId,

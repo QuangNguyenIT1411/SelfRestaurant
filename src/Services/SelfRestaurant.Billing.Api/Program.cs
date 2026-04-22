@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using SelfRestaurant.Billing.Api.Infrastructure.Auditing;
 using SelfRestaurant.Billing.Api.Infrastructure;
 using SelfRestaurant.Billing.Api.Infrastructure.Eventing;
 using SelfRestaurant.Billing.Api.Persistence;
@@ -9,6 +10,7 @@ builder.Logging.ClearProviders();
 builder.Logging.AddJsonConsole(options => options.IncludeScopes = true);
 
 builder.Services.AddControllers();
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -31,6 +33,8 @@ builder.Services.AddHttpClient<OrdersApiClient>(http =>
 });
 
 builder.Services.AddScoped<IIntegrationEventPublisher, FileIntegrationEventPublisher>();
+builder.Services.AddScoped<RequestActorContextAccessor>();
+builder.Services.AddScoped<BusinessAuditLogger>();
 
 var app = builder.Build();
 

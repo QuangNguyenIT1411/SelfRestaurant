@@ -37,7 +37,7 @@ export const cashierApi = {
   getDashboard: () => request<CashierDashboardDto>("/api/gateway/staff/cashier/dashboard"),
   getHistory: () => request<CashierHistoryDto>("/api/gateway/staff/cashier/history"),
   getReport: (date?: string) => request<CashierReportScreenDto>(`/api/gateway/staff/cashier/report${date ? `?date=${date}` : ""}`),
-  checkout: (orderId: number, payload: { discount?: number; pointsUsed?: number; paymentMethod?: string; paymentAmount?: number }) =>
+  checkout: (orderId: number, payload: { discount?: number; pointsUsed?: number; paymentMethod?: string; paymentAmount?: number; idempotencyKey: string }) =>
     request<CashierCheckoutResultDto>(`/api/gateway/staff/cashier/orders/${orderId}/checkout`, {
       method: "POST",
       body: JSON.stringify(payload),

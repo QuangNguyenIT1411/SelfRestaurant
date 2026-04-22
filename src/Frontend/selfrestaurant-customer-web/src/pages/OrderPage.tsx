@@ -17,6 +17,8 @@ const text = {
   pending: "Chờ gửi",
   preparing: "Đang chuẩn bị",
   ready: "Đã sẵn sàng",
+  serving: "Đang phục vụ",
+  cancelled: "Đã hủy",
   summaryTitle: "Tạm Tính",
   subtotalPrefix: (count: number) => `Tạm tính (${count} món)`,
   pointsEstimate: "Điểm thưởng (dự kiến)",
@@ -42,18 +44,74 @@ function formatCurrency(value: number) {
   return `${value.toLocaleString("vi-VN")} đ`;
 }
 
+function getOrderSubmitStorageKey(tableId: number) {
+  return `selfrestaurant.customer.orderSubmitIntent:${tableId}`;
+}
+
+function buildOrderSubmitIntentKey() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `order-submit-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function getOrCreateOrderSubmitIntentKey(tableId: number) {
+  if (typeof window === "undefined" || typeof window.sessionStorage === "undefined") {
+    return buildOrderSubmitIntentKey();
+  }
+
+  const storageKey = getOrderSubmitStorageKey(tableId);
+  const existing = window.sessionStorage.getItem(storageKey);
+  if (existing) {
+    return existing;
+  }
+
+  const created = buildOrderSubmitIntentKey();
+  window.sessionStorage.setItem(storageKey, created);
+  return created;
+}
+
+function clearOrderSubmitIntentKey(tableId: number) {
+  if (typeof window === "undefined" || typeof window.sessionStorage === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.removeItem(getOrderSubmitStorageKey(tableId));
+}
+
 function normalizeStatus(value?: string | null) {
   return (value ?? "").toUpperCase();
 }
 
 function getDisplayStatus(item: ActiveOrderItemDto, orderStatus: string) {
   const status = normalizeStatus(item.status) || normalizeStatus(orderStatus);
-  if (["READY", "SERVING", "SERVED", "COMPLETED"].includes(status)) return "ready";
+  if (status === "CANCELLED") return "cancelled";
+  if (status === "SERVING") return "serving";
+  if (["READY", "SERVED", "COMPLETED"].includes(status)) return "ready";
   if (["CONFIRMED", "PREPARING"].includes(status)) return "preparing";
   return "pending";
 }
 
-function renderStatusBadge(status: "pending" | "preparing" | "ready") {
+function renderStatusBadge(status: "pending" | "preparing" | "ready" | "serving" | "cancelled") {
+  if (status === "cancelled") {
+    return (
+      <span className="badge rounded-pill bg-danger-subtle text-danger-emphasis p-2 order-status-badge">
+        <i className="fas fa-ban me-1" />
+        {text.cancelled}
+      </span>
+    );
+  }
+
+  if (status === "serving") {
+    return (
+      <span className="badge rounded-pill bg-info-subtle text-info-emphasis p-2 order-status-badge">
+        <i className="fas fa-concierge-bell me-1" />
+        {text.serving}
+      </span>
+    );
+  }
+
   if (status === "ready") {
     return (
       <span className="badge rounded-pill bg-success-subtle text-success-emphasis p-2 order-status-badge">
@@ -175,9 +233,12 @@ export function OrderPage() {
   const currentOrder = order.data;
   const items = orderItems.data?.items ?? [];
   const subtotal = orderItems.data?.subtotal ?? 0;
-  const totalItemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const totalItemCount = items
+    .filter((item) => normalizeStatus(item.status) !== "CANCELLED")
+    .reduce((sum, item) => sum + item.quantity, 0);
   const normalizedOrderStatus = normalizeStatus(currentOrder?.statusCode || currentOrder?.orderStatus);
   const estimatedPoints = Math.floor(subtotal * 0.05);
+  const currentTableId = session.data?.tableContext?.tableId ?? currentOrder?.tableId ?? 0;
   const tableNumber = session.data?.tableContext?.tableNumber ?? currentOrder?.tableId ?? "-";
   const activeCustomer = getActiveCustomer(session.data?.customer, scanLoyalty.data?.customer);
   const canRemove = normalizedOrderStatus === "PENDING";
@@ -301,7 +362,17 @@ export function OrderPage() {
                     onClick={() => {
                       if (!canSubmit) return;
                       if (!window.confirm(text.sendConfirm)) return;
-                      submitOrder.mutate();
+                      submitOrder.mutate(
+                        {
+                          idempotencyKey: getOrCreateOrderSubmitIntentKey(currentTableId),
+                          expectedDiningSessionCode: currentOrder?.diningSessionCode ?? null,
+                        },
+                        {
+                          onSuccess: () => {
+                            clearOrderSubmitIntentKey(currentTableId);
+                          },
+                        },
+                      );
                     }}
                     disabled={!canSubmit || submitOrder.isPending}
                     id="btn-send-to-kitchen"

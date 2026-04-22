@@ -3,6 +3,8 @@ namespace SelfRestaurant.Orders.Api.Persistence.Entities;
 public sealed class Orders
 {
     public int OrderID { get; set; }
+    public string? DiningSessionCode { get; set; }
+    public string? SubmitIdempotencyKey { get; set; }
     public string? OrderCode { get; set; }
     public DateTime OrderTime { get; set; }
     public DateTime? CompletedTime { get; set; }

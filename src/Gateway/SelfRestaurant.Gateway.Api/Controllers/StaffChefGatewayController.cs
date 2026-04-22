@@ -245,6 +245,40 @@ public sealed class StaffChefGatewayController : ControllerBase
         }
     }
 
+    [HttpPost("chef/orders/{orderId:int}/items/{itemId:int}/start")]
+    public async Task<ActionResult<object>> StartItem(int orderId, int itemId, CancellationToken cancellationToken)
+    {
+        var staff = RequireChef();
+        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
+        if (orderId <= 0 || itemId <= 0) return Error("invalid_item", "Mon trong don khong hop le.", 400);
+        try
+        {
+            await _ordersClient.ChefStartItemAsync(orderId, itemId, cancellationToken);
+            return Ok(new { success = true, message = "Đã chuyển món sang đang chế biến." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Error("start_item_failed", NormalizeChefError(ex.Message), 409);
+        }
+    }
+
+    [HttpPost("chef/orders/{orderId:int}/items/{itemId:int}/ready")]
+    public async Task<ActionResult<object>> ReadyItem(int orderId, int itemId, CancellationToken cancellationToken)
+    {
+        var staff = RequireChef();
+        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
+        if (orderId <= 0 || itemId <= 0) return Error("invalid_item", "Mon trong don khong hop le.", 400);
+        try
+        {
+            await _ordersClient.ChefReadyItemAsync(orderId, itemId, cancellationToken);
+            return Ok(new { success = true, message = "Món đã sẵn sàng." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Error("ready_item_failed", NormalizeChefError(ex.Message), 409);
+        }
+    }
+
     [HttpPost("chef/orders/{orderId:int}/serve")]
     public ActionResult<object> Serve(int orderId, CancellationToken cancellationToken)
     {
@@ -263,6 +297,25 @@ public sealed class StaffChefGatewayController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Reason)) return Error("invalid_reason", "Vui long nhap ly do huy don.", 400);
         await _ordersClient.ChefCancelAsync(orderId, request.Reason.Trim(), cancellationToken);
         return Ok(new { success = true, message = "Da huy don hang." });
+    }
+
+    [HttpPost("chef/orders/{orderId:int}/items/{itemId:int}/cancel")]
+    public async Task<ActionResult<object>> CancelItem(int orderId, int itemId, [FromBody] ChefCancelOrderApiRequest request, CancellationToken cancellationToken)
+    {
+        var staff = RequireChef();
+        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
+        if (orderId <= 0 || itemId <= 0) return Error("invalid_item", "Mon trong don khong hop le.", 400);
+        if (string.IsNullOrWhiteSpace(request.Reason)) return Error("invalid_reason", "Vui long nhap ly do huy mon.", 400);
+
+        try
+        {
+            await _ordersClient.ChefCancelItemAsync(orderId, itemId, request.Reason.Trim(), cancellationToken);
+            return Ok(new { success = true, message = "Đã hủy món." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Error("cancel_item_failed", NormalizeChefError(ex.Message), 409);
+        }
     }
 
     [HttpPatch("chef/orders/{orderId:int}/items/{itemId:int}/note")]
@@ -561,7 +614,7 @@ public sealed class StaffChefGatewayController : ControllerBase
         var page = 1;
         while (true)
         {
-            var response = await _catalogClient.GetAdminIngredientsAsync(null, page, 100, cancellationToken);
+            var response = await _catalogClient.GetAdminIngredientsAsync(null, page, 100, true, cancellationToken);
             if (response is null || response.Items.Count == 0) break;
             result.AddRange(response.Items.Where(x => x.IsActive));
             if (page >= response.TotalPages) break;

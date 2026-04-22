@@ -461,15 +461,18 @@ public sealed class CustomerGatewayController : ControllerBase
             return Ok(new CustomerReadyNotificationsDto(tableId, Array.Empty<ReadyDishNotificationDto>()));
         }
 
-        var statusCode = (activeOrder.StatusCode ?? activeOrder.OrderStatus ?? string.Empty).ToUpperInvariant();
-        if (statusCode != "READY")
+        var activeOrderIds = (activeOrder.ActiveOrderIds is { Count: > 0 } ? activeOrder.ActiveOrderIds : [activeOrder.OrderId])
+            .Distinct()
+            .ToArray();
+        var hasReadyRound = activeOrder.Items.Any(item => string.Equals(item.Status, "READY", StringComparison.OrdinalIgnoreCase));
+        if (!hasReadyRound)
         {
             return Ok(new CustomerReadyNotificationsDto(tableId, Array.Empty<ReadyDishNotificationDto>()));
         }
 
         var items = await _customersClient.GetReadyNotificationsAsync(customer.CustomerId, tableId, cancellationToken);
         items = items
-            .Where(item => item.OrderId == activeOrder.OrderId)
+            .Where(item => activeOrderIds.Contains(item.OrderId))
             .ToArray();
         return Ok(new CustomerReadyNotificationsDto(tableId, items));
     }
@@ -513,7 +516,7 @@ public sealed class CustomerGatewayController : ControllerBase
         var tableContext = BuildTableContextDto();
         if (tableContext is null) return Error("missing_table_context", "Ban chua chon ban.", 400);
         if (request.DishId <= 0 || request.Quantity <= 0) return Error("invalid_item", "Mon an hoac so luong khong hop le.", 400);
-        try { return Ok(await _ordersClient.AddItemAsync(tableContext.TableId, request.DishId, request.Quantity, request.Note, cancellationToken)); }
+        try { return Ok(await _ordersClient.AddItemAsync(tableContext.TableId, request.DishId, request.Quantity, request.Note, request.ExpectedDiningSessionCode, cancellationToken)); }
         catch (Exception ex) { return Error("add_item_failed", ex.Message, 400); }
     }
 
@@ -525,8 +528,15 @@ public sealed class CustomerGatewayController : ControllerBase
         var tableContext = BuildTableContextDto();
         if (tableContext is null) return Error("missing_table_context", "Ban chua chon ban.", 400);
         if (itemId <= 0 || request.Quantity <= 0) return Error("invalid_item", "Dong mon hoac so luong khong hop le.", 400);
-        await _ordersClient.UpdateQuantityAsync(tableContext.TableId, itemId, request.Quantity, cancellationToken);
-        return Ok(new { success = true });
+        try
+        {
+            await _ordersClient.UpdateQuantityAsync(tableContext.TableId, itemId, request.Quantity, cancellationToken);
+            return Ok(new { success = true });
+        }
+        catch (Exception ex)
+        {
+            return Error("update_item_failed", ex.Message, 409);
+        }
     }
 
     [HttpPatch("order/items/{itemId:int}/note")]
@@ -537,8 +547,15 @@ public sealed class CustomerGatewayController : ControllerBase
         var tableContext = BuildTableContextDto();
         if (tableContext is null) return Error("missing_table_context", "Ban chua chon ban.", 400);
         if (itemId <= 0) return Error("invalid_item", "Dong mon khong hop le.", 400);
-        await _ordersClient.UpdateItemNoteAsync(tableContext.TableId, itemId, request.Note, cancellationToken);
-        return Ok(new { success = true });
+        try
+        {
+            await _ordersClient.UpdateItemNoteAsync(tableContext.TableId, itemId, request.Note, cancellationToken);
+            return Ok(new { success = true });
+        }
+        catch (Exception ex)
+        {
+            return Error("update_item_failed", ex.Message, 409);
+        }
     }
 
     [HttpDelete("order/items/{itemId:int}")]
@@ -549,19 +566,34 @@ public sealed class CustomerGatewayController : ControllerBase
         var tableContext = BuildTableContextDto();
         if (tableContext is null) return Error("missing_table_context", "Ban chua chon ban.", 400);
         if (itemId <= 0) return Error("invalid_item", "Dong mon khong hop le.", 400);
-        await _ordersClient.RemoveItemAsync(tableContext.TableId, itemId, cancellationToken);
-        return Ok(new { success = true });
+        try
+        {
+            await _ordersClient.RemoveItemAsync(tableContext.TableId, itemId, cancellationToken);
+            return Ok(new { success = true });
+        }
+        catch (Exception ex)
+        {
+            return Error("remove_item_failed", ex.Message, 409);
+        }
     }
 
     [HttpPost("order/submit")]
-    public async Task<ActionResult<object>> SubmitOrder(CancellationToken cancellationToken)
+    public async Task<ActionResult<object>> SubmitOrder([FromBody] SubmitOrderApiRequest? request, CancellationToken cancellationToken)
     {
         var customer = RequireCustomer();
         if (customer is null) return Error("unauthorized", "Ban can dang nhap.", 401);
         var tableContext = BuildTableContextDto();
         if (tableContext is null) return Error("missing_table_context", "Ban chua chon ban.", 400);
-        await _ordersClient.SubmitOrderAsync(tableContext.TableId, cancellationToken);
-        return Ok(new { success = true, message = "Đã gửi yêu cầu đến bếp" });
+        if (string.IsNullOrWhiteSpace(request?.IdempotencyKey)) return Error("invalid_submit", "Thiếu khóa xác nhận gửi món.", 400);
+        try
+        {
+            await _ordersClient.SubmitOrderAsync(tableContext.TableId, request.IdempotencyKey, request.ExpectedDiningSessionCode, cancellationToken);
+            return Ok(new { success = true, message = "Đã gửi yêu cầu đến bếp" });
+        }
+        catch (Exception ex)
+        {
+            return Error("submit_failed", ex.Message, 409);
+        }
     }
 
     [HttpPost("menu/send-order-to-kitchen")]
@@ -587,14 +619,27 @@ public sealed class CustomerGatewayController : ControllerBase
         {
             return Error("empty_order", "Đơn hàng trống", 400);
         }
+        if (string.IsNullOrWhiteSpace(request.IdempotencyKey))
+        {
+            return Error("invalid_submit", "Thiếu khóa xác nhận gửi món.", 400);
+        }
 
-        await _ordersClient.SubmitOrderBatchAsync(
-            tableContext.TableId,
-            items,
-            customer.PhoneNumber,
-            cancellationToken);
+        try
+        {
+            await _ordersClient.SubmitOrderBatchAsync(
+                tableContext.TableId,
+                items,
+                customer.PhoneNumber,
+                request.IdempotencyKey,
+                request.ExpectedDiningSessionCode,
+                cancellationToken);
 
-        return Ok(new { success = true, message = "Đã gửi yêu cầu đến bếp" });
+            return Ok(new { success = true, message = "Đã gửi yêu cầu đến bếp" });
+        }
+        catch (Exception ex)
+        {
+            return Error("submit_failed", ex.Message, 409);
+        }
     }
 
     [HttpPost("order/confirm-received")]
@@ -603,8 +648,15 @@ public sealed class CustomerGatewayController : ControllerBase
         var customer = RequireCustomer();
         if (customer is null) return Error("unauthorized", "Ban can dang nhap.", 401);
         if (orderId <= 0) return Error("invalid_order", "Don hang khong hop le.", 400);
-        await _ordersClient.ConfirmOrderReceivedAsync(orderId, cancellationToken);
-        return Ok(new { success = true, message = "Đã xác nhận nhận món. Chúc ngon miệng!" });
+        try
+        {
+            await _ordersClient.ConfirmOrderReceivedAsync(orderId, cancellationToken);
+            return Ok(new { success = true, message = "Đã xác nhận nhận món. Chúc ngon miệng!" });
+        }
+        catch (Exception ex)
+        {
+            return Error("confirm_received_failed", ex.Message, 409);
+        }
     }
 
     [HttpPost("order/scan-loyalty")]

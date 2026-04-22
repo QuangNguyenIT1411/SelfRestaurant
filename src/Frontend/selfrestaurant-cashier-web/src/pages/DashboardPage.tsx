@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { cashierApi } from "../lib/api";
+import { buildCashierTransferReference, buildCashierVietQrUrl, cashierQrBankInfo } from "../lib/vietQr";
 import type { CashierCheckoutResultDto, CashierDashboardDto } from "../lib/types";
 
 type Props = {
@@ -13,12 +14,33 @@ type CheckoutResultView = CashierCheckoutResultDto & {
   paymentAmount: number;
 };
 
+const CHECKOUT_KEY_PREFIX = "selfrestaurant.cashier.checkoutIntent:";
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
 function paymentMethodLabel(value: string) {
-  return value === "CARD" ? "Thẻ ngân hàng" : value === "CASH" ? "Tiền mặt" : value;
+  return value === "QR" ? "Chuyển khoản QR" : value === "CASH" ? "Tiền mặt" : value;
+}
+
+function itemStatusLabel(statusCode?: string | null) {
+  const normalized = (statusCode ?? "").toUpperCase();
+  if (normalized === "PREPARING") return "Đang chế biến";
+  if (normalized === "READY") return "Sẵn sàng";
+  if (normalized === "SERVING") return "Đang phục vụ";
+  if (normalized === "CANCELLED") return "Đã hủy";
+  if (normalized === "CONFIRMED") return "Đã gửi bếp";
+  return "Chờ gửi";
+}
+
+function itemStatusBadgeClass(statusCode?: string | null) {
+  const normalized = (statusCode ?? "").toUpperCase();
+  if (normalized === "PREPARING") return "soft-badge warning";
+  if (normalized === "READY") return "soft-badge success";
+  if (normalized === "SERVING") return "soft-badge info";
+  if (normalized === "CANCELLED") return "soft-badge danger";
+  return "soft-badge secondary";
 }
 
 export function DashboardPage({ onLogout }: Props) {
@@ -31,9 +53,46 @@ export function DashboardPage({ onLogout }: Props) {
   const [discountAmount, setDiscountAmount] = useState("0");
   const [discountPercent, setDiscountPercent] = useState("0");
   const [pointsUsedInput, setPointsUsedInput] = useState("0");
-  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "CARD">("CASH");
+  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "QR">("CASH");
   const [paymentAmount, setPaymentAmount] = useState("");
   const [checkoutResult, setCheckoutResult] = useState<CheckoutResultView | null>(null);
+  const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
+
+  function getCheckoutStorageKey(orderId: number) {
+    return `${CHECKOUT_KEY_PREFIX}${orderId}`;
+  }
+
+  function buildCheckoutIntentKey() {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+
+    return `checkout-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+
+  function getOrCreateCheckoutIntentKey(orderId: number) {
+    if (typeof window === "undefined" || typeof window.sessionStorage === "undefined") {
+      return buildCheckoutIntentKey();
+    }
+
+    const storageKey = getCheckoutStorageKey(orderId);
+    const existing = window.sessionStorage.getItem(storageKey);
+    if (existing) {
+      return existing;
+    }
+
+    const created = buildCheckoutIntentKey();
+    window.sessionStorage.setItem(storageKey, created);
+    return created;
+  }
+
+  function clearCheckoutIntentKey(orderId: number) {
+    if (typeof window === "undefined" || typeof window.sessionStorage === "undefined") {
+      return;
+    }
+
+    window.sessionStorage.removeItem(getCheckoutStorageKey(orderId));
+  }
 
   async function loadDashboard() {
     setLoading(true);
@@ -87,7 +146,7 @@ export function DashboardPage({ onLogout }: Props) {
     const total = Math.max(0, subtotal - safeDiscount - safePoints);
     const rawPayment = Number(paymentAmount || "0");
     const safePayment = Number.isFinite(rawPayment) ? Math.max(0, rawPayment) : 0;
-    const effectivePayment = paymentMethod === "CARD" ? total : safePayment;
+    const effectivePayment = paymentMethod === "QR" ? total : safePayment;
     const changeAmount = Math.max(0, effectivePayment - total);
 
     return {
@@ -118,10 +177,35 @@ export function DashboardPage({ onLogout }: Props) {
   }, [activeOrder?.orderId]);
 
   useEffect(() => {
-    if (paymentMethod === "CARD") {
+    if (paymentMethod === "QR") {
       setPaymentAmount(String(checkoutPreview.total));
     }
   }, [checkoutPreview.total, paymentMethod]);
+
+  const qrTransferReference = useMemo(
+    () => buildCashierTransferReference(activeOrder?.orderCode, activeOrder?.orderId),
+    [activeOrder?.orderCode, activeOrder?.orderId],
+  );
+
+  const qrImageUrl = useMemo(
+    () => buildCashierVietQrUrl({ amount: checkoutPreview.total, orderCode: activeOrder?.orderCode, orderId: activeOrder?.orderId }),
+    [activeOrder?.orderCode, activeOrder?.orderId, checkoutPreview.total],
+  );
+
+  async function copyText(value: string, successMessage: string) {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        window.prompt("Sao chép nội dung bên dưới:", value);
+      }
+
+      setMessage(successMessage);
+    } catch {
+      window.prompt("Sao chép nội dung bên dưới:", value);
+      setMessage(successMessage);
+    }
+  }
 
   function handleDiscountAmountChange(value: string) {
     setDiscountAmount(value);
@@ -157,7 +241,7 @@ export function DashboardPage({ onLogout }: Props) {
   }
 
   async function processCheckout() {
-    if (!activeOrder) return;
+    if (!activeOrder || checkoutSubmitting) return;
     setError(null);
     setMessage(null);
 
@@ -167,11 +251,13 @@ export function DashboardPage({ onLogout }: Props) {
     }
 
     try {
+      setCheckoutSubmitting(true);
       const result = await cashierApi.checkout(activeOrder.orderId, {
         discount: checkoutPreview.discount,
         pointsUsed: checkoutPreview.pointsUsed,
         paymentMethod,
         paymentAmount: checkoutPreview.paymentAmount,
+        idempotencyKey: getOrCreateCheckoutIntentKey(activeOrder.orderId),
       });
 
       setCheckoutResult({
@@ -181,9 +267,12 @@ export function DashboardPage({ onLogout }: Props) {
         paymentAmount: checkoutPreview.paymentAmount,
       });
       setMessage(result.message);
+      clearCheckoutIntentKey(activeOrder.orderId);
       await loadDashboard();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể thanh toán hóa đơn.");
+    } finally {
+      setCheckoutSubmitting(false);
     }
   }
 
@@ -326,6 +415,7 @@ export function DashboardPage({ onLogout }: Props) {
                         <div>
                           <strong>{item.dishName}</strong>
                           <p>Số lượng: {item.quantity} x {item.unitPrice.toLocaleString("vi-VN")} đ</p>
+                          <span className={itemStatusBadgeClass(item.statusCode)}>{itemStatusLabel(item.statusCode)}</span>
                         </div>
                       </div>
                       <strong>{item.lineTotal.toLocaleString("vi-VN")} đ</strong>
@@ -434,11 +524,12 @@ export function DashboardPage({ onLogout }: Props) {
                   <strong>Tiền mặt</strong>
                 </button>
                 <button
-                  className={`payment-method-tile ${paymentMethod === "CARD" ? "active" : ""}`}
-                  onClick={() => setPaymentMethod("CARD")}
+                  className={`payment-method-tile ${paymentMethod === "QR" ? "active" : ""}`}
+                  onClick={() => setPaymentMethod("QR")}
                 >
-                  <i className="bi bi-credit-card" />
-                  <strong>Thẻ ngân hàng</strong>
+                  <i className="bi bi-qr-code" />
+                  <strong>QR chuyển khoản</strong>
+                  <small>BIDV - điền sẵn số tiền</small>
                 </button>
               </div>
             </div>
@@ -470,11 +561,48 @@ export function DashboardPage({ onLogout }: Props) {
                   </div>
                 ) : null}
               </div>
-            ) : null}
+            ) : (
+              <div className="qr-payment-panel">
+                <div className="qr-payment-preview">
+                  <img src={qrImageUrl} alt="Mã QR chuyển khoản BIDV" />
+                </div>
+                <div className="qr-payment-details">
+                  <div className="qr-payment-summary">
+                    <span>Ngân hàng</span>
+                    <strong>{cashierQrBankInfo.bankName}</strong>
+                  </div>
+                  <div className="qr-payment-summary">
+                    <span>Số tài khoản</span>
+                    <strong>{cashierQrBankInfo.accountNumber}</strong>
+                  </div>
+                  <div className="qr-payment-summary">
+                    <span>Số tiền</span>
+                    <strong>{checkoutPreview.total.toLocaleString("vi-VN")} đ</strong>
+                  </div>
+                  <div className="qr-payment-summary">
+                    <span>Nội dung chuyển khoản</span>
+                    <strong>{qrTransferReference}</strong>
+                  </div>
+                  <div className="qr-payment-actions">
+                    <button className="cashier-button-outline" onClick={() => void copyText(cashierQrBankInfo.accountNumber, "Đã sao chép số tài khoản.")}>
+                      <i className="bi bi-copy me-1" />
+                      Sao chép STK
+                    </button>
+                    <button className="cashier-button-outline" onClick={() => void copyText(qrTransferReference, "Đã sao chép nội dung chuyển khoản.")}>
+                      <i className="bi bi-copy me-1" />
+                      Sao chép nội dung
+                    </button>
+                  </div>
+                  <div className="cashier-info-note qr-payment-note">
+                    Quét mã để mở ứng dụng ngân hàng với BIDV, số tài khoản, số tiền và nội dung chuyển khoản đã điền sẵn. Hóa đơn chỉ được ghi nhận sau khi thu ngân xác nhận đã nhận thanh toán.
+                  </div>
+                </div>
+              </div>
+            )}
 
-            <button className="cashier-button-primary wide" disabled={!canCheckout} onClick={() => void processCheckout()}>
+            <button className="cashier-button-primary wide" disabled={!canCheckout || checkoutSubmitting} onClick={() => void processCheckout()}>
               <i className="bi bi-check-circle me-2" />
-              Xác nhận thanh toán
+              {checkoutSubmitting ? "Đang xử lý..." : "Xác nhận thanh toán"}
             </button>
           </div>
         </div>

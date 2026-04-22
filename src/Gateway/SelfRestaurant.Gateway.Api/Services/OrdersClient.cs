@@ -29,10 +29,10 @@ public sealed class OrdersClient : ApiClientBase
     public Task<CustomerActiveOrderContextDto?> GetCustomerActiveOrderContextAsync(int customerId, CancellationToken cancellationToken) =>
         GetAsync<CustomerActiveOrderContextDto>($"/api/internal/customers/{customerId}/active-order-context", cancellationToken);
 
-    public Task<ActiveOrderResponse?> AddItemAsync(int tableId, int dishId, int quantity, string? note, CancellationToken cancellationToken) =>
+    public Task<ActiveOrderResponse?> AddItemAsync(int tableId, int dishId, int quantity, string? note, string? expectedDiningSessionCode, CancellationToken cancellationToken) =>
         PostForAsync<object, ActiveOrderResponse>(
             $"/api/tables/{tableId}/order/items",
-            new { dishId, quantity, note },
+            new { dishId, quantity, note, expectedDiningSessionCode },
             cancellationToken);
 
     public Task UpdateQuantityAsync(int tableId, int itemId, int quantity, CancellationToken cancellationToken) =>
@@ -44,13 +44,15 @@ public sealed class OrdersClient : ApiClientBase
     public Task RemoveItemAsync(int tableId, int itemId, CancellationToken cancellationToken) =>
         DeleteAsync($"/api/tables/{tableId}/order/items/{itemId}", cancellationToken);
 
-    public Task SubmitOrderAsync(int tableId, CancellationToken cancellationToken) =>
-        PostAsync<object>($"/api/tables/{tableId}/order/submit", new { }, cancellationToken);
+    public Task SubmitOrderAsync(int tableId, string idempotencyKey, string? expectedDiningSessionCode, CancellationToken cancellationToken) =>
+        PostAsync($"/api/tables/{tableId}/order/submit", new { idempotencyKey, expectedDiningSessionCode }, cancellationToken);
 
     public Task<ActiveOrderResponse?> SubmitOrderBatchAsync(
         int tableId,
         IReadOnlyList<AddOrderItemPayload> items,
         string? customerPhoneNumber,
+        string idempotencyKey,
+        string? expectedDiningSessionCode,
         CancellationToken cancellationToken) =>
         PostForAsync<object, ActiveOrderResponse>(
             $"/api/tables/{tableId}/order/submit-batch",
@@ -63,6 +65,8 @@ public sealed class OrdersClient : ApiClientBase
                     note = item.Note,
                 }).ToArray(),
                 customerPhoneNumber,
+                idempotencyKey,
+                expectedDiningSessionCode,
             },
             cancellationToken);
 
@@ -107,6 +111,15 @@ public sealed class OrdersClient : ApiClientBase
 
     public Task ChefReadyAsync(int orderId, CancellationToken cancellationToken) =>
         PostAsync<object>($"/api/orders/{orderId}/chef/ready", new { }, cancellationToken);
+
+    public Task ChefStartItemAsync(int orderId, int itemId, CancellationToken cancellationToken) =>
+        PostAsync<object>($"/api/orders/{orderId}/items/{itemId}/chef/start", new { }, cancellationToken);
+
+    public Task ChefReadyItemAsync(int orderId, int itemId, CancellationToken cancellationToken) =>
+        PostAsync<object>($"/api/orders/{orderId}/items/{itemId}/chef/ready", new { }, cancellationToken);
+
+    public Task ChefCancelItemAsync(int orderId, int itemId, string? reason, CancellationToken cancellationToken) =>
+        PostAsync<object>($"/api/orders/{orderId}/items/{itemId}/cancel", new { reason }, cancellationToken);
 
     public Task ChefServeAsync(int orderId, CancellationToken cancellationToken) =>
         PostAsync<object>($"/api/orders/{orderId}/chef/serve", new { }, cancellationToken);

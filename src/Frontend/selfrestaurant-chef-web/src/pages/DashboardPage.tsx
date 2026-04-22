@@ -127,6 +127,28 @@ function normalizeChefOrder(order: ChefOrderDto): ChefOrderDto {
   };
 }
 
+function normalizeItemStatusCode(value?: string | null) {
+  return (value ?? "").trim().toUpperCase();
+}
+
+function getItemStatusLabel(statusCode?: string | null) {
+  const normalized = normalizeItemStatusCode(statusCode);
+  if (normalized === "PREPARING") return "Đang chế biến";
+  if (normalized === "READY") return "Sẵn sàng";
+  if (normalized === "SERVING") return "Đã giao phục vụ";
+  if (normalized === "CANCELLED") return "Đã hủy";
+  if (normalized === "CONFIRMED") return "Chờ chế biến";
+  return "Chờ gửi";
+}
+
+function getItemStatusClass(statusCode?: string | null) {
+  const normalized = normalizeItemStatusCode(statusCode);
+  if (normalized === "PREPARING") return "chef-history-status chef-history-status-warning";
+  if (normalized === "READY" || normalized === "SERVING") return "chef-history-status chef-history-status-primary";
+  if (normalized === "CANCELLED") return "chef-history-status chef-history-status-danger";
+  return "chef-history-status chef-history-status-muted";
+}
+
 function normalizeChefCategories(items: ChefCategoryDto[]): ChefCategoryDto[] {
   return items.map((item) => ({
     ...item,
@@ -688,6 +710,12 @@ export function DashboardPage({ onLogout }: Props) {
               setCancelEditor({ orderId, orderCode, reason: "" });
             }}
             onOpenIngredients={(dishId, customerNote) => void openIngredients(dishId, customerNote)}
+            onStartItem={(orderId, itemId) => act(() => chefApi.startItem(orderId, itemId))}
+            onCancelItem={async (orderId, itemId, dishName) => {
+              const reason = window.prompt(`Nhập lý do hủy món "${dishName}":`, "");
+              if (!reason?.trim()) return;
+              await act(() => chefApi.cancelItem(orderId, itemId, reason.trim()));
+            }}
           />
           <OrderColumn
             title="Đang chế biến"
@@ -700,6 +728,12 @@ export function DashboardPage({ onLogout }: Props) {
               setCancelEditor({ orderId, orderCode, reason: "" });
             }}
             onOpenIngredients={(dishId, customerNote) => void openIngredients(dishId, customerNote)}
+            onReadyItem={(orderId, itemId) => act(() => chefApi.readyItem(orderId, itemId))}
+            onCancelItem={async (orderId, itemId, dishName) => {
+              const reason = window.prompt(`Nhập lý do hủy món "${dishName}":`, "");
+              if (!reason?.trim()) return;
+              await act(() => chefApi.cancelItem(orderId, itemId, reason.trim()));
+            }}
           />
           <OrderColumn
             title="Sẵn sàng"
@@ -710,6 +744,11 @@ export function DashboardPage({ onLogout }: Props) {
               setCancelEditor({ orderId, orderCode, reason: "" });
             }}
             onOpenIngredients={(dishId, customerNote) => void openIngredients(dishId, customerNote)}
+            onCancelItem={async (orderId, itemId, dishName) => {
+              const reason = window.prompt(`Nhập lý do hủy món "${dishName}":`, "");
+              if (!reason?.trim()) return;
+              await act(() => chefApi.cancelItem(orderId, itemId, reason.trim()));
+            }}
           />
         </section>
       ) : null}
@@ -988,7 +1027,7 @@ export function DashboardPage({ onLogout }: Props) {
           <div className="modal-card chef-modal-card chef-compact-modal chef-ingredients-modal" onClick={(e) => e.stopPropagation()}>
             <div className="panel-head chef-modal-head">
               <div>
-                <h2>Thành phần món: {ingredientEditor.dishName}</h2>
+                <h2>Sửa thành phần: {ingredientEditor.dishName}</h2>
                 <p className="muted">Quản lý định lượng nguyên liệu cho từng phần món.</p>
               </div>
               <button className="ghost" onClick={() => setIngredientEditor(null)}>Đóng</button>
@@ -999,7 +1038,7 @@ export function DashboardPage({ onLogout }: Props) {
                   <strong>Ghi chú từ khách hàng</strong>
                   <div className="muted">{ingredientEditor.customerNote}</div>
                 </div>
-                <span className="soft-badge warning">Điều chỉnh khi chế biến</span>
+                <span className="soft-badge warning">Cần lưu ý khi chế biến</span>
               </div>
             ) : null}
             <div className="inline-filter-card chef-modal-section">
@@ -1155,9 +1194,24 @@ type OrderColumnProps = {
   secondaryLabel?: string;
   secondaryAction?: (orderId: number, orderCode: string) => void;
   onOpenIngredients: (dishId: number, customerNote?: string | null) => void;
+  onStartItem?: (orderId: number, itemId: number) => Promise<void>;
+  onReadyItem?: (orderId: number, itemId: number) => Promise<void>;
+  onCancelItem?: (orderId: number, itemId: number, dishName: string) => Promise<void>;
 };
 
-function OrderColumn({ title, tone, orders, actionLabel, action, secondaryLabel, secondaryAction, onOpenIngredients }: OrderColumnProps) {
+function OrderColumn({
+  title,
+  tone,
+  orders,
+  actionLabel,
+  action,
+  secondaryLabel,
+  secondaryAction,
+  onOpenIngredients,
+  onStartItem,
+  onReadyItem,
+  onCancelItem,
+}: OrderColumnProps) {
   function formatOrderTime(value: string) {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return value;
@@ -1218,15 +1272,37 @@ function OrderColumn({ title, tone, orders, actionLabel, action, secondaryLabel,
                     <span className="item-qty">{item.quantity}</span>
                     <div className="order-item-content">
                       <strong className="item-name">{item.dishName}</strong>
-                      {item.note?.trim() ? <small className="item-note">Note: {item.note}</small> : null}
+                      {item.note?.trim() ? <small className="item-note">Ghi chú khách: {item.note}</small> : null}
+                      <div className="mt-1">
+                        <span className={getItemStatusClass(item.statusCode)}>{getItemStatusLabel(item.statusCode)}</span>
+                      </div>
                     </div>
                   </div>
-                  <button
-                    className="ghost note-action-button"
-                    onClick={() => onOpenIngredients(item.dishId, item.note || "")}
-                  >
-                    Thành phần
-                  </button>
+                  <div className="d-flex flex-column align-items-end gap-2">
+                    <button
+                      className="ghost note-action-button"
+                      onClick={() => onOpenIngredients(item.dishId, item.note || "")}
+                    >
+                      Sửa thành phần
+                    </button>
+                    <div className="d-flex flex-wrap justify-content-end gap-2">
+                      {onStartItem && ["PENDING", "CONFIRMED"].includes(normalizeItemStatusCode(item.statusCode)) ? (
+                        <button className="btn-action-primary" onClick={() => void onStartItem(order.orderId, item.itemId)}>
+                          Bắt đầu
+                        </button>
+                      ) : null}
+                      {onReadyItem && normalizeItemStatusCode(item.statusCode) === "PREPARING" ? (
+                        <button className="btn-action-primary" onClick={() => void onReadyItem(order.orderId, item.itemId)}>
+                          Hoàn thành
+                        </button>
+                      ) : null}
+                      {onCancelItem && ["PENDING", "CONFIRMED", "PREPARING", "READY"].includes(normalizeItemStatusCode(item.statusCode)) ? (
+                        <button className="btn-action-danger" onClick={() => void onCancelItem(order.orderId, item.itemId, item.dishName)}>
+                          Hủy món
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

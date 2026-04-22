@@ -57,14 +57,17 @@ public sealed class CustomersController : ControllerBase
             .OrderByDescending(x => x.CreatedAtUtc)
             .Select(x => new
             {
-                readyDishNotificationId = x.ReadyDishNotificationId,
+                notificationId = x.ReadyDishNotificationId,
                 orderId = x.OrderId,
+                orderItemId = x.OrderItemId,
+                dishId = x.DishId,
+                dishName = x.DishName,
                 customerId = x.CustomerId,
                 tableId = x.TableId,
                 eventName = x.EventName,
                 message = x.Message,
                 status = x.Status,
-                createdAtUtc = x.CreatedAtUtc,
+                createdAt = x.CreatedAtUtc,
             })
             .ToListAsync(cancellationToken);
 
@@ -93,6 +96,7 @@ public sealed class CustomersController : ControllerBase
             .Where(x =>
                 x.Status == "OPEN"
                 && x.OrderId == entity.OrderId
+                && x.OrderItemId == entity.OrderItemId
                 && (
                     x.CustomerId == customerId
                     || x.CustomerId == null

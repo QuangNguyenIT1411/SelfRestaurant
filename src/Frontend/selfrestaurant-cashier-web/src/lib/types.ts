@@ -38,6 +38,7 @@ export type CashierOrderItemCardDto = {
   unitPrice: number;
   lineTotal: number;
   image: string;
+  statusCode: string;
 };
 
 export type CashierOrderCardDto = {

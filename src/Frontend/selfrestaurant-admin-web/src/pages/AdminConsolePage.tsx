@@ -10,7 +10,9 @@ import type {
   AdminDishesScreenDto,
   AdminIngredientsScreenDto,
   AdminReportsScreenDto,
+  AdminTableDto,
   AdminTablesScreenDto,
+  Paged,
   StaffSessionUserDto,
 } from "../lib/types";
 
@@ -30,6 +32,9 @@ const emptyDishForm = {
   isDailySpecial: false,
   available: true,
 };
+const DISH_PAGE_SIZE = 10;
+const INGREDIENT_PAGE_SIZE = 10;
+const TABLE_PAGE_SIZE = 10;
 
 function formatDateTime(value?: string | null) {
   if (!value) return "Chưa cập nhật";
@@ -72,7 +77,7 @@ function resolveHeading(pathname: string): { title: string; description: string 
   if (normalized.includes("/admin/reports/topdishes")) return { title: "Món ăn gọi nhiều", description: "Top món theo số lượng bán ra." };
   if (normalized.includes("/admin/reports")) return { title: "Báo cáo doanh thu", description: "Tổng quan doanh thu theo ngày và chi nhánh." };
   if (normalized.includes("/admin/settings")) return { title: "Cài đặt tài khoản", description: "Cập nhật thông tin cá nhân và mật khẩu." };
-  return { title: "Tổng quan doanh thu", description: "Tổng quan doanh thu, đơn hàng, nhân sự và chi nhánh." };
+  return { title: "Tổng quan quản trị", description: "Tổng quan đơn hàng, nhân sự, bàn ăn và chi nhánh." };
 }
 
 async function pickDishImage(): Promise<File | null> {
@@ -85,6 +90,10 @@ async function pickDishImage(): Promise<File | null> {
     input.onerror = () => resolve(null);
     input.click();
   });
+}
+
+function buildPageNumbers(totalPages: number) {
+  return Array.from({ length: totalPages }, (_, index) => index + 1);
 }
 
 export function AdminConsolePage({ onLogout }: Props) {
@@ -117,11 +126,16 @@ export function AdminConsolePage({ onLogout }: Props) {
   const [reportBranchFilter, setReportBranchFilter] = useState("ALL");
   const [tableBranchFilter, setTableBranchFilter] = useState("ALL");
   const [tableSearch, setTableSearch] = useState("");
+  const [tablePage, setTablePage] = useState(1);
   const [dishSearch, setDishSearch] = useState("");
   const [dishCategoryFilter, setDishCategoryFilter] = useState("ALL");
   const [dishOnlyVegetarian, setDishOnlyVegetarian] = useState(false);
+  const [dishPage, setDishPage] = useState(1);
   const [ingredientSearch, setIngredientSearch] = useState("");
   const [ingredientOnlyActive, setIngredientOnlyActive] = useState(false);
+  const [ingredientPage, setIngredientPage] = useState(1);
+  const [tableSummaryItems, setTableSummaryItems] = useState<AdminTableDto[]>([]);
+  const [initialized, setInitialized] = useState(false);
 
   const section = resolveSection(location.pathname);
   const pageHeading = resolveHeading(location.pathname);
@@ -136,34 +150,6 @@ export function AdminConsolePage({ onLogout }: Props) {
   const isTableQrPage = location.pathname.toLowerCase().includes("/admin/tablesqr/qr");
   const isRevenuePage = location.pathname.toLowerCase().includes("/admin/reports/revenue");
   const isTopDishesPage = location.pathname.toLowerCase().includes("/admin/reports/topdishes");
-
-  const filteredDishes = useMemo(() => {
-    const items = dishes?.dishes.items ?? [];
-    return items.filter((dish) => {
-      const matchesSearch = `${dish.name} ${dish.description ?? ""}`.toLowerCase().includes(dishSearch.trim().toLowerCase());
-      const matchesCategory = dishCategoryFilter === "ALL" || String(dish.categoryId) === dishCategoryFilter;
-      const matchesVegetarian = !dishOnlyVegetarian || dish.isVegetarian;
-      return matchesSearch && matchesCategory && matchesVegetarian;
-    });
-  }, [dishOnlyVegetarian, dishCategoryFilter, dishSearch, dishes]);
-
-  const filteredIngredients = useMemo(() => {
-    const items = ingredients?.ingredients.items ?? [];
-    return items.filter((ingredient) => {
-      const matchesSearch = `${ingredient.name} ${ingredient.unit}`.toLowerCase().includes(ingredientSearch.trim().toLowerCase());
-      const matchesActive = !ingredientOnlyActive || ingredient.isActive;
-      return matchesSearch && matchesActive;
-    });
-  }, [ingredientOnlyActive, ingredientSearch, ingredients]);
-
-  const filteredTables = useMemo(() => {
-    const items = tablesData?.tables.items ?? [];
-    return items.filter((table) => {
-      const matchesSearch = `${table.branchName} ${table.tableId} ${table.numberOfSeats} ${table.statusName}`.toLowerCase().includes(tableSearch.trim().toLowerCase());
-      const matchesBranch = tableBranchFilter === "ALL" || String(table.branchId) === tableBranchFilter;
-      return matchesSearch && matchesBranch;
-    });
-  }, [tableBranchFilter, tableSearch, tablesData]);
 
   const reportBranchOptions = useMemo(() => {
     const rows = reports?.revenue.revenueByBranchDate ?? [];
@@ -182,41 +168,111 @@ export function AdminConsolePage({ onLogout }: Props) {
 
   const filteredRevenueTotal = useMemo(() => filteredRevenueRows.reduce((sum, row) => sum + row.totalRevenue, 0), [filteredRevenueRows]);
 
-  async function loadAll() {
-    setLoading(true);
+  async function loadTableSummaryData() {
+    const firstPage = await adminApi.getTables("", undefined, 1, 100);
+    const items = [...firstPage.tables.items];
+    if (firstPage.tables.totalPages > 1) {
+      const extraPages = await Promise.all(
+        buildPageNumbers(firstPage.tables.totalPages)
+          .slice(1)
+          .map((pageNumber) => adminApi.getTables("", undefined, pageNumber, 100)),
+      );
+      extraPages.forEach((pageResult) => items.push(...pageResult.tables.items));
+    }
+    setTableSummaryItems(items);
+  }
+
+  async function loadStaticData() {
+    const [session, nextDashboard, nextCategories, nextReports] = await Promise.all([
+      adminApi.getSession(),
+      adminApi.getDashboard(),
+      adminApi.getCategories(),
+      adminApi.getReports(),
+    ]);
+    setStaff(session.staff ?? null);
+    setDashboard(nextDashboard);
+    setCategories(nextCategories);
+    setReports(nextReports);
+    setSettingsDraft({
+      name: nextDashboard.settings.name,
+      phone: nextDashboard.settings.phone ?? "",
+      email: nextDashboard.settings.email ?? "",
+    });
+  }
+
+  async function loadDishesData() {
+    const nextDishes = await adminApi.getDishes(
+      dishSearch,
+      dishCategoryFilter !== "ALL" ? Number(dishCategoryFilter) : undefined,
+      dishPage,
+      DISH_PAGE_SIZE,
+      false,
+      dishOnlyVegetarian,
+    );
+    setDishes(nextDishes);
+  }
+
+  async function loadIngredientsData() {
+    const nextIngredients = await adminApi.getIngredients(
+      ingredientSearch,
+      ingredientPage,
+      INGREDIENT_PAGE_SIZE,
+      !ingredientOnlyActive,
+    );
+    setIngredients(nextIngredients);
+  }
+
+  async function loadTablesPageData() {
+    const nextTables = await adminApi.getTables(
+      tableSearch,
+      tableBranchFilter !== "ALL" ? Number(tableBranchFilter) : undefined,
+      tablePage,
+      TABLE_PAGE_SIZE,
+    );
+    setTablesData(nextTables);
+  }
+
+  async function loadAll(showSpinner = true) {
+    if (showSpinner) {
+      setLoading(true);
+    }
     setError(null);
     try {
-      const [session, nextDashboard, nextCategories, nextDishes, nextIngredients, nextTables, nextReports] = await Promise.all([
-        adminApi.getSession(),
-        adminApi.getDashboard(),
-        adminApi.getCategories(),
-        adminApi.getDishes(),
-        adminApi.getIngredients(),
-        adminApi.getTables(),
-        adminApi.getReports(),
+      await Promise.all([
+        loadStaticData(),
+        loadDishesData(),
+        loadIngredientsData(),
+        loadTablesPageData(),
+        loadTableSummaryData(),
       ]);
-      setStaff(session.staff ?? null);
-      setDashboard(nextDashboard);
-      setCategories(nextCategories);
-      setDishes(nextDishes);
-      setIngredients(nextIngredients);
-      setTablesData(nextTables);
-      setReports(nextReports);
-      setSettingsDraft({
-        name: nextDashboard.settings.name,
-        phone: nextDashboard.settings.phone ?? "",
-        email: nextDashboard.settings.email ?? "",
-      });
+      setInitialized(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tải dữ liệu quản trị.");
     } finally {
-      setLoading(false);
+      if (showSpinner) {
+        setLoading(false);
+      }
     }
   }
 
   useEffect(() => {
     void loadAll();
   }, []);
+
+  useEffect(() => {
+    if (!initialized) return;
+    void loadDishesData().catch((err) => setError(err instanceof Error ? err.message : "Không thể tải danh sách món ăn."));
+  }, [initialized, dishSearch, dishCategoryFilter, dishOnlyVegetarian, dishPage]);
+
+  useEffect(() => {
+    if (!initialized) return;
+    void loadIngredientsData().catch((err) => setError(err instanceof Error ? err.message : "Không thể tải danh sách nguyên liệu."));
+  }, [initialized, ingredientSearch, ingredientOnlyActive, ingredientPage]);
+
+  useEffect(() => {
+    if (!initialized) return;
+    void loadTablesPageData().catch((err) => setError(err instanceof Error ? err.message : "Không thể tải danh sách bàn."));
+  }, [initialized, tableSearch, tableBranchFilter, tablePage]);
 
   useEffect(() => {
     const flash = (location.state as { message?: string } | null)?.message;
@@ -278,6 +334,19 @@ export function AdminConsolePage({ onLogout }: Props) {
       isActive: ingredient.isActive,
     });
     navigate("/Admin/Ingredients/Edit");
+  }
+
+  async function removeIngredient(ingredient: AdminIngredientsScreenDto["ingredients"]["items"][number]) {
+    if (!window.confirm(`Bạn có chắc muốn gỡ nguyên liệu "${ingredient.name}" khỏi danh sách quản lý?`)) {
+      return;
+    }
+
+    await refreshAndShow(adminApi.deleteIngredient(ingredient.ingredientId));
+
+    if (ingredientEditForm.ingredientId === ingredient.ingredientId) {
+      setIngredientEditForm({ ingredientId: 0, name: "", unit: "kg", currentStock: "0", reorderLevel: "0", isActive: true });
+      navigate("/Admin/Ingredients/Index");
+    }
   }
 
   function openTableEditPage(table: AdminTablesScreenDto["tables"]["items"][number]) {
@@ -354,14 +423,35 @@ export function AdminConsolePage({ onLogout }: Props) {
   }
 
   const overviewBranchStats = useMemo(() => {
-    const items = tablesData?.tables.items ?? [];
+    const items = tableSummaryItems;
     const occupiedTables = items.filter((table) => table.statusCode === "OCCUPIED").length;
     return {
       occupiedTables,
       availableTables: items.filter((table) => table.statusCode !== "OCCUPIED").length,
       averageSeats: items.length > 0 ? Math.round(items.reduce((sum, table) => sum + table.numberOfSeats, 0) / items.length) : 0,
     };
-  }, [tablesData]);
+  }, [tableSummaryItems]);
+
+  const visibleDishes = dishes?.dishes.items ?? [];
+  const visibleIngredients = ingredients?.ingredients.items ?? [];
+  const visibleTables = tablesData?.tables.items ?? [];
+
+  function renderPagination<T>(paged: Paged<T>, currentPage: number, onPageChange: (page: number) => void, keyPrefix: string) {
+    if (paged.totalPages <= 1) return null;
+    return (
+      <div className="button-row wrap admin-pagination">
+        {buildPageNumbers(paged.totalPages).map((pageNumber) => (
+          <button
+            key={`${keyPrefix}-page-${pageNumber}`}
+            className={pageNumber === currentPage ? "active-toggle" : "ghost"}
+            onClick={() => onPageChange(pageNumber)}
+          >
+            {pageNumber}
+          </button>
+        ))}
+      </div>
+    );
+  }
 
   if (loading) return <div className="screen-message">Đang tải khu quản trị...</div>;
   if (error && !dashboard) return <div className="screen-message error-box">{error}</div>;
@@ -479,7 +569,7 @@ export function AdminConsolePage({ onLogout }: Props) {
                 <div className="muted">Quản lý danh mục và đơn vị món ăn.</div>
               </div>
               <div className="button-row wrap">
-                {isCategoryEditPage ? <button className="ghost" onClick={() => navigate("/Admin/Categories/Index")}>Quay về danh sách</button> : null}
+                {isCategoryEditPage ? <button className="ghost" onClick={() => navigate("/Admin/Categories/Index")}>Quay lại danh sách</button> : null}
                 <button className={isCategoryCreatePage ? "active-toggle" : "ghost"} onClick={() => navigate("/Admin/Categories/Create")}>Thêm danh mục</button>
                 <button className={isCategoryEditPage ? "active-toggle" : "ghost"} onClick={() => navigate("/Admin/Categories/Edit")}>Sửa danh mục</button>
               </div>
@@ -523,7 +613,7 @@ export function AdminConsolePage({ onLogout }: Props) {
                   <div className="empty-report history-empty-card">
                     <i className="bi bi-folder2-open" />
                     <strong>Chưa có danh mục đang chỉnh sửa</strong>
-                    <div>Hãy chọn một danh mục từ danh sách để mở màn sửa.</div>
+                    <div>Hãy chọn một danh mục từ danh sách để mở biểu mẫu chỉnh sửa.</div>
                   </div>
                 ) : (
                   <>
@@ -534,11 +624,11 @@ export function AdminConsolePage({ onLogout }: Props) {
                     </div>
                     <div className="filter-chip-row">
                       <button type="button" className={`ghost ${categoryEditForm.isActive ? "active-toggle" : ""}`} onClick={() => setCategoryEditForm({ ...categoryEditForm, isActive: !categoryEditForm.isActive })}>
-                        {categoryEditForm.isActive ? "Đang kích hoạt" : "Ngừng kích hoạt"}
+                        {categoryEditForm.isActive ? "Hoạt động" : "Ngừng hoạt động"}
                       </button>
                     </div>
                     <div className="entry-form-actions">
-                      <span className="muted">Giữ form sửa riêng như màn MVC.</span>
+                      <span className="muted">Biểu mẫu chỉnh sửa được tách riêng để giữ đúng luồng quản trị.</span>
                       <button onClick={() => {
                         if (!categoryEditForm.name.trim()) {
                           setError("Tên danh mục không được để trống.");
@@ -593,7 +683,7 @@ export function AdminConsolePage({ onLogout }: Props) {
           <div className="toolbar-card">
             <div><strong>Quản lý món ăn</strong><div className="muted">Quản lý món ăn, hình ảnh và thành phần món ăn.</div></div>
             <div className="button-row wrap">
-              {(isDishCreatePage || isDishEditPage || isDishIngredientsPage) ? <button className="ghost" onClick={() => navigate("/Admin/Dishes/Index")}>Quay về danh sách món ăn</button> : null}
+              {(isDishCreatePage || isDishEditPage || isDishIngredientsPage) ? <button className="ghost" onClick={() => navigate("/Admin/Dishes/Index")}>Quay lại danh sách món ăn</button> : null}
               <button className={isDishCreatePage ? "active-toggle" : "ghost"} onClick={() => navigate("/Admin/Dishes/Create")}>Thêm món mới</button>
               <button className={isDishIngredientsPage ? "active-toggle" : "ghost"} onClick={() => navigate("/Admin/Dishes/Ingredients")}>Thành phần món ăn</button>
             </div>
@@ -646,13 +736,13 @@ export function AdminConsolePage({ onLogout }: Props) {
 
           {!isDishCreatePage && !isDishEditPage && !isDishIngredientsPage ? (
             <div className="inline-filter-card admin-filter-card">
-              <div><strong>Bộ lọc món ăn</strong><div className="muted">Lọc theo tên, mô tả, danh mục và trạng thái món chay.</div></div>
+              <div><strong>Bộ lọc món ăn</strong><div className="muted">Lọc theo tên, mô tả, danh mục và món chay.</div></div>
               <div className="admin-filter-form">
-                <label className="admin-filter-field admin-filter-field-wide"><span>Tìm kiếm</span><input value={dishSearch} onChange={(e) => setDishSearch(e.target.value)} placeholder="Tìm theo tên hoặc mô tả..." /></label>
-                <label className="admin-filter-field"><span>Danh mục</span><select value={dishCategoryFilter} onChange={(e) => setDishCategoryFilter(e.target.value)}><option value="ALL">Tất cả danh mục</option>{dishes.categories.map((category) => <option key={category.categoryId} value={category.categoryId}>{category.name}</option>)}</select></label>
-                <label className="admin-filter-check"><input type="checkbox" checked={dishOnlyVegetarian} onChange={(e) => setDishOnlyVegetarian(e.target.checked)} /><span>Chỉ món chay</span></label>
+                <label className="admin-filter-field admin-filter-field-wide"><span>Tìm kiếm</span><input value={dishSearch} onChange={(e) => { setDishPage(1); setDishSearch(e.target.value); }} placeholder="Tìm theo tên hoặc mô tả..." /></label>
+                <label className="admin-filter-field"><span>Danh mục</span><select value={dishCategoryFilter} onChange={(e) => { setDishPage(1); setDishCategoryFilter(e.target.value); }}><option value="ALL">Tất cả danh mục</option>{dishes.categories.map((category) => <option key={category.categoryId} value={category.categoryId}>{category.name}</option>)}</select></label>
+                <label className="admin-filter-check"><input type="checkbox" checked={dishOnlyVegetarian} onChange={(e) => { setDishPage(1); setDishOnlyVegetarian(e.target.checked); }} /><span>Chỉ món chay</span></label>
               </div>
-              <div className="admin-filter-actions"><button className="ghost" onClick={() => { setDishSearch(""); setDishCategoryFilter("ALL"); setDishOnlyVegetarian(false); }}>Xóa lọc</button></div>
+              <div className="admin-filter-actions"><button className="ghost" onClick={() => { setDishPage(1); setDishSearch(""); setDishCategoryFilter("ALL"); setDishOnlyVegetarian(false); }}>Xóa bộ lọc</button></div>
             </div>
           ) : null}
 
@@ -719,7 +809,7 @@ export function AdminConsolePage({ onLogout }: Props) {
               <div className="panel">
                 <div className="panel-head">
                   <div><h2>Thành phần món ăn</h2><p className="muted">{dishIngredientEditor.dishName}</p></div>
-                  <button className="ghost" onClick={() => { setDishIngredientEditor(null); navigate("/Admin/Dishes/Index"); }}>Quay về danh sách món ăn</button>
+                  <button className="ghost" onClick={() => { setDishIngredientEditor(null); navigate("/Admin/Dishes/Index"); }}>Quay lại danh sách món ăn</button>
                 </div>
                 <div className="ingredient-modal-list">
                   {dishIngredientEditor.items.map((item, index) => (
@@ -763,18 +853,18 @@ export function AdminConsolePage({ onLogout }: Props) {
               <div className="empty-report history-empty-card">
                 <i className="bi bi-basket3-fill" />
                 <strong>Chưa có món ăn đang mở phần thành phần</strong>
-                <div>Hãy quay về danh sách món ăn và chọn một món để mở màn thành phần.</div>
+                  <div>Hãy quay lại danh sách món ăn và chọn một món để mở phần nguyên liệu.</div>
               </div>
             )
           ) : null}
 
           {!isDishCreatePage && !isDishEditPage && !isDishIngredientsPage ? (
             <>
-              <div className="panel-head"><h2>Danh sách món ăn</h2><span className="status-pill success">{filteredDishes.length} món</span></div>
+              <div className="panel-head"><h2>Danh sách món ăn</h2><span className="status-pill success">{dishes.dishes.totalItems} món</span></div>
               <table className="data-table">
                 <thead><tr><th>Hình</th><th>Tên món</th><th>Danh mục</th><th>Giá</th><th>Tình trạng</th><th>Thao tác</th></tr></thead>
                 <tbody>
-                  {filteredDishes.length > 0 ? filteredDishes.map((dish) => (
+                  {visibleDishes.length > 0 ? visibleDishes.map((dish) => (
                     <tr key={dish.dishId}>
                       <td><img className="thumb" src={dish.image || "/images/placeholder-dish.svg"} alt={dish.name} /></td>
                       <td><strong>{dish.name}</strong><div className="muted">{dish.description || "Chưa có mô tả"}</div></td>
@@ -790,9 +880,10 @@ export function AdminConsolePage({ onLogout }: Props) {
                         </div>
                       </td>
                     </tr>
-                  )) : <tr><td colSpan={6} className="text-right">Chưa có món ăn nào phù hợp bộ lọc.</td></tr>}
+                  )) : <tr><td colSpan={6} className="text-right">Chưa có món ăn phù hợp với bộ lọc hiện tại.</td></tr>}
                 </tbody>
               </table>
+              {renderPagination(dishes.dishes, dishPage, setDishPage, "dish")}
             </>
           ) : null}
         </section>
@@ -803,7 +894,7 @@ export function AdminConsolePage({ onLogout }: Props) {
           <div className="toolbar-card">
             <div><strong>Quản lý nguyên liệu</strong><div className="muted">Quản lý nguyên liệu và tồn kho.</div></div>
             <div className="button-row wrap">
-              {isIngredientEditPage ? <button className="ghost" onClick={() => navigate("/Admin/Ingredients/Index")}>Quay về danh sách</button> : null}
+              {isIngredientEditPage ? <button className="ghost" onClick={() => navigate("/Admin/Ingredients/Index")}>Quay lại danh sách</button> : null}
               <button className={isIngredientCreatePage ? "active-toggle" : "ghost"} onClick={() => navigate("/Admin/Ingredients/Create")}>Thêm nguyên liệu</button>
               <button className={isIngredientEditPage ? "active-toggle" : "ghost"} onClick={() => navigate("/Admin/Ingredients/Edit")}>Sửa nguyên liệu</button>
             </div>
@@ -820,7 +911,7 @@ export function AdminConsolePage({ onLogout }: Props) {
                   <label>Mức cảnh báo<input type="number" value={ingredientForm.reorderLevel} onChange={(e) => setIngredientForm({ ...ingredientForm, reorderLevel: e.target.value })} /></label>
                 </div>
                 <div className="entry-form-actions">
-                  <span className="muted">Giữ đúng cấu trúc form thêm nguyên liệu.</span>
+                  <span className="muted">Giữ đúng cấu trúc biểu mẫu thêm nguyên liệu.</span>
                   <button onClick={() => {
                     if (!ingredientForm.name.trim()) {
                       setError("Tên nguyên liệu không được để trống.");
@@ -841,12 +932,12 @@ export function AdminConsolePage({ onLogout }: Props) {
               </div>
 
               <div className="inline-filter-card admin-filter-card">
-                <div><strong>Bộ lọc nguyên liệu</strong><div className="muted">Tìm theo tên hoặc đơn vị, lọc nguyên liệu còn hoạt động.</div></div>
+                <div><strong>Bộ lọc nguyên liệu</strong><div className="muted">Tìm theo tên hoặc đơn vị, có thể chỉ hiện nguyên liệu còn hoạt động.</div></div>
                 <div className="admin-filter-form">
-                  <label className="admin-filter-field admin-filter-field-wide"><span>Tìm kiếm</span><input value={ingredientSearch} onChange={(e) => setIngredientSearch(e.target.value)} placeholder="Tên hoặc đơn vị..." /></label>
-                  <label className="admin-filter-check"><input type="checkbox" checked={ingredientOnlyActive} onChange={(e) => setIngredientOnlyActive(e.target.checked)} /><span>Chỉ còn hoạt động</span></label>
+                  <label className="admin-filter-field admin-filter-field-wide"><span>Tìm kiếm</span><input value={ingredientSearch} onChange={(e) => { setIngredientPage(1); setIngredientSearch(e.target.value); }} placeholder="Tên hoặc đơn vị..." /></label>
+                  <label className="admin-filter-check"><input type="checkbox" checked={ingredientOnlyActive} onChange={(e) => { setIngredientPage(1); setIngredientOnlyActive(e.target.checked); }} /><span>Chỉ còn hoạt động</span></label>
                 </div>
-                <div className="admin-filter-actions"><button className="ghost" onClick={() => { setIngredientSearch(""); setIngredientOnlyActive(false); }}>Xóa lọc</button></div>
+                <div className="admin-filter-actions"><button className="ghost" onClick={() => { setIngredientPage(1); setIngredientSearch(""); setIngredientOnlyActive(false); }}>Xóa bộ lọc</button></div>
               </div>
             </>
           ) : null}
@@ -861,7 +952,7 @@ export function AdminConsolePage({ onLogout }: Props) {
                 <div className="empty-report history-empty-card">
                   <i className="bi bi-basket3-fill" />
                   <strong>Chưa có nguyên liệu đang chỉnh sửa</strong>
-                  <div>Hãy chọn một nguyên liệu từ danh sách để mở màn sửa.</div>
+                  <div>Hãy chọn một nguyên liệu từ danh sách để mở biểu mẫu chỉnh sửa.</div>
                 </div>
               ) : (
                 <>
@@ -873,12 +964,21 @@ export function AdminConsolePage({ onLogout }: Props) {
                   </div>
                   <div className="filter-chip-row">
                     <button type="button" className={`ghost ${ingredientEditForm.isActive ? "active-toggle" : ""}`} onClick={() => setIngredientEditForm({ ...ingredientEditForm, isActive: !ingredientEditForm.isActive })}>
-                      {ingredientEditForm.isActive ? "Đang kích hoạt" : "Ngừng kích hoạt"}
+                      {ingredientEditForm.isActive ? "Hoạt động" : "Ngừng hoạt động"}
                     </button>
                   </div>
                   <div className="entry-form-actions">
-                    <span className="muted">Giữ form sửa riêng như màn MVC.</span>
-                    <button onClick={() => {
+                    <span className="muted">Biểu mẫu chỉnh sửa được tách riêng để giữ đúng luồng quản trị.</span>
+                    <div className="button-row wrap">
+                      <button className="danger" onClick={() => void removeIngredient({
+                        ingredientId: ingredientEditForm.ingredientId,
+                        name: ingredientEditForm.name,
+                        unit: ingredientEditForm.unit,
+                        currentStock: Number(ingredientEditForm.currentStock || "0"),
+                        reorderLevel: Number(ingredientEditForm.reorderLevel || "0"),
+                        isActive: ingredientEditForm.isActive,
+                      })}>Xóa</button>
+                      <button onClick={() => {
                       if (!ingredientEditForm.name.trim()) {
                         setError("Tên nguyên liệu không được để trống.");
                         return;
@@ -893,7 +993,8 @@ export function AdminConsolePage({ onLogout }: Props) {
                         setIngredientEditForm({ ingredientId: 0, name: "", unit: "kg", currentStock: "0", reorderLevel: "0", isActive: true });
                         navigate("/Admin/Ingredients/Index");
                       });
-                    }}>Lưu thay đổi</button>
+                      }}>Lưu thay đổi</button>
+                    </div>
                   </div>
                 </>
               )}
@@ -902,27 +1003,29 @@ export function AdminConsolePage({ onLogout }: Props) {
 
           {!isIngredientEditPage ? (
             <>
-              <div className="panel-head"><h2>Danh sách nguyên liệu</h2><span className="status-pill success">{filteredIngredients.length} nguyên liệu</span></div>
+              <div className="panel-head"><h2>Danh sách nguyên liệu</h2><span className="status-pill success">{ingredients.ingredients.totalItems} nguyên liệu</span></div>
               <table className="data-table">
                 <thead><tr><th>Tên nguyên liệu</th><th>Đơn vị</th><th>Tồn kho</th><th>Mức cảnh báo</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
                 <tbody>
-                  {filteredIngredients.length > 0 ? filteredIngredients.map((ingredient) => (
+                  {visibleIngredients.length > 0 ? visibleIngredients.map((ingredient) => (
                     <tr key={ingredient.ingredientId}>
                       <td><strong>{ingredient.name}</strong></td>
                       <td>{ingredient.unit}</td>
                       <td>{ingredient.currentStock}</td>
                       <td>{ingredient.reorderLevel}</td>
-                      <td>{ingredient.isActive ? <span className="status-pill success">Đang dùng</span> : <span className="status-pill danger">Ngừng dùng</span>}</td>
+                      <td>{ingredient.isActive ? <span className="status-pill success">Hoạt động</span> : <span className="status-pill danger">Ngừng hoạt động</span>}</td>
                       <td>
                         <div className="button-row wrap">
                           <button className="ghost" onClick={() => openIngredientEditPage(ingredient)}>Sửa</button>
+                          <button className="danger" onClick={() => void removeIngredient(ingredient)}>Xóa</button>
                           <button className="danger" onClick={() => void refreshAndShow(adminApi.deactivateIngredient(ingredient.ingredientId))}>Vô hiệu</button>
                         </div>
                       </td>
                     </tr>
-                  )) : <tr><td colSpan={6} className="text-right">Chưa có nguyên liệu phù hợp bộ lọc.</td></tr>}
+                  )) : <tr><td colSpan={6} className="text-right">Chưa có nguyên liệu phù hợp với bộ lọc hiện tại.</td></tr>}
                 </tbody>
               </table>
+              {renderPagination(ingredients.ingredients, ingredientPage, setIngredientPage, "ingredient")}
             </>
           ) : null}
         </section>
@@ -933,7 +1036,7 @@ export function AdminConsolePage({ onLogout }: Props) {
           <div className="toolbar-card">
             <div><strong>Quản lý bàn & mã QR</strong><div className="muted">Quản lý bàn ăn và mã QR.</div></div>
             <div className="button-row wrap">
-              {(isTableEditPage || isTableQrPage) ? <button className="ghost" onClick={() => navigate("/Admin/TablesQR/Index")}>Quay về danh sách bàn</button> : null}
+              {(isTableEditPage || isTableQrPage) ? <button className="ghost" onClick={() => navigate("/Admin/TablesQR/Index")}>Quay lại danh sách bàn</button> : null}
               <button className={isTableEditPage ? "active-toggle" : "ghost"} onClick={() => navigate("/Admin/TablesQR/Edit")}>Sửa bàn</button>
               <button className={isTableQrPage ? "active-toggle" : "ghost"} onClick={() => navigate("/Admin/TablesQR/QR")}>Mã QR</button>
             </div>
@@ -972,10 +1075,10 @@ export function AdminConsolePage({ onLogout }: Props) {
               <div className="inline-filter-card admin-filter-card">
                 <div><strong>Bộ lọc bàn ăn</strong><div className="muted">Tìm theo chi nhánh, bàn, số ghế hoặc trạng thái.</div></div>
                 <div className="admin-filter-form">
-                  <label className="admin-filter-field admin-filter-field-wide"><span>Tìm kiếm</span><input value={tableSearch} onChange={(e) => setTableSearch(e.target.value)} placeholder="Tên chi nhánh, số bàn, trạng thái..." /></label>
-                  <label className="admin-filter-field"><span>Chi nhánh</span><select value={tableBranchFilter} onChange={(e) => setTableBranchFilter(e.target.value)}><option value="ALL">Tất cả chi nhánh</option>{tablesData.branches.map((branch) => <option key={branch.branchId} value={branch.branchId}>{branch.name}</option>)}</select></label>
+                  <label className="admin-filter-field admin-filter-field-wide"><span>Tìm kiếm</span><input value={tableSearch} onChange={(e) => { setTablePage(1); setTableSearch(e.target.value); }} placeholder="Tên chi nhánh, số bàn, trạng thái..." /></label>
+                  <label className="admin-filter-field"><span>Chi nhánh</span><select value={tableBranchFilter} onChange={(e) => { setTablePage(1); setTableBranchFilter(e.target.value); }}><option value="ALL">Tất cả chi nhánh</option>{tablesData.branches.map((branch) => <option key={branch.branchId} value={branch.branchId}>{branch.name}</option>)}</select></label>
                 </div>
-                <div className="admin-filter-actions"><button className="ghost" onClick={() => { setTableSearch(""); setTableBranchFilter("ALL"); }}>Xóa lọc</button></div>
+                <div className="admin-filter-actions"><button className="ghost" onClick={() => { setTablePage(1); setTableSearch(""); setTableBranchFilter("ALL"); }}>Xóa bộ lọc</button></div>
               </div>
             </>
           ) : null}
@@ -990,7 +1093,7 @@ export function AdminConsolePage({ onLogout }: Props) {
                 <div className="empty-report history-empty-card">
                   <i className="bi bi-grid-3x3-gap-fill" />
                   <strong>Chưa có bàn đang chỉnh sửa</strong>
-                  <div>Hãy chọn một bàn từ danh sách để mở màn sửa.</div>
+                  <div>Hãy chọn một bàn từ danh sách để mở biểu mẫu chỉnh sửa.</div>
                 </div>
               ) : (
                 <>
@@ -1002,11 +1105,11 @@ export function AdminConsolePage({ onLogout }: Props) {
                   </div>
                   <div className="filter-chip-row">
                     <button type="button" className={`ghost ${tableEditForm.isActive ? "active-toggle" : ""}`} onClick={() => setTableEditForm({ ...tableEditForm, isActive: !tableEditForm.isActive })}>
-                      {tableEditForm.isActive ? "Đang kích hoạt" : "Ngừng kích hoạt"}
+                      {tableEditForm.isActive ? "Hoạt động" : "Ngừng hoạt động"}
                     </button>
                   </div>
                   <div className="entry-form-actions">
-                    <span className="muted">Giữ đúng flow sửa bàn và QR.</span>
+                    <span className="muted">Giữ đúng luồng chỉnh sửa bàn và mã QR.</span>
                     <button onClick={() => {
                       if (!tableEditForm.branchId || !tableEditForm.statusId) {
                         setError("Vui lòng chọn chi nhánh và trạng thái bàn.");
@@ -1029,31 +1132,35 @@ export function AdminConsolePage({ onLogout }: Props) {
           ) : null}
 
           {isTableQrPage ? (
-            <div className="panel-grid">
-              {tablesData.tables.items.map((table) => (
-                <article key={`qr-${table.tableId}`} className="panel">
-                  <div className="panel-head">
-                    <h2>Bàn #{table.tableId}</h2>
-                    <span>{table.branchName}</span>
-                  </div>
-                  <div className="list-card">
-                    <img className="qr-preview" src={buildQrImageUrl(table.qrCode)} alt={`QR bàn ${table.tableId}`} />
-                    <p>{buildQrTargetUrl(table.qrCode)}</p>
-                  </div>
-                </article>
-              ))}
-            </div>
+            <>
+              <div className="panel-head"><h2>Danh sách mã QR bàn</h2><span className="status-pill success">{tablesData.tables.totalItems} bàn</span></div>
+              <div className="panel-grid">
+                {visibleTables.map((table) => (
+                  <article key={`qr-${table.tableId}`} className="panel">
+                    <div className="panel-head">
+                      <h2>Bàn {table.tableId}</h2>
+                      <span>{table.branchName}</span>
+                    </div>
+                    <div className="list-card">
+                      <img className="qr-preview" src={buildQrImageUrl(table.qrCode)} alt={`QR bàn ${table.tableId}`} />
+                      <p>{buildQrTargetUrl(table.qrCode)}</p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+              {renderPagination(tablesData.tables, tablePage, setTablePage, "table-qr")}
+            </>
           ) : null}
 
           {!isTableEditPage && !isTableQrPage ? (
             <>
-              <div className="panel-head"><h2>Danh sách bàn ăn</h2><span className="status-pill success">{filteredTables.length} bàn</span></div>
+              <div className="panel-head"><h2>Danh sách bàn ăn</h2><span className="status-pill success">{tablesData.tables.totalItems} bàn</span></div>
               <table className="data-table">
                 <thead><tr><th>Bàn</th><th>Chi nhánh</th><th>Số ghế</th><th>Trạng thái</th><th>QR</th><th>Thao tác</th></tr></thead>
                 <tbody>
-                  {filteredTables.length > 0 ? filteredTables.map((table) => (
+                  {visibleTables.length > 0 ? visibleTables.map((table) => (
                     <tr key={table.tableId}>
-                      <td><strong>Bàn #{table.tableId}</strong></td>
+                      <td><strong>Bàn {table.tableId}</strong></td>
                       <td>{table.branchName}</td>
                       <td>{table.numberOfSeats}</td>
                       <td><span className="status-pill info">{table.statusName}</span></td>
@@ -1066,9 +1173,10 @@ export function AdminConsolePage({ onLogout }: Props) {
                         </div>
                       </td>
                     </tr>
-                  )) : <tr><td colSpan={6} className="text-right">Chưa có bàn nào phù hợp bộ lọc.</td></tr>}
+                  )) : <tr><td colSpan={6} className="text-right">Chưa có bàn phù hợp với bộ lọc hiện tại.</td></tr>}
                 </tbody>
               </table>
+              {renderPagination(tablesData.tables, tablePage, setTablePage, "table")}
             </>
           ) : null}
         </section>
@@ -1119,7 +1227,7 @@ export function AdminConsolePage({ onLogout }: Props) {
             <article className="panel">
               <div className="toolbar-card">
                 <div><strong>Món ăn được gọi nhiều nhất</strong><div className="muted">Top món theo số lượng bán ra.</div></div>
-                <div className="button-row wrap"><button className="ghost" onClick={() => navigate("/Admin/Reports/Revenue")}>Quay về doanh thu</button></div>
+                <div className="button-row wrap"><button className="ghost" onClick={() => navigate("/Admin/Reports/Revenue")}>Quay lại báo cáo doanh thu</button></div>
               </div>
               <table className="data-table">
                 <thead><tr><th>#</th><th>Món ăn</th><th>Danh mục</th><th>Số lượng</th><th>Doanh thu</th></tr></thead>

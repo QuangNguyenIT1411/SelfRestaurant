@@ -96,6 +96,9 @@ public static class CustomersDbBootstrapper
                                (
                                    ReadyDishNotificationId BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
                                    OrderId INT NOT NULL,
+                                   OrderItemId INT NULL,
+                                   DishId INT NULL,
+                                   DishName NVARCHAR(200) NULL,
                                    CustomerId INT NULL,
                                    TableId INT NULL,
                                    EventName VARCHAR(100) NOT NULL CONSTRAINT DF_ReadyDishNotifications_EventName DEFAULT ('order.status-ready.v1'),
@@ -104,7 +107,43 @@ public static class CustomersDbBootstrapper
                                    CreatedAtUtc DATETIME2 NOT NULL CONSTRAINT DF_ReadyDishNotifications_CreatedAtUtc DEFAULT (SYSUTCDATETIME()),
                                    ResolvedAtUtc DATETIME2 NULL
                                );
-                               CREATE INDEX IX_ReadyDishNotifications_Order_Event ON dbo.ReadyDishNotifications(OrderId, EventName);
+                               CREATE INDEX IX_ReadyDishNotifications_Order_Item_Event ON dbo.ReadyDishNotifications(OrderId, OrderItemId, EventName);
+                           END
+
+                           IF COL_LENGTH('dbo.ReadyDishNotifications', 'OrderItemId') IS NULL
+                           BEGIN
+                               ALTER TABLE dbo.ReadyDishNotifications ADD OrderItemId INT NULL;
+                           END
+
+                           IF COL_LENGTH('dbo.ReadyDishNotifications', 'DishId') IS NULL
+                           BEGIN
+                               ALTER TABLE dbo.ReadyDishNotifications ADD DishId INT NULL;
+                           END
+
+                           IF COL_LENGTH('dbo.ReadyDishNotifications', 'DishName') IS NULL
+                           BEGIN
+                               ALTER TABLE dbo.ReadyDishNotifications ADD DishName NVARCHAR(200) NULL;
+                           END
+
+                           IF EXISTS (
+                               SELECT 1
+                               FROM sys.indexes
+                               WHERE object_id = OBJECT_ID(N'dbo.ReadyDishNotifications')
+                                 AND name = N'IX_ReadyDishNotifications_Order_Event'
+                           )
+                           BEGIN
+                               DROP INDEX IX_ReadyDishNotifications_Order_Event ON dbo.ReadyDishNotifications;
+                           END
+
+                           IF NOT EXISTS (
+                               SELECT 1
+                               FROM sys.indexes
+                               WHERE object_id = OBJECT_ID(N'dbo.ReadyDishNotifications')
+                                 AND name = N'IX_ReadyDishNotifications_Order_Item_Event'
+                           )
+                           BEGIN
+                               CREATE INDEX IX_ReadyDishNotifications_Order_Item_Event
+                                   ON dbo.ReadyDishNotifications(OrderId, OrderItemId, EventName);
                            END
                            """;
         await db.Database.ExecuteSqlRawAsync(sql, cancellationToken);

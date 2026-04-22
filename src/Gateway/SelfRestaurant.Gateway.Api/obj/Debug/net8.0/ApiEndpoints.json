@@ -1521,7 +1521,13 @@
     "HttpMethod": "POST",
     "IsController": true,
     "Order": 0,
-    "Parameters": [],
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Gateway.Api.Models.SubmitOrderApiRequest",
+        "IsRequired": false
+      }
+    ],
     "ReturnTypes": []
   },
   {
@@ -2385,6 +2391,32 @@
   },
   {
     "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.StaffChefGatewayController",
+    "Method": "CancelItem",
+    "RelativePath": "api/gateway/staff/chef/orders/{orderId}/items/{itemId}/cancel",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "orderId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "itemId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Gateway.Api.Models.ChefCancelOrderApiRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.StaffChefGatewayController",
     "Method": "UpdateItemNote",
     "RelativePath": "api/gateway/staff/chef/orders/{orderId}/items/{itemId}/note",
     "HttpMethod": "PATCH",
@@ -2404,6 +2436,48 @@
       {
         "Name": "request",
         "Type": "SelfRestaurant.Gateway.Api.Models.ChefUpdateItemNoteApiRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.StaffChefGatewayController",
+    "Method": "ReadyItem",
+    "RelativePath": "api/gateway/staff/chef/orders/{orderId}/items/{itemId}/ready",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "orderId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "itemId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.StaffChefGatewayController",
+    "Method": "StartItem",
+    "RelativePath": "api/gateway/staff/chef/orders/{orderId}/items/{itemId}/start",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "orderId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "itemId",
+        "Type": "System.Int32",
         "IsRequired": true
       }
     ],

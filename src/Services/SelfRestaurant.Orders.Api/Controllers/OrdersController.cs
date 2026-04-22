@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using SelfRestaurant.Orders.Api.Infrastructure.Auditing;
 using SelfRestaurant.Orders.Api.Infrastructure;
 using SelfRestaurant.Orders.Api.Infrastructure.Eventing;
 using SelfRestaurant.Orders.Api.Persistence;
@@ -12,19 +14,26 @@ namespace SelfRestaurant.Orders.Api.Controllers;
 public sealed class OrdersController : ControllerBase
 {
     private static readonly string[] ActiveCashierStatuses = ["PENDING", "CONFIRMED", "PREPARING", "READY", "SERVING"];
+    private static readonly string[] ActiveDiningStatuses = ["PENDING", "CONFIRMED", "PREPARING", "READY", "SERVING"];
+    private static readonly TimeSpan SubmitCommandWait = TimeSpan.FromSeconds(5);
+    private const int TableLockTimeoutMs = 5000;
 
     private readonly OrdersDbContext _db;
     private readonly ICatalogReadModel _catalogApi;
     private readonly ICustomerLoyaltyReadModel _customersApi;
+    private readonly BillingCheckoutGuardClient _billingGuard;
     private readonly IIntegrationEventPublisher _eventPublisher;
+    private readonly BusinessAuditLogger _auditLogger;
     private readonly IHostEnvironment _environment;
 
-    public OrdersController(OrdersDbContext db, ICatalogReadModel catalogApi, ICustomerLoyaltyReadModel customersApi, IIntegrationEventPublisher eventPublisher, IHostEnvironment environment)
+    public OrdersController(OrdersDbContext db, ICatalogReadModel catalogApi, ICustomerLoyaltyReadModel customersApi, BillingCheckoutGuardClient billingGuard, IIntegrationEventPublisher eventPublisher, BusinessAuditLogger auditLogger, IHostEnvironment environment)
     {
         _db = db;
         _catalogApi = catalogApi;
         _customersApi = customersApi;
+        _billingGuard = billingGuard;
         _eventPublisher = eventPublisher;
+        _auditLogger = auditLogger;
         _environment = environment;
     }
 
@@ -44,37 +53,67 @@ public sealed class OrdersController : ControllerBase
     [HttpPost("api/tables/{tableId:int}/reset")]
     public async Task<ActionResult> ResetTable(int tableId, CancellationToken cancellationToken)
     {
+        await using var tableLock = await BeginTableOperationAsync(tableId, cancellationToken);
         var tableSnapshot = await _catalogApi.GetTableAsync(tableId, cancellationToken);
         if (tableSnapshot is null)
         {
             return NotFound();
         }
 
-        var activeOrder = await _db.Orders
+        var activeOrders = await _db.Orders
             .Where(x => x.TableID == tableId && (x.IsActive ?? true))
             .OrderByDescending(x => x.OrderTime)
-            .FirstOrDefaultAsync(cancellationToken);
+            .ToListAsync(cancellationToken);
 
-        if (activeOrder is not null)
+        if (activeOrders.Count > 0)
         {
-            var statusCode = await GetOrderStatusCodeAsync(activeOrder.StatusID, cancellationToken);
-            if (string.Equals(statusCode, "PENDING", StringComparison.OrdinalIgnoreCase))
+            var statusIds = activeOrders.Select(x => x.StatusID).Distinct().ToArray();
+            var statusLookup = await _db.OrderStatus
+                .Where(x => statusIds.Contains(x.StatusID))
+                .ToDictionaryAsync(x => x.StatusID, x => x.StatusCode, cancellationToken);
+
+            var nonPendingOrders = activeOrders
+                .Where(order => !string.Equals(statusLookup.GetValueOrDefault(order.StatusID), "PENDING", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (nonPendingOrders.Count > 0)
             {
-                var pendingItems = await _db.OrderItems
-                    .Where(x => x.OrderID == activeOrder.OrderID)
-                    .ToListAsync(cancellationToken);
-
-                if (pendingItems.Count > 0)
-                {
-                    _db.OrderItems.RemoveRange(pendingItems);
-                }
-
-                _db.Orders.Remove(activeOrder);
-                await _db.SaveChangesAsync(cancellationToken);
+                return Conflict("Bàn đang có phiên phục vụ đang diễn ra, không thể reset.");
             }
+
+            var pendingOrderIds = activeOrders.Select(x => x.OrderID).ToArray();
+            var pendingItems = await _db.OrderItems
+                .Where(x => pendingOrderIds.Contains(x.OrderID))
+                .ToListAsync(cancellationToken);
+
+            if (pendingItems.Count > 0)
+            {
+                _db.OrderItems.RemoveRange(pendingItems);
+            }
+
+            _db.Orders.RemoveRange(activeOrders);
+            _auditLogger.Add(
+                actionType: "TABLE_RESET",
+                entityType: "TABLE",
+                entityId: tableId.ToString(),
+                tableId: tableId,
+                beforeState: new
+                {
+                    activeOrderIds = activeOrders.Select(x => x.OrderID).ToArray(),
+                    pendingItemCount = pendingItems.Count
+                },
+                afterState: new
+                {
+                    activeOrderIds = Array.Empty<int>(),
+                    released = true
+                },
+                notes: "Developer-safe reset removed only pending rounds on an idle table.");
+            await _db.SaveChangesAsync(cancellationToken);
         }
 
+        // Only fully release the table when no in-flight dining session remains.
         await _catalogApi.ReleaseTableAsync(tableId, cancellationToken);
+        await tableLock.CommitAsync(cancellationToken);
         return NoContent();
     }
 
@@ -90,6 +129,7 @@ public sealed class OrdersController : ControllerBase
         var orders = await _db.Orders.ToListAsync(cancellationToken);
         var outboxEvents = await _db.OutboxEvents.ToListAsync(cancellationToken);
         var inboxEvents = await _db.InboxEvents.ToListAsync(cancellationToken);
+        var submitCommands = await _db.SubmitCommands.ToListAsync(cancellationToken);
 
         if (orderItems.Count > 0)
         {
@@ -111,6 +151,11 @@ public sealed class OrdersController : ControllerBase
             _db.InboxEvents.RemoveRange(inboxEvents);
         }
 
+        if (submitCommands.Count > 0)
+        {
+            _db.SubmitCommands.RemoveRange(submitCommands);
+        }
+
         await _db.SaveChangesAsync(cancellationToken);
 
         return Ok(new
@@ -119,7 +164,8 @@ public sealed class OrdersController : ControllerBase
             clearedOrders = orders.Count,
             clearedOrderItems = orderItems.Count,
             clearedOutboxEvents = outboxEvents.Count,
-            clearedInboxEvents = inboxEvents.Count
+            clearedInboxEvents = inboxEvents.Count,
+            clearedSubmitCommands = submitCommands.Count
         });
     }
 
@@ -148,6 +194,85 @@ public sealed class OrdersController : ControllerBase
         }
 
         return Ok(await BuildActiveOrderResponseAsync(order, cancellationToken));
+    }
+
+    [HttpGet("api/internal/audit-logs")]
+    public async Task<ActionResult<IReadOnlyList<object>>> GetAuditLogs(
+        [FromQuery] string? entityType,
+        [FromQuery] string? entityId,
+        [FromQuery] int? orderId,
+        [FromQuery] int? tableId,
+        [FromQuery] int? dishId,
+        [FromQuery] int? billId,
+        [FromQuery] int take = 100,
+        CancellationToken cancellationToken = default)
+    {
+        take = Math.Clamp(take, 1, 200);
+
+        var query = _db.BusinessAuditLogs.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(entityType))
+        {
+            var key = entityType.Trim();
+            query = query.Where(x => x.EntityType == key);
+        }
+
+        if (!string.IsNullOrWhiteSpace(entityId))
+        {
+            var key = entityId.Trim();
+            query = query.Where(x => x.EntityId == key);
+        }
+
+        if (orderId is > 0)
+        {
+            query = query.Where(x => x.OrderId == orderId.Value);
+        }
+
+        if (tableId is > 0)
+        {
+            query = query.Where(x => x.TableId == tableId.Value);
+        }
+
+        if (dishId is > 0)
+        {
+            query = query.Where(x => x.DishId == dishId.Value);
+        }
+
+        if (billId is > 0)
+        {
+            query = query.Where(x => x.BillId == billId.Value);
+        }
+
+        var items = await query
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .Take(take)
+            .Select(x => new
+            {
+                auditId = x.BusinessAuditLogId,
+                timestampUtc = x.CreatedAtUtc,
+                actorType = x.ActorType,
+                actorId = x.ActorId,
+                actorCode = x.ActorCode,
+                actorName = x.ActorName,
+                actorRoleCode = x.ActorRoleCode,
+                actionType = x.ActionType,
+                entityType = x.EntityType,
+                entityId = x.EntityId,
+                tableId = x.TableId,
+                orderId = x.OrderId,
+                orderItemId = x.OrderItemId,
+                dishId = x.DishId,
+                billId = x.BillId,
+                diningSessionCode = x.DiningSessionCode,
+                correlationId = x.CorrelationId,
+                idempotencyKey = x.IdempotencyKey,
+                notes = x.Notes,
+                beforeState = x.BeforeState,
+                afterState = x.AfterState
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(items);
     }
 
     [HttpGet("api/internal/customers/{customerId:int}/orders")]
@@ -184,6 +309,7 @@ public sealed class OrdersController : ControllerBase
         var aggregates = await _db.OrderItems
             .AsNoTracking()
             .Where(i => orderIds.Contains(i.OrderID))
+            .Where(i => i.StatusCode != "CANCELLED")
             .GroupBy(i => i.OrderID)
             .Select(g => new
             {
@@ -257,6 +383,7 @@ public sealed class OrdersController : ControllerBase
             orderTime = order.OrderTime,
             statusCode = order.Status.StatusCode,
             orderStatus = order.Status.StatusName,
+            diningSessionCode = order.DiningSessionCode,
             tableId = table.TableId,
             branchId = table.BranchId,
             branchName = branch?.Name,
@@ -267,24 +394,13 @@ public sealed class OrdersController : ControllerBase
     [HttpGet("api/tables/{tableId:int}/orders/active")]
     public async Task<ActionResult<IReadOnlyList<object>>> GetActiveOrders(int tableId, CancellationToken cancellationToken)
     {
-        var orders = await _db.Orders
-            .AsNoTracking()
-            .Where(x => x.TableID == tableId && (x.IsActive ?? true))
-            .OrderBy(x => x.OrderTime)
-            .ToListAsync(cancellationToken);
-
-        if (orders.Count == 0)
+        var order = await GetOrCreateOrderAsync(tableId, createIfMissing: false, cancellationToken);
+        if (order is null)
         {
             return Ok(Array.Empty<object>());
         }
 
-        var payload = new List<object>(orders.Count);
-        foreach (var order in orders)
-        {
-            payload.Add(await BuildActiveOrderResponseAsync(order, cancellationToken));
-        }
-
-        return Ok(payload);
+        return Ok(new[] { await BuildActiveOrderResponseAsync(order, cancellationToken) });
     }
 
     [HttpPost("api/tables/{tableId:int}/order/items")]
@@ -295,9 +411,21 @@ public sealed class OrdersController : ControllerBase
             return BadRequest("Quantity must be > 0.");
         }
         var dishSnapshot = await _catalogApi.GetDishAsync(request.DishId, cancellationToken);
-        if (dishSnapshot is null || !dishSnapshot.IsActive || !dishSnapshot.Available)
+        if (dishSnapshot is null)
         {
             return NotFound("Dish not found.");
+        }
+        if (!IsDishOrderable(dishSnapshot))
+        {
+            return BuildDishUnavailableConflict([dishSnapshot.Name]);
+        }
+
+        await using var tableLock = await BeginTableOperationAsync(tableId, cancellationToken);
+        var activeSessionCode = await GetLatestActiveSessionCodeAsync(tableId, cancellationToken);
+        var sessionCheck = await EnsureSessionWritableAsync(null, activeSessionCode, request.ExpectedDiningSessionCode, cancellationToken);
+        if (sessionCheck is not null)
+        {
+            return sessionCheck;
         }
 
         var order = await GetOrCreateOrderAsync(tableId, createIfMissing: true, cancellationToken);
@@ -309,12 +437,14 @@ public sealed class OrdersController : ControllerBase
         await UpsertOrderItemAsync(order.OrderID, dishSnapshot, request, cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
+        await tableLock.CommitAsync(cancellationToken);
         return Ok(await BuildActiveOrderResponseAsync(order, cancellationToken));
     }
 
     [HttpPut("api/tables/{tableId:int}/order/items/{itemId:int}")]
     public async Task<ActionResult> UpdateQuantity(int tableId, int itemId, [FromBody] UpdateQuantityRequest request, CancellationToken cancellationToken)
     {
+        await using var tableLock = await BeginTableOperationAsync(tableId, cancellationToken);
         var order = await GetOrCreateOrderAsync(tableId, createIfMissing: false, cancellationToken);
         if (order is null)
         {
@@ -333,6 +463,12 @@ public sealed class OrdersController : ControllerBase
             return BadRequest("Không thể cập nhật món đã gửi bếp");
         }
 
+        var sessionCheck = await EnsureSessionWritableAsync(order.OrderID, order.DiningSessionCode, null, cancellationToken);
+        if (sessionCheck is not null)
+        {
+            return sessionCheck;
+        }
+
         if (request.Quantity <= 0)
         {
             return BadRequest("Số lượng phải lớn hơn 0");
@@ -342,12 +478,14 @@ public sealed class OrdersController : ControllerBase
         item.LineTotal = item.UnitPrice * item.Quantity;
 
         await _db.SaveChangesAsync(cancellationToken);
+        await tableLock.CommitAsync(cancellationToken);
         return NoContent();
     }
 
     [HttpDelete("api/tables/{tableId:int}/order/items/{itemId:int}")]
     public async Task<ActionResult> RemoveItem(int tableId, int itemId, CancellationToken cancellationToken)
     {
+        await using var tableLock = await BeginTableOperationAsync(tableId, cancellationToken);
         var order = await GetOrCreateOrderAsync(tableId, createIfMissing: false, cancellationToken);
         if (order is null)
         {
@@ -366,6 +504,12 @@ public sealed class OrdersController : ControllerBase
             return BadRequest("Không thể xóa món đã gửi bếp");
         }
 
+        var sessionCheck = await EnsureSessionWritableAsync(order.OrderID, order.DiningSessionCode, null, cancellationToken);
+        if (sessionCheck is not null)
+        {
+            return sessionCheck;
+        }
+
         var itemCountBeforeDelete = await _db.OrderItems
             .AsNoTracking()
             .Where(x => x.OrderID == order.OrderID)
@@ -379,7 +523,8 @@ public sealed class OrdersController : ControllerBase
             order.IsActive = false;
             order.CompletedTime ??= DateTime.Now;
 
-            if (order.TableID is int tableIdValue)
+            if (order.TableID is int tableIdValue
+                && !await HasOtherActiveOrdersInSameSessionAsync(order, cancellationToken))
             {
                 await _catalogApi.ReleaseTableAsync(tableIdValue, cancellationToken);
             }
@@ -387,6 +532,7 @@ public sealed class OrdersController : ControllerBase
             await _db.SaveChangesAsync(cancellationToken);
         }
 
+        await tableLock.CommitAsync(cancellationToken);
         return NoContent();
     }
 
@@ -397,6 +543,7 @@ public sealed class OrdersController : ControllerBase
         [FromBody] UpdateItemNoteRequest request,
         CancellationToken cancellationToken)
     {
+        await using var tableLock = await BeginTableOperationAsync(tableId, cancellationToken);
         var order = await GetOrCreateOrderAsync(tableId, createIfMissing: false, cancellationToken);
         if (order is null)
         {
@@ -413,6 +560,12 @@ public sealed class OrdersController : ControllerBase
             return BadRequest("Only pending order items can be edited by customer.");
         }
 
+        var sessionCheck = await EnsureSessionWritableAsync(order.OrderID, order.DiningSessionCode, null, cancellationToken);
+        if (sessionCheck is not null)
+        {
+            return sessionCheck;
+        }
+
         var item = await _db.OrderItems
             .FirstOrDefaultAsync(x => x.ItemID == itemId && x.OrderID == order.OrderID, cancellationToken);
         if (item is null)
@@ -422,45 +575,150 @@ public sealed class OrdersController : ControllerBase
 
         item.Note = NormalizeNote(request.Note);
         await _db.SaveChangesAsync(cancellationToken);
+        await tableLock.CommitAsync(cancellationToken);
         return NoContent();
     }
 
     [HttpPost("api/tables/{tableId:int}/order/submit")]
-    public async Task<ActionResult> SubmitOrder(int tableId, CancellationToken cancellationToken)
+    public async Task<ActionResult> SubmitOrder(int tableId, [FromBody] SubmitOrderRequest? request, CancellationToken cancellationToken)
     {
+        var idempotencyKey = NormalizeIdempotencyKey(request?.IdempotencyKey);
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            return BadRequest("Thiếu khóa xác nhận gửi món.");
+        }
+
+        var replay = await WaitForSubmitCommandCompletionAsync(idempotencyKey, tableId, cancellationToken);
+        if (replay is not null)
+        {
+            return NoContent();
+        }
+
+        SubmitCommands? command = null;
+        try
+        {
+            command = await CreateSubmitCommandAsync(idempotencyKey, tableId, cancellationToken);
+        }
+        catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+        {
+            var duplicateReplay = await WaitForSubmitCommandCompletionAsync(idempotencyKey, tableId, cancellationToken);
+            if (duplicateReplay is not null)
+            {
+                return NoContent();
+            }
+
+            return Conflict("Yêu cầu gửi món đang được xử lý. Vui lòng thử lại sau.");
+        }
+
+        await using var tableLock = await BeginTableOperationAsync(tableId, cancellationToken);
         var order = await GetOrCreateOrderAsync(tableId, createIfMissing: false, cancellationToken);
         if (order is null)
         {
+            await MarkSubmitCommandFailedAsync(command, "Không tìm thấy bàn hoặc đơn chờ gửi.", cancellationToken);
             return NotFound();
+        }
+
+        var sessionCheck = await EnsureSessionWritableAsync(order.OrderID, order.DiningSessionCode, request?.ExpectedDiningSessionCode, cancellationToken);
+        if (sessionCheck is not null)
+        {
+            await MarkSubmitCommandFailedAsync(command, "Phiên bàn đã thay đổi hoặc đang được thanh toán.", cancellationToken);
+            return sessionCheck;
         }
 
         var statusCode = await GetOrderStatusCodeAsync(order.StatusID, cancellationToken);
         if (!string.Equals(statusCode, "PENDING", StringComparison.OrdinalIgnoreCase))
         {
+            if (string.Equals(order.SubmitIdempotencyKey, idempotencyKey, StringComparison.Ordinal))
+            {
+                await MarkSubmitCommandCompletedAsync(command, order, cancellationToken);
+                return NoContent();
+            }
+
+            await MarkSubmitCommandFailedAsync(command, "Đơn hàng đã được gửi.", cancellationToken);
             return BadRequest("Đơn hàng đã được gửi");
         }
 
         var itemCount = await _db.OrderItems.CountAsync(x => x.OrderID == order.OrderID, cancellationToken);
         if (itemCount == 0)
         {
+            await MarkSubmitCommandFailedAsync(command, "Đơn hàng trống.", cancellationToken);
             return BadRequest("Đơn hàng trống");
         }
 
-        var statusId = await GetOrderStatusIdAsync("CONFIRMED", cancellationToken);
-        if (statusId is not null)
+        var availabilityConflict = await ValidateOrderDishAvailabilityAsync(order.OrderID, cancellationToken);
+        if (availabilityConflict is not null)
         {
-            order.StatusID = statusId.Value;
+            await MarkSubmitCommandFailedAsync(command, "Giỏ hàng có món không còn khả dụng.", cancellationToken);
+            return availabilityConflict;
+        }
+
+        var pendingInventoryCheck = await ValidateIngredientAvailabilityAsync(
+            order.OrderID,
+            await _db.OrderItems
+                .AsNoTracking()
+                .Where(x => x.OrderID == order.OrderID)
+                .Select(x => new CatalogApiClient.OrderIngredientConsumptionItem(x.DishID, x.Quantity))
+                .ToListAsync(cancellationToken),
+            cancellationToken);
+        if (pendingInventoryCheck is not null)
+        {
+            await MarkSubmitCommandFailedAsync(command, "Giỏ hàng vượt quá tồn kho nguyên liệu.", cancellationToken);
+            return pendingInventoryCheck;
+        }
+
+        if (await GetOrderStatusIdAsync("CONFIRMED", cancellationToken) is not null)
+        {
+            if (string.IsNullOrWhiteSpace(order.DiningSessionCode))
+            {
+                order.DiningSessionCode = GenerateDiningSessionCode();
+            }
+
+            var pendingItems = await _db.OrderItems
+                .Where(x => x.OrderID == order.OrderID && x.StatusCode == "PENDING")
+                .ToListAsync(cancellationToken);
+
+            foreach (var item in pendingItems)
+            {
+                item.StatusCode = "CONFIRMED";
+            }
+
+            // Frontend click locking helps, but the backend must own replay safety
+            // so one intended submit cannot mint duplicate kitchen rounds.
+            order.SubmitIdempotencyKey = idempotencyKey;
+            await SyncOrderStateFromItemsAsync(order, cancellationToken);
+            _auditLogger.Add(
+                actionType: "ORDER_SUBMITTED",
+                entityType: "ORDER",
+                entityId: order.OrderID.ToString(),
+                tableId: order.TableID,
+                orderId: order.OrderID,
+                diningSessionCode: order.DiningSessionCode,
+                idempotencyKey: idempotencyKey,
+                beforeState: new
+                {
+                    status = "PENDING",
+                    itemStatus = "PENDING"
+                },
+                afterState: new
+                {
+                    status = order.StatusID,
+                    itemStatus = "CONFIRMED",
+                    itemCount = pendingItems.Count
+                });
             await _db.SaveChangesAsync(cancellationToken);
+            await MarkSubmitCommandCompletedAsync(command, order, cancellationToken);
             await PublishOrderEventAsync("order.submitted.v1", order, new
             {
                 orderId = order.OrderID,
                 orderCode = order.OrderCode,
+                diningSessionCode = order.DiningSessionCode,
                 tableId = order.TableID,
                 customerId = order.CustomerID,
                 statusCode = "CONFIRMED"
             }, cancellationToken);
         }
 
+        await tableLock.CommitAsync(cancellationToken);
         return NoContent();
     }
 
@@ -470,56 +728,115 @@ public sealed class OrdersController : ControllerBase
         [FromBody] SubmitOrderBatchRequest request,
         CancellationToken cancellationToken)
     {
+        var idempotencyKey = NormalizeIdempotencyKey(request.IdempotencyKey);
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            return BadRequest("Thiếu khóa xác nhận gửi món.");
+        }
+
+        var existingReplay = await WaitForSubmitCommandCompletionAsync(idempotencyKey, tableId, cancellationToken);
+        if (existingReplay?.Result is OkObjectResult replayResult)
+        {
+            return replayResult;
+        }
+
+        SubmitCommands? command = null;
+        try
+        {
+            command = await CreateSubmitCommandAsync(idempotencyKey, tableId, cancellationToken);
+        }
+        catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+        {
+            var duplicateReplay = await WaitForSubmitCommandCompletionAsync(idempotencyKey, tableId, cancellationToken);
+            if (duplicateReplay?.Result is OkObjectResult replay)
+            {
+                return replay;
+            }
+
+            return Conflict("Yêu cầu gửi món đang được xử lý. Vui lòng thử lại sau.");
+        }
+
+        await using var tableLock = await BeginTableOperationAsync(tableId, cancellationToken);
+
         var items = (request.Items ?? Array.Empty<AddItemRequest>())
             .Where(x => x.DishId > 0 && x.Quantity > 0)
             .ToList();
 
         if (items.Count == 0)
         {
+            await MarkSubmitCommandFailedAsync(command, "Đơn hàng trống.", cancellationToken);
             return BadRequest("Đơn hàng trống");
         }
 
         var tableSnapshot = await _catalogApi.GetTableAsync(tableId, cancellationToken);
         if (tableSnapshot is null)
         {
+            await MarkSubmitCommandFailedAsync(command, "Không tìm thấy bàn.", cancellationToken);
             return NotFound("Table not found.");
         }
 
-        var existingOrder = await _db.Orders
-            .Where(x => x.TableID == tableId && (x.IsActive ?? true))
-            .OrderByDescending(x => x.OrderTime)
-            .FirstOrDefaultAsync(cancellationToken);
+        var activeSessionCode = await GetLatestActiveSessionCodeAsync(tableId, cancellationToken);
+        var sessionCheck = await EnsureSessionWritableAsync(null, activeSessionCode, request.ExpectedDiningSessionCode, cancellationToken);
+        if (sessionCheck is not null)
+        {
+            await MarkSubmitCommandFailedAsync(command, "Phiên bàn đã thay đổi hoặc đang được thanh toán.", cancellationToken);
+            return sessionCheck switch
+            {
+                ObjectResult objectResult => objectResult,
+                _ => Conflict(new { message = "Phiên bàn không còn hợp lệ." })
+            };
+        }
+
+        var existingOrder = await GetPendingRoundAsync(tableId, activeSessionCode, cancellationToken);
 
         if (existingOrder is not null)
         {
-            var currentStatus = await GetOrderStatusCodeAsync(existingOrder.StatusID, cancellationToken);
-            if (string.Equals(currentStatus, "PENDING", StringComparison.OrdinalIgnoreCase))
+            var existingItems = await _db.OrderItems
+                .Where(x => x.OrderID == existingOrder.OrderID)
+                .ToListAsync(cancellationToken);
+
+            if (existingItems.Count > 0)
             {
-                var existingItems = await _db.OrderItems
-                    .Where(x => x.OrderID == existingOrder.OrderID)
-                    .ToListAsync(cancellationToken);
-
-                if (existingItems.Count > 0)
-                {
-                    _db.OrderItems.RemoveRange(existingItems);
-                }
-
-                _db.Orders.Remove(existingOrder);
-                await _db.SaveChangesAsync(cancellationToken);
+                _db.OrderItems.RemoveRange(existingItems);
             }
+
+            await _db.SaveChangesAsync(cancellationToken);
         }
 
-        var order = await CreatePendingOrderAsync(tableId, cancellationToken);
+        var sessionCustomerId = activeSessionCode is null
+            ? null
+            : await GetSessionCustomerIdAsync(tableId, activeSessionCode, cancellationToken);
+
+        var order = existingOrder ?? await CreatePendingOrderAsync(tableId, activeSessionCode, sessionCustomerId, cancellationToken);
+        var dishLookup = ((await _catalogApi.GetDishesAsync(items.Select(x => x.DishId), cancellationToken))
+            ?? Array.Empty<CatalogApiClient.DishSnapshotResponse>())
+            .ToDictionary(x => x.DishId);
 
         foreach (var item in items)
         {
-            var dishSnapshot = await _catalogApi.GetDishAsync(item.DishId, cancellationToken);
-            if (dishSnapshot is null || !dishSnapshot.IsActive || !dishSnapshot.Available)
+            if (!dishLookup.TryGetValue(item.DishId, out var dishSnapshot))
             {
+                await MarkSubmitCommandFailedAsync(command, $"Dish {item.DishId} not found.", cancellationToken);
                 return NotFound($"Dish {item.DishId} not found.");
             }
 
+            if (!IsDishOrderable(dishSnapshot))
+            {
+                await MarkSubmitCommandFailedAsync(command, "Giỏ hàng có món không còn khả dụng.", cancellationToken);
+                return BuildDishUnavailableConflict([dishSnapshot.Name]);
+            }
+
             await UpsertOrderItemAsync(order.OrderID, dishSnapshot, item, cancellationToken);
+        }
+
+        var batchInventoryCheck = await ValidateIngredientAvailabilityAsync(
+            order.OrderID,
+            items.Select(x => new CatalogApiClient.OrderIngredientConsumptionItem(x.DishId, x.Quantity)).ToList(),
+            cancellationToken);
+        if (batchInventoryCheck is not null)
+        {
+            await MarkSubmitCommandFailedAsync(command, "Giỏ hàng vượt quá tồn kho nguyên liệu.", cancellationToken);
+            return batchInventoryCheck;
         }
 
         if (!string.IsNullOrWhiteSpace(request.CustomerPhoneNumber))
@@ -532,27 +849,64 @@ public sealed class OrdersController : ControllerBase
         var itemCount = await _db.OrderItems.CountAsync(x => x.OrderID == order.OrderID, cancellationToken);
         if (itemCount == 0)
         {
+            await MarkSubmitCommandFailedAsync(command, "Đơn hàng trống.", cancellationToken);
             return BadRequest("Đơn hàng trống");
         }
 
-        var confirmedId = await GetOrderStatusIdAsync("CONFIRMED", cancellationToken);
-        if (confirmedId is null)
+        if (await GetOrderStatusIdAsync("CONFIRMED", cancellationToken) is null)
         {
+            await MarkSubmitCommandFailedAsync(command, "Status 'CONFIRMED' is missing.", cancellationToken);
             return BadRequest("Status 'CONFIRMED' is missing.");
         }
 
-        order.StatusID = confirmedId.Value;
+        if (string.IsNullOrWhiteSpace(order.DiningSessionCode))
+        {
+            order.DiningSessionCode = GenerateDiningSessionCode();
+        }
+
+        var pendingItems = await _db.OrderItems
+            .Where(x => x.OrderID == order.OrderID && x.StatusCode == "PENDING")
+            .ToListAsync(cancellationToken);
+
+        foreach (var item in pendingItems)
+        {
+            item.StatusCode = "CONFIRMED";
+        }
+
+        order.SubmitIdempotencyKey = idempotencyKey;
+        await SyncOrderStateFromItemsAsync(order, cancellationToken);
+        _auditLogger.Add(
+            actionType: "ORDER_BATCH_SUBMITTED",
+            entityType: "ORDER",
+            entityId: order.OrderID.ToString(),
+            tableId: order.TableID,
+            orderId: order.OrderID,
+            diningSessionCode: order.DiningSessionCode,
+            idempotencyKey: idempotencyKey,
+            beforeState: new
+            {
+                itemCount = 0,
+                status = "PENDING"
+            },
+            afterState: new
+            {
+                itemCount = items.Count,
+                status = "CONFIRMED"
+            });
         await _db.SaveChangesAsync(cancellationToken);
+        await MarkSubmitCommandCompletedAsync(command, order, cancellationToken);
 
         await PublishOrderEventAsync("order.submitted.v1", order, new
         {
             orderId = order.OrderID,
             orderCode = order.OrderCode,
+            diningSessionCode = order.DiningSessionCode,
             tableId = order.TableID,
             customerId = order.CustomerID,
             statusCode = "CONFIRMED"
         }, cancellationToken);
 
+        await tableLock.CommitAsync(cancellationToken);
         return Ok(await BuildActiveOrderResponseAsync(order, cancellationToken));
     }
 
@@ -562,6 +916,7 @@ public sealed class OrdersController : ControllerBase
         [FromBody] ScanLoyaltyCardRequest request,
         CancellationToken cancellationToken)
     {
+        await using var tableLock = await BeginTableOperationAsync(tableId, cancellationToken);
         if (string.IsNullOrWhiteSpace(request.PhoneNumber))
         {
             return Ok(new
@@ -593,8 +948,15 @@ public sealed class OrdersController : ControllerBase
             });
         }
 
+        var sessionCheck = await EnsureSessionWritableAsync(order.OrderID, order.DiningSessionCode, null, cancellationToken);
+        if (sessionCheck is not null)
+        {
+            return sessionCheck;
+        }
+
         AttachCustomer(order, customer.CustomerId);
         await _db.SaveChangesAsync(cancellationToken);
+        await tableLock.CommitAsync(cancellationToken);
 
         return Ok(new
         {
@@ -613,35 +975,75 @@ public sealed class OrdersController : ControllerBase
     [HttpPost("api/orders/{orderId:int}/confirm-received")]
     public async Task<ActionResult> ConfirmReceived(int orderId, CancellationToken cancellationToken)
     {
+        var tableIdHint = await _db.Orders
+            .AsNoTracking()
+            .Where(x => x.OrderID == orderId)
+            .Select(x => x.TableID)
+            .FirstOrDefaultAsync(cancellationToken);
+        await using var tableLock = tableIdHint is > 0
+            ? await BeginTableOperationAsync(tableIdHint.Value, cancellationToken)
+            : await _db.Database.BeginTransactionAsync(cancellationToken);
+
         var order = await _db.Orders.FirstOrDefaultAsync(x => x.OrderID == orderId, cancellationToken);
         if (order is null)
         {
             return NotFound();
         }
 
-        var currentStatus = await GetOrderStatusCodeAsync(order.StatusID, cancellationToken);
-        if (string.Equals(currentStatus, "SERVING", StringComparison.OrdinalIgnoreCase))
+        var sessionCheck = await EnsureSessionWritableAsync(order.OrderID, order.DiningSessionCode, null, cancellationToken);
+        if (sessionCheck is not null)
         {
-            // Idempotent call: already confirmed by customer.
-            return NoContent();
+            return sessionCheck;
         }
 
-        if (!string.Equals(currentStatus, "READY", StringComparison.OrdinalIgnoreCase))
+        var sessionOrders = string.IsNullOrWhiteSpace(order.DiningSessionCode)
+            ? [order]
+            : await _db.Orders
+                .Where(x =>
+                    x.TableID == order.TableID
+                    && (x.IsActive ?? true)
+                    && x.DiningSessionCode == order.DiningSessionCode)
+                .ToListAsync(cancellationToken);
+
+        var sessionOrderIds = sessionOrders.Select(x => x.OrderID).ToArray();
+        var readyItems = await _db.OrderItems
+            .Where(x => sessionOrderIds.Contains(x.OrderID) && x.StatusCode == "READY")
+            .ToListAsync(cancellationToken);
+
+        if (readyItems.Count == 0)
         {
-            return BadRequest("Chỉ có thể xác nhận nhận món khi đơn ở trạng thái READY.");
+            var alreadyServing = await _db.OrderItems.AnyAsync(
+                x => sessionOrderIds.Contains(x.OrderID) && x.StatusCode == "SERVING",
+                cancellationToken);
+            if (alreadyServing)
+            {
+                return NoContent();
+            }
+
+            return BadRequest("Chỉ có thể xác nhận nhận món khi có món ở trạng thái READY.");
         }
 
-        // Customer confirms pickup: keep order active for cashier checkout,
-        // and keep table occupied until payment is completed at cashier.
-        var servingId = await GetOrderStatusIdAsync("SERVING", cancellationToken);
-        if (servingId is null)
+        // Item-level confirm keeps mixed-progress rounds truthful while preserving
+        // the same customer-facing confirm flow.
+        foreach (var item in readyItems)
         {
-            return BadRequest("Status 'SERVING' is missing.");
+            item.StatusCode = "SERVING";
         }
 
-        order.StatusID = servingId.Value;
-        order.IsActive = true;
+        foreach (var sessionOrder in sessionOrders)
+        {
+            await SyncOrderStateFromItemsAsync(sessionOrder, cancellationToken);
+        }
 
+        _auditLogger.Add(
+            actionType: "ORDER_ITEMS_RECEIVED",
+            entityType: "ORDER",
+            entityId: order.OrderID.ToString(),
+            tableId: order.TableID,
+            orderId: order.OrderID,
+            diningSessionCode: order.DiningSessionCode,
+            beforeState: new { itemStatus = "READY" },
+            afterState: new { itemStatus = "SERVING", itemCount = readyItems.Count });
         await _db.SaveChangesAsync(cancellationToken);
         await PublishOrderEventAsync("order.received-confirmed.v1", order, new
         {
@@ -651,6 +1053,10 @@ public sealed class OrdersController : ControllerBase
             customerId = order.CustomerID,
             statusCode = "SERVING"
         }, cancellationToken);
+        if (_db.Database.CurrentTransaction is not null)
+        {
+            await _db.Database.CurrentTransaction.CommitAsync(cancellationToken);
+        }
         return NoContent();
     }
 
@@ -667,6 +1073,7 @@ public sealed class OrdersController : ControllerBase
             .AsNoTracking()
             .Join(_db.Orders.AsNoTracking(), i => i.OrderID, o => o.OrderID, (i, o) => new { i, o })
             .Where(x => x.o.TableID != null && branchTableIds.Contains(x.o.TableID.Value))
+            .Where(x => x.i.StatusCode != "CANCELLED")
             .GroupBy(x => x.i.DishID)
             .Select(g => new { dishId = g.Key, qty = g.Sum(x => x.i.Quantity) })
             .OrderByDescending(x => x.qty)
@@ -701,6 +1108,7 @@ public sealed class OrdersController : ControllerBase
             {
                 orderId = o.OrderID,
                 orderCode = o.OrderCode,
+                diningSessionCode = o.DiningSessionCode,
                 orderTime = o.OrderTime,
                 tableId = o.TableID,
                 customerId = o.CustomerID,
@@ -724,6 +1132,7 @@ public sealed class OrdersController : ControllerBase
                 unitPrice = i.UnitPrice,
                 lineTotal = i.LineTotal,
                 note = i.Note,
+                statusCode = i.StatusCode,
             })
             .ToListAsync(cancellationToken);
 
@@ -741,45 +1150,80 @@ public sealed class OrdersController : ControllerBase
             .GroupBy(i => i.orderId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        var payload = orders.Select(o =>
-        {
-            itemsByOrder.TryGetValue(o.orderId, out var orderItems);
-            orderItems ??= [];
-
-            var materializedItems = orderItems.Select(i => new
+        var groupedPayload = orders
+            .GroupBy(o => !string.IsNullOrWhiteSpace(o.diningSessionCode) ? $"session:{o.diningSessionCode}" : $"order:{o.orderId}")
+            .Select(group =>
             {
-                itemId = i.itemId,
-                orderId = i.orderId,
-                dishId = i.dishId,
-                dishName = dishLookup.TryGetValue(i.dishId, out var dish) ? dish.Name : $"Món #{i.dishId}",
-                quantity = i.quantity,
-                unitPrice = i.unitPrice,
-                lineTotal = i.lineTotal,
-                image = dishLookup.TryGetValue(i.dishId, out var imageDish) ? imageDish.Image : null,
-                note = i.note,
-            }).ToList();
+                var representative = group.OrderByDescending(x => x.orderTime).First();
+                var groupItems = group
+                    .SelectMany(order =>
+                    {
+                        itemsByOrder.TryGetValue(order.orderId, out var orderItems);
+                        orderItems ??= [];
+                        return orderItems.Select(i => new
+                        {
+                            i.itemId,
+                            i.orderId,
+                            i.dishId,
+                            i.quantity,
+                            i.unitPrice,
+                            i.lineTotal,
+                            i.note,
+                            i.statusCode,
+                        });
+                    })
+                    .ToList();
 
-            var tableName = o.tableId.HasValue && tableLookup.TryGetValue(o.tableId.Value, out var table)
-                ? (table.QrCode ?? ("Bàn " + o.tableId.Value))
-                : ("Bàn " + (o.tableId?.ToString() ?? "?"));
+                var materializedItems = groupItems.Select(i => new
+                {
+                    itemId = i.itemId,
+                    orderId = i.orderId,
+                    dishId = i.dishId,
+                    dishName = dishLookup.TryGetValue(i.dishId, out var dish) ? dish.Name : $"Món #{i.dishId}",
+                    quantity = i.quantity,
+                    unitPrice = i.unitPrice,
+                    lineTotal = i.lineTotal,
+                    image = dishLookup.TryGetValue(i.dishId, out var imageDish) ? imageDish.Image : null,
+                    note = i.note,
+                    statusCode = NormalizeItemStatus(i.statusCode),
+                }).ToList();
 
-            return new
-            {
-                orderId = o.orderId,
-                orderCode = o.orderCode,
-                orderTime = o.orderTime,
-                tableId = o.tableId ?? 0,
-                tableName,
-                customerId = o.customerId,
-                statusCode = o.statusCode,
-                statusName = o.statusName,
-                subtotal = materializedItems.Sum(x => x.lineTotal),
-                itemCount = materializedItems.Sum(x => x.quantity),
-                items = materializedItems
-            };
-        }).ToList();
+                var tableName = representative.tableId.HasValue && tableLookup.TryGetValue(representative.tableId.Value, out var table)
+                    ? (table.QrCode ?? ("Bàn " + representative.tableId.Value))
+                    : ("Bàn " + (representative.tableId?.ToString() ?? "?"));
 
-        return Ok(payload);
+                var customerId = group
+                    .Where(x => x.customerId.HasValue)
+                    .OrderByDescending(x => x.orderTime)
+                    .Select(x => x.customerId)
+                    .FirstOrDefault();
+
+                var statusCode = ResolveAggregateStatusCodeFromItemCodes(materializedItems.Select(x => x.statusCode), group.Select(x => x.statusCode));
+
+                var statusName = group
+                    .OrderByDescending(x => GetStatusPriority(x.statusCode))
+                    .Select(x => x.statusName)
+                    .FirstOrDefault() ?? "Đang phục vụ";
+
+                return new
+                {
+                    orderId = representative.orderId,
+                    orderCode = representative.orderCode,
+                    diningSessionCode = representative.diningSessionCode,
+                    orderTime = representative.orderTime,
+                    tableId = representative.tableId ?? 0,
+                    tableName,
+                    customerId,
+                    statusCode,
+                    statusName,
+                    subtotal = materializedItems.Where(x => !string.Equals(x.statusCode, "CANCELLED", StringComparison.OrdinalIgnoreCase)).Sum(x => x.lineTotal),
+                    itemCount = materializedItems.Where(x => !string.Equals(x.statusCode, "CANCELLED", StringComparison.OrdinalIgnoreCase)).Sum(x => x.quantity),
+                    items = materializedItems
+                };
+            })
+            .ToList();
+
+        return Ok(groupedPayload);
     }
 
     [HttpGet("api/internal/orders/{orderId:int}/checkout-context")]
@@ -793,6 +1237,7 @@ public sealed class OrdersController : ControllerBase
             {
                 orderId = o.OrderID,
                 orderCode = o.OrderCode,
+                diningSessionCode = o.DiningSessionCode,
                 tableId = o.TableID,
                 customerId = o.CustomerID,
                 statusCode = o.Status.StatusCode,
@@ -806,6 +1251,18 @@ public sealed class OrdersController : ControllerBase
             return NotFound();
         }
 
+        var aggregateOrders = string.IsNullOrWhiteSpace(order.diningSessionCode)
+            ? await _db.Orders
+                .AsNoTracking()
+                .Include(o => o.Status)
+                .Where(o => o.OrderID == orderId)
+                .ToListAsync(cancellationToken)
+            : await _db.Orders
+                .AsNoTracking()
+                .Include(o => o.Status)
+                .Where(o => (o.IsActive ?? false) && o.DiningSessionCode == order.diningSessionCode && o.TableID == order.tableId)
+                .ToListAsync(cancellationToken);
+
         CatalogApiClient.TableSnapshotResponse? table = null;
         CatalogApiClient.BranchSnapshotResponse? branch = null;
         if (order.tableId is int tableId)
@@ -818,23 +1275,45 @@ public sealed class OrdersController : ControllerBase
             }
         }
 
-        var subtotal = await _db.OrderItems
+        var aggregateOrderIds = aggregateOrders.Select(x => x.OrderID).Distinct().ToArray();
+        var aggregateItemStatuses = await _db.OrderItems
             .AsNoTracking()
-            .Where(oi => oi.OrderID == orderId)
-            .SumAsync(oi => (decimal?)oi.LineTotal, cancellationToken) ?? 0m;
+            .Where(oi => aggregateOrderIds.Contains(oi.OrderID))
+            .Select(oi => new { oi.LineTotal, oi.StatusCode })
+            .ToListAsync(cancellationToken);
+
+        var subtotal = aggregateItemStatuses
+            .Where(oi => !string.Equals(NormalizeItemStatus(oi.StatusCode), "CANCELLED", StringComparison.OrdinalIgnoreCase))
+            .Sum(oi => oi.LineTotal);
+
+        var customerId = aggregateOrders
+            .Where(x => x.CustomerID.HasValue)
+            .OrderByDescending(x => x.OrderTime)
+            .Select(x => x.CustomerID)
+            .FirstOrDefault();
+
+        var statusCode = ResolveAggregateStatusCodeFromItemCodes(
+            aggregateItemStatuses.Select(x => x.StatusCode),
+            aggregateOrders.Select(x => x.Status.StatusCode));
+        var statusName = await _db.OrderStatus
+            .AsNoTracking()
+            .Where(x => x.StatusCode == statusCode)
+            .Select(x => x.StatusName)
+            .FirstOrDefaultAsync(cancellationToken) ?? order.statusName;
 
         return Ok(new
         {
             order.orderId,
             order.orderCode,
+            order.diningSessionCode,
             order.tableId,
             tableName = table?.QrCode ?? (order.tableId.HasValue ? ("Bàn " + order.tableId.Value) : null),
             branchId = table?.BranchId,
             branchName = branch?.Name,
-            order.customerId,
-            order.statusCode,
-            order.statusName,
-            order.isActive,
+            customerId,
+            statusCode,
+            statusName,
+            isActive = aggregateOrders.Any(x => x.IsActive ?? false),
             subtotal
         });
     }
@@ -916,6 +1395,7 @@ public sealed class OrdersController : ControllerBase
             .Join(_db.Orders, i => i.OrderID, o => o.OrderID, (i, o) => new { i, o })
             .Join(_db.OrderStatus, x => x.o.StatusID, s => s.StatusID, (x, s) => new { x.i, x.o, s })
             .Where(x => x.o.OrderTime >= from && x.o.OrderTime < to && x.s.StatusCode == "COMPLETED")
+            .Where(x => x.i.StatusCode != "CANCELLED")
             .SumAsync(x => (decimal?)x.i.LineTotal, cancellationToken) ?? 0m;
 
         return Ok(new
@@ -938,11 +1418,14 @@ public sealed class OrdersController : ControllerBase
             .AsNoTracking()
             .Join(_db.Orders.AsNoTracking(), i => i.OrderID, o => o.OrderID, (i, o) => new { i, o })
             .Where(x => x.o.OrderTime >= from)
+            .Where(x => x.i.StatusCode != "CANCELLED")
             .SumAsync(x => (decimal?)x.i.LineTotal, cancellationToken) ?? 0m;
 
         var orderRows = await _db.OrderItems
             .AsNoTracking()
             .Join(_db.Orders.AsNoTracking(), i => i.OrderID, o => o.OrderID, (i, o) => new { i, o })
+            .Where(x => x.o.OrderTime >= from)
+            .Where(x => x.i.StatusCode != "CANCELLED")
             .Select(x => new
             {
                 x.o.OrderID,
@@ -950,7 +1433,6 @@ public sealed class OrdersController : ControllerBase
                 x.o.TableID,
                 Revenue = x.i.LineTotal
             })
-            .Where(x => x.OrderTime >= from)
             .ToListAsync(cancellationToken);
 
         var tableLookup = (await _catalogApi.GetTablesAsync(
@@ -1012,6 +1494,7 @@ public sealed class OrdersController : ControllerBase
             .AsNoTracking()
             .Join(_db.Orders.AsNoTracking(), i => i.OrderID, o => o.OrderID, (i, o) => new { i, o })
             .Where(x => x.o.OrderTime >= from)
+            .Where(x => x.i.StatusCode != "CANCELLED")
             .Select(x => new
             {
                 x.i.DishID,
@@ -1111,6 +1594,7 @@ public sealed class OrdersController : ControllerBase
                 dishId = i.DishID,
                 quantity = i.Quantity,
                 note = i.Note,
+                statusCode = i.StatusCode,
             })
             .ToListAsync(cancellationToken);
 
@@ -1137,6 +1621,7 @@ public sealed class OrdersController : ControllerBase
                 dishName = dishLookup.TryGetValue(i.dishId, out var dish) ? dish.Name : $"Món #{i.dishId}",
                 i.quantity,
                 i.note,
+                statusCode = NormalizeItemStatus(i.statusCode),
             }).ToList(),
         }).ToList();
 
@@ -1259,6 +1744,14 @@ public sealed class OrdersController : ControllerBase
     public Task<ActionResult> ChefReady(int orderId, CancellationToken cancellationToken) =>
         UpdateOrderStatusAsync(orderId, "READY", cancellationToken);
 
+    [HttpPost("api/orders/{orderId:int}/items/{itemId:int}/chef/start")]
+    public Task<ActionResult> ChefStartItem(int orderId, int itemId, CancellationToken cancellationToken) =>
+        UpdateOrderItemStatusAsync(orderId, itemId, "PREPARING", null, cancellationToken);
+
+    [HttpPost("api/orders/{orderId:int}/items/{itemId:int}/chef/ready")]
+    public Task<ActionResult> ChefReadyItem(int orderId, int itemId, CancellationToken cancellationToken) =>
+        UpdateOrderItemStatusAsync(orderId, itemId, "READY", null, cancellationToken);
+
     [HttpPost("api/orders/{orderId:int}/chef/serve")]
     public ActionResult ChefServe(int orderId, CancellationToken cancellationToken) =>
         BadRequest("Chef khong the xac nhan da phuc vu. Khach hang se tu xac nhan khi da nhan mon.");
@@ -1283,33 +1776,90 @@ public sealed class OrdersController : ControllerBase
         [FromBody] CancelOrderRequest request,
         CancellationToken cancellationToken)
     {
+        var tableIdHint = await _db.Orders
+            .AsNoTracking()
+            .Where(x => x.OrderID == orderId)
+            .Select(x => x.TableID)
+            .FirstOrDefaultAsync(cancellationToken);
+        await using var tableLock = tableIdHint is > 0
+            ? await BeginTableOperationAsync(tableIdHint.Value, cancellationToken)
+            : await _db.Database.BeginTransactionAsync(cancellationToken);
+
         var order = await _db.Orders.FirstOrDefaultAsync(o => o.OrderID == orderId, cancellationToken);
         if (order is null)
         {
             return NotFound();
         }
 
-        var cancelStatusId = await GetOrderStatusIdAsync("CANCELLED", cancellationToken);
-        if (cancelStatusId is null)
+        var currentStatusCode = await GetOrderStatusCodeAsync(order.StatusID, cancellationToken);
+        if (string.Equals(currentStatusCode, "CANCELLED", StringComparison.OrdinalIgnoreCase))
         {
-            return BadRequest("Status 'CANCELLED' is missing.");
+            if (_db.Database.CurrentTransaction is not null)
+            {
+                await _db.Database.CurrentTransaction.CommitAsync(cancellationToken);
+            }
+            return NoContent();
         }
 
-        order.StatusID = cancelStatusId.Value;
-        order.IsActive = false;
-        order.CompletedTime ??= DateTime.Now;
+        if (string.Equals(currentStatusCode, "COMPLETED", StringComparison.OrdinalIgnoreCase))
+        {
+            return Conflict(new { message = "Đơn hàng đã hoàn tất nên không thể hủy." });
+        }
+
+        var sessionCheck = await EnsureSessionWritableAsync(order.OrderID, order.DiningSessionCode, null, cancellationToken);
+        if (sessionCheck is not null)
+        {
+            return sessionCheck;
+        }
+
+        var items = await _db.OrderItems
+            .Where(x => x.OrderID == orderId)
+            .ToListAsync(cancellationToken);
+
+        var changedItems = items
+            .Where(x => IsAllowedItemTransition(x.StatusCode, "CANCELLED"))
+            .ToList();
+
+        if (changedItems.Count == 0)
+        {
+            return Conflict(new { message = "Đơn hàng hiện tại không còn món nào có thể hủy." });
+        }
+
+        foreach (var item in changedItems)
+        {
+            item.StatusCode = "CANCELLED";
+        }
+
         if (!string.IsNullOrWhiteSpace(request.Reason))
         {
             var reason = request.Reason.Trim();
             order.Note = string.IsNullOrWhiteSpace(order.Note) ? $"[CANCEL] {reason}" : $"{order.Note} | [CANCEL] {reason}";
         }
 
-        if (order.TableID is int tableId)
+        var syncResult = await SyncOrderStateFromItemsAsync(order, cancellationToken);
+
+        if (syncResult.StatusCode == "CANCELLED"
+            && order.TableID is int tableId
+            && !await HasOtherActiveOrdersInSameSessionAsync(order, cancellationToken))
         {
             await _catalogApi.ReleaseTableAsync(tableId, cancellationToken);
         }
 
+        _auditLogger.Add(
+            actionType: "ORDER_CANCELLED",
+            entityType: "ORDER",
+            entityId: order.OrderID.ToString(),
+            tableId: order.TableID,
+            orderId: order.OrderID,
+            diningSessionCode: order.DiningSessionCode,
+            beforeState: new { status = currentStatusCode, cancelledItems = changedItems.Select(x => x.ItemID).ToArray() },
+            afterState: new { status = syncResult.StatusCode, cancelledItems = changedItems.Count },
+            notes: request.Reason);
         await _db.SaveChangesAsync(cancellationToken);
+        if (_db.Database.CurrentTransaction is not null)
+        {
+            await _db.Database.CurrentTransaction.CommitAsync(cancellationToken);
+        }
         await PublishOrderEventAsync("order.cancelled.v1", order, new
         {
             orderId = order.OrderID,
@@ -1317,10 +1867,18 @@ public sealed class OrdersController : ControllerBase
             tableId = order.TableID,
             customerId = order.CustomerID,
             reason = request.Reason,
-            statusCode = "CANCELLED"
+            statusCode = syncResult.StatusCode
         }, cancellationToken);
         return NoContent();
     }
+
+    [HttpPost("api/orders/{orderId:int}/items/{itemId:int}/cancel")]
+    public Task<ActionResult> CancelOrderItem(
+        int orderId,
+        int itemId,
+        [FromBody] CancelOrderRequest request,
+        CancellationToken cancellationToken) =>
+        UpdateOrderItemStatusAsync(orderId, itemId, "CANCELLED", request.Reason, cancellationToken);
 
     [HttpPut("api/orders/{orderId:int}/items/{itemId:int}/chef-note")]
     public async Task<ActionResult> ChefUpdateItemNote(
@@ -1329,8 +1887,16 @@ public sealed class OrdersController : ControllerBase
         [FromBody] UpdateItemNoteRequest request,
         CancellationToken cancellationToken)
     {
-        var order = await _db.Orders
+        var tableIdHint = await _db.Orders
             .AsNoTracking()
+            .Where(x => x.OrderID == orderId)
+            .Select(x => x.TableID)
+            .FirstOrDefaultAsync(cancellationToken);
+        await using var tableLock = tableIdHint is > 0
+            ? await BeginTableOperationAsync(tableIdHint.Value, cancellationToken)
+            : await _db.Database.BeginTransactionAsync(cancellationToken);
+
+        var order = await _db.Orders
             .Include(o => o.Status)
             .FirstOrDefaultAsync(o => o.OrderID == orderId && (o.IsActive ?? true), cancellationToken);
         if (order is null)
@@ -1342,6 +1908,12 @@ public sealed class OrdersController : ControllerBase
         if (!allowStatuses.Contains(order.Status.StatusCode))
         {
             return BadRequest("Order is not in chef processing state.");
+        }
+
+        var sessionCheck = await EnsureSessionWritableAsync(order.OrderID, order.DiningSessionCode, null, cancellationToken);
+        if (sessionCheck is not null)
+        {
+            return sessionCheck;
         }
 
         var item = await _db.OrderItems
@@ -1365,6 +1937,10 @@ public sealed class OrdersController : ControllerBase
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+        if (_db.Database.CurrentTransaction is not null)
+        {
+            await _db.Database.CurrentTransaction.CommitAsync(cancellationToken);
+        }
         return NoContent();
     }
 
@@ -1376,34 +1952,52 @@ public sealed class OrdersController : ControllerBase
             return null;
         }
 
-        var order = await _db.Orders
-            .Where(x => x.TableID == tableId && (x.IsActive ?? true))
-            .OrderByDescending(x => x.OrderTime)
-            .FirstOrDefaultAsync(cancellationToken);
+        // A real dining table may place multiple kitchen rounds before checkout.
+        // We therefore resolve the active dining session first, then find or open
+        // the editable pending round inside that session instead of reusing the
+        // newest active order blindly.
+        var activeSessionCode = await GetLatestActiveSessionCodeAsync(tableId, cancellationToken);
+        var pendingRound = await GetPendingRoundAsync(tableId, activeSessionCode, cancellationToken);
+        if (pendingRound is not null)
+        {
+            return pendingRound;
+        }
+
+        if (activeSessionCode is not null)
+        {
+            var latestActiveInSession = await _db.Orders
+                .Where(x =>
+                    x.TableID == tableId
+                    && (x.IsActive ?? true)
+                    && x.DiningSessionCode == activeSessionCode)
+                .OrderByDescending(x => x.OrderTime)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (!createIfMissing)
+            {
+                return latestActiveInSession;
+            }
+
+            var sessionCustomerId = await GetSessionCustomerIdAsync(tableId, activeSessionCode, cancellationToken);
+            return await CreatePendingOrderAsync(tableId, activeSessionCode, sessionCustomerId, cancellationToken);
+        }
 
         if (!createIfMissing)
         {
-            return order;
+            return null;
         }
 
-        if (order is not null)
-        {
-            var statusCode = await GetOrderStatusCodeAsync(order.StatusID, cancellationToken);
-            if (string.Equals(statusCode, "PENDING", StringComparison.OrdinalIgnoreCase))
-            {
-                return order;
-            }
-        }
-
-        return await CreatePendingOrderAsync(tableId, cancellationToken);
+        return await CreatePendingOrderAsync(tableId, diningSessionCode: null, customerId: null, cancellationToken: cancellationToken);
     }
 
-    private async Task<OrderEntity> CreatePendingOrderAsync(int tableId, CancellationToken cancellationToken)
+    private async Task<OrderEntity> CreatePendingOrderAsync(int tableId, string? diningSessionCode, int? customerId, CancellationToken cancellationToken)
     {
         var pendingId = await GetOrderStatusIdAsync("PENDING", cancellationToken) ?? 1;
         var order = new OrderEntity
         {
+            DiningSessionCode = NormalizeSessionCode(diningSessionCode),
             TableID = tableId,
+            CustomerID = customerId,
             StatusID = pendingId,
             IsActive = true,
             OrderTime = DateTime.Now,
@@ -1450,28 +2044,31 @@ public sealed class OrdersController : ControllerBase
 
     private async Task<object> BuildActiveOrderResponseAsync(OrderEntity order, CancellationToken cancellationToken)
     {
-        var status = await _db.OrderStatus
+        // Customer and cashier screens need a table-level session view so we do
+        // not lose earlier rounds or attach new dishes to a closed dining visit.
+        var aggregateOrders = await GetOrdersForAggregateAsync(order, cancellationToken);
+        var aggregateOrderIds = aggregateOrders.Select(x => x.OrderID).ToArray();
+        var statusRows = await _db.OrderStatus
             .AsNoTracking()
-            .Select(x => new
-            {
-                x.StatusID,
-                x.StatusCode,
-                x.StatusName,
-            })
-            .FirstOrDefaultAsync(x => x.StatusID == order.StatusID, cancellationToken);
+            .Select(x => new StatusRow(x.StatusID, x.StatusCode, x.StatusName))
+            .ToListAsync(cancellationToken);
+        var statusLookup = statusRows.ToDictionary(x => x.StatusID);
 
         var rawItems = await _db.OrderItems
             .AsNoTracking()
-            .Where(x => x.OrderID == order.OrderID)
-            .OrderBy(x => x.ItemID)
+            .Where(x => aggregateOrderIds.Contains(x.OrderID))
+            .OrderBy(x => x.OrderID)
+            .ThenBy(x => x.ItemID)
             .Select(x => new
             {
+                x.OrderID,
                 x.ItemID,
                 x.DishID,
                 x.Quantity,
                 x.UnitPrice,
                 x.LineTotal,
                 x.Note,
+                x.StatusCode,
             })
             .ToListAsync(cancellationToken);
 
@@ -1490,6 +2087,7 @@ public sealed class OrdersController : ControllerBase
             return new
             {
                 itemId = x.ItemID,
+                orderId = x.OrderID,
                 dishId = x.DishID,
                 dishName = dish.Name ?? $"Mon #{x.DishID}",
                 quantity = x.Quantity,
@@ -1498,48 +2096,102 @@ public sealed class OrdersController : ControllerBase
                 note = x.Note,
                 unit = dish.Unit,
                 image = dish.Image,
-                status = (string?)null,
+                status = NormalizeItemStatus(x.StatusCode),
             };
         }).ToList();
 
+        var representativeOrder = aggregateOrders
+            .OrderByDescending(x => x.OrderTime)
+            .First();
+        var pendingRound = aggregateOrders
+            .Where(x => statusLookup.TryGetValue(x.StatusID, out var status) && string.Equals(status.StatusCode, "PENDING", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(x => x.OrderTime)
+            .FirstOrDefault();
+        var aggregateStatusCode = ResolveAggregateStatusCodeFromItemCodes(items.Select(x => x.status), aggregateOrders.Select(x => statusLookup.TryGetValue(x.StatusID, out var status) ? status.StatusCode : null));
+        var aggregateStatus = statusRows.FirstOrDefault(x => string.Equals(x.StatusCode, aggregateStatusCode, StringComparison.OrdinalIgnoreCase));
+        var hasCommittedSession = aggregateOrders.Any(x => !string.IsNullOrWhiteSpace(x.DiningSessionCode));
+
         return new
         {
-            orderId = order.OrderID,
-            orderCode = order.OrderCode,
-            tableId = order.TableID,
-            statusCode = status?.StatusCode ?? "PENDING",
-            orderStatus = status?.StatusName ?? "Pending",
-            subtotal = items.Sum(x => x.lineTotal),
-            totalItems = items.Sum(x => x.quantity),
+            orderId = representativeOrder.OrderID,
+            orderCode = representativeOrder.OrderCode,
+            diningSessionCode = representativeOrder.DiningSessionCode,
+            hasActiveDiningSession = hasCommittedSession,
+            activeOrderIds = aggregateOrderIds,
+            hasPendingRound = pendingRound is not null,
+            pendingOrderId = pendingRound?.OrderID,
+            tableId = representativeOrder.TableID,
+            statusCode = aggregateStatusCode,
+            orderStatus = aggregateStatus?.StatusName ?? "Pending",
+            subtotal = items.Where(x => !string.Equals(x.status, "CANCELLED", StringComparison.OrdinalIgnoreCase)).Sum(x => x.lineTotal),
+            totalItems = items.Where(x => !string.Equals(x.status, "CANCELLED", StringComparison.OrdinalIgnoreCase)).Sum(x => x.quantity),
             items,
         };
     }
 
     private async Task<ActionResult> UpdateOrderStatusAsync(int orderId, string statusCode, CancellationToken cancellationToken)
     {
+        var tableIdHint = await _db.Orders
+            .AsNoTracking()
+            .Where(x => x.OrderID == orderId)
+            .Select(x => x.TableID)
+            .FirstOrDefaultAsync(cancellationToken);
+        await using var tableLock = tableIdHint is > 0
+            ? await BeginTableOperationAsync(tableIdHint.Value, cancellationToken)
+            : await _db.Database.BeginTransactionAsync(cancellationToken);
+
         var order = await _db.Orders.FirstOrDefaultAsync(o => o.OrderID == orderId, cancellationToken);
         if (order is null)
         {
             return NotFound();
         }
 
-        var currentStatusCode = await GetOrderStatusCodeAsync(order.StatusID, cancellationToken);
-        var entersKitchenFlow = IsKitchenStatus(statusCode) && !IsKitchenStatus(currentStatusCode);
+        var sessionCheck = await EnsureSessionWritableAsync(order.OrderID, order.DiningSessionCode, null, cancellationToken);
+        if (sessionCheck is not null)
+        {
+            return sessionCheck;
+        }
+
+        var orderItems = await _db.OrderItems
+            .Where(x => x.OrderID == order.OrderID)
+            .ToListAsync(cancellationToken);
+        var beforeOrderStatusCode = await GetOrderStatusCodeAsync(order.StatusID, cancellationToken);
+
+        var changedItems = orderItems
+            .Where(x => IsAllowedItemTransition(x.StatusCode, statusCode))
+            .ToList();
+
+        if (changedItems.Count == 0)
+        {
+            var alreadyInTarget = orderItems.Count > 0 && orderItems.All(x =>
+                string.Equals(NormalizeItemStatus(x.StatusCode), statusCode, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(NormalizeItemStatus(x.StatusCode), "CANCELLED", StringComparison.OrdinalIgnoreCase));
+            if (alreadyInTarget)
+            {
+                if (_db.Database.CurrentTransaction is not null)
+                {
+                    await _db.Database.CurrentTransaction.CommitAsync(cancellationToken);
+                }
+                return NoContent();
+            }
+
+            return Conflict(new { message = $"Đơn hàng hiện không còn món nào có thể chuyển sang {statusCode}." });
+        }
+
+        var entersKitchenFlow = string.Equals(statusCode, "PREPARING", StringComparison.OrdinalIgnoreCase);
 
         if (entersKitchenFlow)
         {
-            var orderItems = await _db.OrderItems
-                .AsNoTracking()
-                .Where(x => x.OrderID == order.OrderID)
+            var consumptionItems = changedItems
                 .Select(x => new CatalogApiClient.OrderIngredientConsumptionItem(x.DishID, x.Quantity))
-                .ToListAsync(cancellationToken);
+                .ToList();
 
-            if (orderItems.Count == 0)
+            if (consumptionItems.Count == 0)
             {
                 return BadRequest("Đơn hàng không có món để chuyển sang bếp.");
             }
 
-            var consumption = await _catalogApi.ConsumeIngredientsForOrderAsync(order.OrderID, orderItems, cancellationToken);
+            var consumption = await _catalogApi.ConsumeIngredientsForOrderAsync(order.OrderID, consumptionItems, cancellationToken);
             if (!consumption.Success)
             {
                 return Conflict(new
@@ -1557,27 +2209,151 @@ public sealed class OrdersController : ControllerBase
             }
         }
 
-        var statusId = await GetOrderStatusIdAsync(statusCode, cancellationToken);
-        if (statusId is null)
+        foreach (var item in changedItems)
         {
-            return BadRequest($"Status '{statusCode}' is missing.");
+            item.StatusCode = statusCode;
         }
 
-        order.StatusID = statusId.Value;
+        var syncResult = await SyncOrderStateFromItemsAsync(order, cancellationToken);
+        _auditLogger.Add(
+            actionType: $"ORDER_ITEMS_{statusCode}",
+            entityType: "ORDER",
+            entityId: order.OrderID.ToString(),
+            tableId: order.TableID,
+            orderId: order.OrderID,
+            diningSessionCode: order.DiningSessionCode,
+            beforeState: new { status = beforeOrderStatusCode, changedItemIds = changedItems.Select(x => x.ItemID).ToArray() },
+            afterState: new { status = syncResult.StatusCode, changedItemIds = changedItems.Select(x => x.ItemID).ToArray() });
         await _db.SaveChangesAsync(cancellationToken);
-
-        if (string.Equals(statusCode, "READY", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(statusCode, "PREPARING", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(statusCode, "SERVING", StringComparison.OrdinalIgnoreCase))
+        if (_db.Database.CurrentTransaction is not null)
         {
-            await PublishOrderEventAsync($"order.status-{statusCode.ToLowerInvariant()}.v1", order, new
+            await _db.Database.CurrentTransaction.CommitAsync(cancellationToken);
+        }
+
+        if (string.Equals(statusCode, "READY", StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (var item in changedItems)
+            {
+                await PublishOrderEventAsync("order.status-ready.v1", order, new
+                {
+                    orderId = order.OrderID,
+                    orderCode = order.OrderCode,
+                    tableId = order.TableID,
+                    customerId = order.CustomerID,
+                    orderItemId = item.ItemID,
+                    dishId = item.DishID,
+                    dishName = await ResolveDishNameAsync(item.DishID, cancellationToken),
+                    quantity = item.Quantity,
+                    statusCode = syncResult.StatusCode,
+                    itemStatusCode = "READY"
+                }, cancellationToken);
+            }
+        }
+
+        return NoContent();
+    }
+
+    private async Task<ActionResult> UpdateOrderItemStatusAsync(
+        int orderId,
+        int itemId,
+        string statusCode,
+        string? cancelReason,
+        CancellationToken cancellationToken)
+    {
+        var tableIdHint = await _db.Orders
+            .AsNoTracking()
+            .Where(x => x.OrderID == orderId)
+            .Select(x => x.TableID)
+            .FirstOrDefaultAsync(cancellationToken);
+        await using var tableLock = tableIdHint is > 0
+            ? await BeginTableOperationAsync(tableIdHint.Value, cancellationToken)
+            : await _db.Database.BeginTransactionAsync(cancellationToken);
+
+        var order = await _db.Orders.FirstOrDefaultAsync(x => x.OrderID == orderId, cancellationToken);
+        if (order is null)
+        {
+            return NotFound();
+        }
+
+        var sessionCheck = await EnsureSessionWritableAsync(order.OrderID, order.DiningSessionCode, null, cancellationToken);
+        if (sessionCheck is not null)
+        {
+            return sessionCheck;
+        }
+
+        var item = await _db.OrderItems.FirstOrDefaultAsync(x => x.OrderID == orderId && x.ItemID == itemId, cancellationToken);
+        if (item is null)
+        {
+            return NotFound();
+        }
+
+        if (!IsAllowedItemTransition(item.StatusCode, statusCode))
+        {
+            return Conflict(new { message = $"Món hiện không thể chuyển sang {statusCode}." });
+        }
+
+        if (string.Equals(statusCode, "PREPARING", StringComparison.OrdinalIgnoreCase))
+        {
+            var consumption = await _catalogApi.ConsumeIngredientsForOrderAsync(
+                order.OrderID,
+                [new CatalogApiClient.OrderIngredientConsumptionItem(item.DishID, item.Quantity)],
+                cancellationToken);
+            if (!consumption.Success)
+            {
+                return Conflict(new { message = consumption.Message ?? "Không đủ nguyên liệu để tiếp tục chế biến.", details = consumption.Issues });
+            }
+        }
+
+        var beforeStatus = NormalizeItemStatus(item.StatusCode);
+        item.StatusCode = statusCode;
+        if (string.Equals(statusCode, "CANCELLED", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(cancelReason))
+        {
+            var reason = cancelReason.Trim();
+            item.Note = string.IsNullOrWhiteSpace(item.Note) ? $"[HỦY] {reason}" : $"{item.Note} | [HỦY] {reason}";
+        }
+
+        var syncResult = await SyncOrderStateFromItemsAsync(order, cancellationToken);
+        _auditLogger.Add(
+            actionType: $"ORDER_ITEM_{statusCode}",
+            entityType: "ORDER_ITEM",
+            entityId: item.ItemID.ToString(),
+            tableId: order.TableID,
+            orderId: order.OrderID,
+            orderItemId: item.ItemID,
+            dishId: item.DishID,
+            diningSessionCode: order.DiningSessionCode,
+            beforeState: new { status = beforeStatus },
+            afterState: new { status = statusCode, orderStatus = syncResult.StatusCode },
+            notes: cancelReason);
+        await _db.SaveChangesAsync(cancellationToken);
+        if (_db.Database.CurrentTransaction is not null)
+        {
+            await _db.Database.CurrentTransaction.CommitAsync(cancellationToken);
+        }
+
+        if (string.Equals(statusCode, "READY", StringComparison.OrdinalIgnoreCase))
+        {
+            await PublishOrderEventAsync("order.status-ready.v1", order, new
             {
                 orderId = order.OrderID,
                 orderCode = order.OrderCode,
                 tableId = order.TableID,
                 customerId = order.CustomerID,
-                statusCode
+                orderItemId = item.ItemID,
+                dishId = item.DishID,
+                dishName = await ResolveDishNameAsync(item.DishID, cancellationToken),
+                quantity = item.Quantity,
+                statusCode = syncResult.StatusCode,
+                itemStatusCode = "READY"
             }, cancellationToken);
+        }
+
+        if (string.Equals(statusCode, "CANCELLED", StringComparison.OrdinalIgnoreCase)
+            && syncResult.StatusCode == "CANCELLED"
+            && order.TableID is int tableId
+            && !await HasOtherActiveOrdersInSameSessionAsync(order, cancellationToken))
+        {
+            await _catalogApi.ReleaseTableAsync(tableId, cancellationToken);
         }
 
         return NoContent();
@@ -1587,6 +2363,149 @@ public sealed class OrdersController : ControllerBase
         string.Equals(statusCode, "PREPARING", StringComparison.OrdinalIgnoreCase)
         || string.Equals(statusCode, "READY", StringComparison.OrdinalIgnoreCase)
         || string.Equals(statusCode, "SERVING", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsAllowedOrderTransition(string? currentStatusCode, string nextStatusCode)
+    {
+        var current = (currentStatusCode ?? string.Empty).Trim().ToUpperInvariant();
+        var next = (nextStatusCode ?? string.Empty).Trim().ToUpperInvariant();
+
+        return (current, next) switch
+        {
+            ("PENDING", "PREPARING") => true,
+            ("CONFIRMED", "PREPARING") => true,
+            ("PREPARING", "READY") => true,
+            ("READY", "SERVING") => true,
+            ("PENDING", "CANCELLED") => true,
+            ("CONFIRMED", "CANCELLED") => true,
+            ("PREPARING", "CANCELLED") => true,
+            ("READY", "CANCELLED") => true,
+            _ => false
+        };
+    }
+
+    private static string NormalizeItemStatus(string? statusCode)
+        => string.IsNullOrWhiteSpace(statusCode) ? "PENDING" : statusCode.Trim().ToUpperInvariant();
+
+    private static bool IsAllowedItemTransition(string? currentStatusCode, string nextStatusCode)
+    {
+        var current = NormalizeItemStatus(currentStatusCode);
+        var next = NormalizeItemStatus(nextStatusCode);
+
+        if (current == next)
+        {
+            return true;
+        }
+
+        return (current, next) switch
+        {
+            ("PENDING", "CONFIRMED") => true,
+            ("PENDING", "PREPARING") => true,
+            ("CONFIRMED", "PREPARING") => true,
+            ("PREPARING", "READY") => true,
+            ("READY", "SERVING") => true,
+            ("PENDING", "CANCELLED") => true,
+            ("CONFIRMED", "CANCELLED") => true,
+            ("PREPARING", "CANCELLED") => true,
+            ("READY", "CANCELLED") => true,
+            _ => false
+        };
+    }
+
+    private static string ResolveAggregateStatusCodeFromItemCodes(IEnumerable<string?> itemStatuses, IEnumerable<string?> fallbackOrderStatuses)
+    {
+        var statuses = itemStatuses
+            .Select(NormalizeItemStatus)
+            .ToArray();
+
+        if (statuses.Length == 0)
+        {
+            return ResolveAggregateStatusCodeFromCodes(fallbackOrderStatuses);
+        }
+
+        var activeStatuses = statuses.Where(x => x != "CANCELLED").ToArray();
+        if (activeStatuses.Length == 0)
+        {
+            return "CANCELLED";
+        }
+
+        if (activeStatuses.Contains("PENDING")) return "PENDING";
+        if (activeStatuses.Contains("CONFIRMED")) return "CONFIRMED";
+        if (activeStatuses.Contains("PREPARING")) return "PREPARING";
+        if (activeStatuses.Contains("READY")) return "READY";
+        if (activeStatuses.Contains("SERVING")) return "SERVING";
+        return "PENDING";
+    }
+
+    private async Task<(string StatusCode, bool HasActiveItems)> SyncOrderStateFromItemsAsync(OrderEntity order, CancellationToken cancellationToken)
+    {
+        // Whole-order status is now derived from item truth so mixed-progress rounds
+        // stay readable without letting one item overwrite the rest.
+        var trackedItems = _db.ChangeTracker
+            .Entries<OrderItems>()
+            .Where(entry =>
+                entry.Entity.OrderID == order.OrderID
+                && entry.State is not EntityState.Deleted
+                && entry.State is not EntityState.Detached)
+            .Select(entry => entry.Entity)
+            .ToList();
+
+        List<string?> itemStatuses;
+        if (trackedItems.Count > 0)
+        {
+            var trackedItemIds = trackedItems
+                .Where(item => item.ItemID > 0)
+                .Select(item => item.ItemID)
+                .ToArray();
+
+            var persistedStatuses = await _db.OrderItems
+                .AsNoTracking()
+                .Where(x => x.OrderID == order.OrderID && !trackedItemIds.Contains(x.ItemID))
+                .Select(x => x.StatusCode)
+                .ToListAsync(cancellationToken);
+
+            // Submit/start/ready flows often update item entities and then derive the
+            // order summary before SaveChangesAsync. Re-reading only from SQL would miss
+            // those tracked mutations and leave the whole round stuck on stale status.
+            itemStatuses = trackedItems
+                .Select(item => item.StatusCode)
+                .Concat(persistedStatuses)
+                .ToList<string?>();
+        }
+        else
+        {
+            itemStatuses = await _db.OrderItems
+                .Where(x => x.OrderID == order.OrderID)
+                .Select(x => x.StatusCode)
+                .ToListAsync(cancellationToken);
+        }
+
+        var derivedStatusCode = ResolveAggregateStatusCodeFromItemCodes(itemStatuses, [await GetOrderStatusCodeAsync(order.StatusID, cancellationToken)]);
+        var hasActiveItems = itemStatuses.Any(status => !string.Equals(NormalizeItemStatus(status), "CANCELLED", StringComparison.OrdinalIgnoreCase));
+        var statusId = await GetOrderStatusIdAsync(derivedStatusCode, cancellationToken);
+        if (statusId is null)
+        {
+            throw new InvalidOperationException($"Status '{derivedStatusCode}' is missing.");
+        }
+
+        order.StatusID = statusId.Value;
+        order.IsActive = hasActiveItems;
+        if (!hasActiveItems)
+        {
+            order.CompletedTime ??= DateTime.Now;
+        }
+        else if (!string.Equals(derivedStatusCode, "COMPLETED", StringComparison.OrdinalIgnoreCase))
+        {
+            order.CompletedTime = null;
+        }
+
+        return (derivedStatusCode, hasActiveItems);
+    }
+
+    private async Task<string> ResolveDishNameAsync(int dishId, CancellationToken cancellationToken)
+    {
+        var dish = await _catalogApi.GetDishAsync(dishId, cancellationToken);
+        return string.IsNullOrWhiteSpace(dish?.Name) ? $"Món #{dishId}" : dish.Name;
+    }
 
     private async Task UpsertOrderItemAsync(
         int orderId,
@@ -1608,6 +2527,7 @@ public sealed class OrdersController : ControllerBase
                 UnitPrice = dishSnapshot.Price,
                 LineTotal = dishSnapshot.Price * request.Quantity,
                 Note = normalizedNote,
+                StatusCode = "PENDING",
             };
             _db.OrderItems.Add(item);
             return;
@@ -1657,13 +2577,483 @@ public sealed class OrdersController : ControllerBase
         return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned[..Math.Min(cleaned.Length, 500)];
     }
 
-    public sealed record AddItemRequest(int DishId, int Quantity, string? Note);
+    private static bool IsDishOrderable(CatalogApiClient.DishSnapshotResponse? dishSnapshot)
+        => dishSnapshot is not null
+           && dishSnapshot.IsActive
+           && dishSnapshot.Available;
+
+    private async Task<ObjectResult?> ValidateOrderDishAvailabilityAsync(int orderId, CancellationToken cancellationToken)
+    {
+        // UI can go stale while the customer is browsing, so submit must re-check
+        // Catalog availability before anything is allowed to reach the kitchen.
+        var orderItems = await _db.OrderItems
+            .AsNoTracking()
+            .Where(x => x.OrderID == orderId)
+            .Select(x => new { x.DishID })
+            .ToListAsync(cancellationToken);
+
+        if (orderItems.Count == 0)
+        {
+            return null;
+        }
+
+        var dishLookup = ((await _catalogApi.GetDishesAsync(orderItems.Select(x => x.DishID), cancellationToken))
+            ?? Array.Empty<CatalogApiClient.DishSnapshotResponse>())
+            .ToDictionary(x => x.DishId);
+
+        var unavailableDishNames = orderItems
+            .Where(item => !dishLookup.TryGetValue(item.DishID, out var snapshot) || !IsDishOrderable(snapshot))
+            .Select(item => NormalizeDishNameForMessage(
+                dishLookup.TryGetValue(item.DishID, out var snapshot) ? snapshot.Name : null,
+                item.DishID))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(5)
+            .ToArray();
+
+        return unavailableDishNames.Length == 0
+            ? null
+            : BuildDishUnavailableConflict(unavailableDishNames);
+    }
+
+    private static ObjectResult BuildDishUnavailableConflict(IReadOnlyCollection<string> dishNames)
+    {
+        var names = dishNames
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(5)
+            .ToArray();
+
+        var message = names.Length switch
+        {
+            0 => "Có món hiện đang tạm hết hoặc ngừng bán. Vui lòng cập nhật giỏ hàng trước khi gửi bếp.",
+            1 => $"Món \"{names[0]}\" hiện đang tạm hết hoặc ngừng bán. Vui lòng cập nhật giỏ hàng trước khi gửi bếp.",
+            _ => $"Một số món hiện đang tạm hết hoặc ngừng bán: {string.Join(", ", names)}. Vui lòng cập nhật giỏ hàng trước khi gửi bếp."
+        };
+
+        return new ObjectResult(new
+        {
+            message,
+            unavailableDishNames = names
+        })
+        {
+            StatusCode = StatusCodes.Status409Conflict
+        };
+    }
+
+    private async Task<ObjectResult?> ValidateIngredientAvailabilityAsync(
+        int orderId,
+        IReadOnlyList<CatalogApiClient.OrderIngredientConsumptionItem> items,
+        CancellationToken cancellationToken)
+    {
+        if (items.Count == 0)
+        {
+            return null;
+        }
+
+        var inventoryCheck = await _catalogApi.ValidateIngredientsForOrderAsync(orderId, items, cancellationToken);
+        if (inventoryCheck.Success)
+        {
+            return null;
+        }
+
+        return new ObjectResult(new
+        {
+            message = inventoryCheck.Message ?? "Không đủ nguyên liệu để tiếp tục gửi món xuống bếp.",
+            details = inventoryCheck.Issues.Select(x => new
+            {
+                ingredientId = x.IngredientId,
+                ingredientName = x.IngredientName,
+                requiredQuantity = x.RequiredQuantity,
+                availableQuantity = x.AvailableQuantity,
+                unit = x.Unit
+            }).ToArray()
+        })
+        {
+            StatusCode = StatusCodes.Status409Conflict
+        };
+    }
+
+    private static string NormalizeDishNameForMessage(string? dishName, int dishId)
+        => string.IsNullOrWhiteSpace(dishName) ? $"Món #{dishId}" : dishName.Trim();
+
+    private static string? NormalizeSessionCode(string? diningSessionCode)
+    {
+        var cleaned = diningSessionCode?.Trim();
+        return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned[..Math.Min(cleaned.Length, 64)];
+    }
+
+    private static string? NormalizeIdempotencyKey(string? idempotencyKey)
+    {
+        var cleaned = idempotencyKey?.Trim();
+        return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned[..Math.Min(cleaned.Length, 100)];
+    }
+
+    private static string GenerateDiningSessionCode()
+        => $"SESS-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"[..Math.Min(64, $"SESS-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}".Length)];
+
+    private async Task<string?> GetLatestActiveSessionCodeAsync(int tableId, CancellationToken cancellationToken)
+    {
+        return await _db.Orders
+            .Join(_db.OrderStatus, o => o.StatusID, s => s.StatusID, (o, s) => new { o, s })
+            .Where(x =>
+                x.o.TableID == tableId
+                && (x.o.IsActive ?? true)
+                && x.o.DiningSessionCode != null
+                && ActiveDiningStatuses.Contains(x.s.StatusCode))
+            .OrderByDescending(x => x.o.OrderTime)
+            .Select(x => x.o.DiningSessionCode)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private async Task<OrderEntity?> GetPendingRoundAsync(int tableId, string? activeSessionCode, CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(activeSessionCode))
+        {
+            var pendingInSession = await _db.Orders
+                .Join(_db.OrderStatus, o => o.StatusID, s => s.StatusID, (o, s) => new { o, s })
+                .Where(x =>
+                    x.o.TableID == tableId
+                    && (x.o.IsActive ?? true)
+                    && x.o.DiningSessionCode == activeSessionCode
+                    && x.s.StatusCode == "PENDING")
+                .OrderByDescending(x => x.o.OrderTime)
+                .Select(x => x.o)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (pendingInSession is not null)
+            {
+                return pendingInSession;
+            }
+
+            return null;
+        }
+
+        return await _db.Orders
+            .Join(_db.OrderStatus, o => o.StatusID, s => s.StatusID, (o, s) => new { o, s })
+            .Where(x =>
+                x.o.TableID == tableId
+                && (x.o.IsActive ?? true)
+                && x.o.DiningSessionCode == null
+                && x.s.StatusCode == "PENDING")
+            .OrderByDescending(x => x.o.OrderTime)
+            .Select(x => x.o)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private async Task<SubmitCommands> CreateSubmitCommandAsync(string idempotencyKey, int tableId, CancellationToken cancellationToken)
+    {
+        var existingFailed = await _db.SubmitCommands
+            .FirstOrDefaultAsync(x => x.IdempotencyKey == idempotencyKey && x.Status == "FAILED", cancellationToken);
+
+        if (existingFailed is not null)
+        {
+            _db.SubmitCommands.Remove(existingFailed);
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        var command = new SubmitCommands
+        {
+            IdempotencyKey = idempotencyKey,
+            TableId = tableId,
+            Status = "PENDING",
+            CreatedAtUtc = DateTime.UtcNow
+        };
+
+        _db.SubmitCommands.Add(command);
+        await _db.SaveChangesAsync(cancellationToken);
+        return command;
+    }
+
+    private async Task MarkSubmitCommandCompletedAsync(SubmitCommands? command, OrderEntity order, CancellationToken cancellationToken)
+    {
+        if (command is null)
+        {
+            return;
+        }
+
+        command.OrderId = order.OrderID;
+        command.TableId = order.TableID ?? command.TableId;
+        command.DiningSessionCode = NormalizeSessionCode(order.DiningSessionCode);
+        command.Status = "COMPLETED";
+        command.CompletedAtUtc = DateTime.UtcNow;
+        command.Error = null;
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task MarkSubmitCommandFailedAsync(SubmitCommands? command, string error, CancellationToken cancellationToken)
+    {
+        if (command is null)
+        {
+            return;
+        }
+
+        command.Status = "FAILED";
+        command.CompletedAtUtc = DateTime.UtcNow;
+        command.Error = error;
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<ActionResult<object>?> WaitForSubmitCommandCompletionAsync(string idempotencyKey, int tableId, CancellationToken cancellationToken)
+    {
+        var deadline = DateTime.UtcNow.Add(SubmitCommandWait);
+
+        while (DateTime.UtcNow <= deadline)
+        {
+            var command = await _db.SubmitCommands
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.IdempotencyKey == idempotencyKey, cancellationToken);
+
+            if (command is null)
+            {
+                return null;
+            }
+
+            if (string.Equals(command.Status, "COMPLETED", StringComparison.OrdinalIgnoreCase))
+            {
+                if (command.OrderId is int replayOrderId)
+                {
+                    var replayOrder = await _db.Orders
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(x => x.OrderID == replayOrderId, cancellationToken);
+
+                    if (replayOrder is not null)
+                    {
+                        return Ok(await BuildActiveOrderResponseAsync(replayOrder, cancellationToken));
+                    }
+                }
+
+                var fallbackOrder = await GetOrCreateOrderAsync(tableId, createIfMissing: false, cancellationToken);
+                if (fallbackOrder is not null)
+                {
+                    return Ok(await BuildActiveOrderResponseAsync(fallbackOrder, cancellationToken));
+                }
+
+                return Ok(new { success = true });
+            }
+
+            if (string.Equals(command.Status, "FAILED", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            await Task.Delay(150, cancellationToken);
+        }
+
+        return null;
+    }
+
+    private async Task<IDbContextTransaction> BeginTableOperationAsync(int tableId, CancellationToken cancellationToken)
+    {
+        // Multiple screens can act on the same table at once, so critical writes
+        // take a short-lived database application lock before re-validating state.
+        var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await AcquireApplicationLockAsync($"restaurant-table:{tableId}", cancellationToken);
+            return transaction;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            await transaction.DisposeAsync();
+            throw;
+        }
+    }
+
+    private async Task AcquireApplicationLockAsync(string resource, CancellationToken cancellationToken)
+    {
+        var connection = _db.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        await using var command = connection.CreateCommand();
+        command.Transaction = _db.Database.CurrentTransaction?.GetDbTransaction();
+        command.CommandText = """
+                              DECLARE @result int;
+                              EXEC @result = sp_getapplock
+                                  @Resource = @resource,
+                                  @LockMode = 'Exclusive',
+                                  @LockOwner = 'Transaction',
+                                  @LockTimeout = @lockTimeout;
+                              SELECT @result;
+                              """;
+
+        var resourceParameter = command.CreateParameter();
+        resourceParameter.ParameterName = "@resource";
+        resourceParameter.Value = resource;
+        command.Parameters.Add(resourceParameter);
+
+        var timeoutParameter = command.CreateParameter();
+        timeoutParameter.ParameterName = "@lockTimeout";
+        timeoutParameter.Value = TableLockTimeoutMs;
+        command.Parameters.Add(timeoutParameter);
+
+        var result = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
+        if (result < 0)
+        {
+            throw new InvalidOperationException("Không thể khóa bàn để xử lý thao tác. Vui lòng thử lại.");
+        }
+    }
+
+    private async Task<ActionResult?> EnsureSessionWritableAsync(
+        int? orderId,
+        string? diningSessionCode,
+        string? expectedDiningSessionCode,
+        CancellationToken cancellationToken)
+    {
+        // A stale menu must not silently reopen or append to a session that another
+        // actor has already changed or sent to checkout.
+        var normalizedExpected = NormalizeSessionCode(expectedDiningSessionCode);
+        var normalizedCurrent = NormalizeSessionCode(diningSessionCode);
+
+        if (!string.IsNullOrWhiteSpace(normalizedExpected)
+            && !string.Equals(normalizedExpected, normalizedCurrent, StringComparison.Ordinal))
+        {
+            return Conflict(new
+            {
+                message = "Phiên bàn đã thay đổi. Vui lòng tải lại để tiếp tục thao tác mới."
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(normalizedCurrent))
+        {
+            return null;
+        }
+
+        var checkoutState = await _billingGuard.GetCheckoutStateAsync(orderId, normalizedCurrent, cancellationToken);
+        if (checkoutState?.HasCheckoutInProgress == true || checkoutState?.HasCompletedCheckout == true)
+        {
+            return Conflict(new
+            {
+                message = checkoutState.Message ?? "Phiên bàn này đang được quầy thu ngân xử lý. Vui lòng tải lại."
+            });
+        }
+
+        return null;
+    }
+
+    private static bool IsUniqueConstraintViolation(DbUpdateException ex)
+    {
+        var message = ex.GetBaseException().Message ?? string.Empty;
+        return message.Contains("UNIQUE", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("duplicate", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("2601", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("2627", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task<int?> GetSessionCustomerIdAsync(int tableId, string diningSessionCode, CancellationToken cancellationToken)
+    {
+        return await _db.Orders
+            .Where(x =>
+                x.TableID == tableId
+                && (x.IsActive ?? true)
+                && x.DiningSessionCode == diningSessionCode
+                && x.CustomerID.HasValue
+                && x.CustomerID > 0)
+            .OrderByDescending(x => x.OrderTime)
+            .Select(x => x.CustomerID)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private async Task<bool> HasOtherActiveOrdersInSameSessionAsync(OrderEntity order, CancellationToken cancellationToken)
+    {
+        if (order.TableID is null)
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(order.DiningSessionCode))
+        {
+            return await _db.Orders.AnyAsync(
+                x => x.OrderID != order.OrderID && x.TableID == order.TableID && (x.IsActive ?? true),
+                cancellationToken);
+        }
+
+        return await _db.Orders.AnyAsync(
+            x =>
+                x.OrderID != order.OrderID
+                && x.TableID == order.TableID
+                && (x.IsActive ?? true)
+                && x.DiningSessionCode == order.DiningSessionCode,
+            cancellationToken);
+    }
+
+    private async Task<List<OrderEntity>> GetOrdersForAggregateAsync(OrderEntity order, CancellationToken cancellationToken)
+    {
+        if (order.TableID is null)
+        {
+            return [order];
+        }
+
+        if (!string.IsNullOrWhiteSpace(order.DiningSessionCode))
+        {
+            return await _db.Orders
+                .AsNoTracking()
+                .Where(x =>
+                    x.TableID == order.TableID
+                    && (x.IsActive ?? true)
+                    && x.DiningSessionCode == order.DiningSessionCode)
+                .OrderBy(x => x.OrderTime)
+                .ToListAsync(cancellationToken);
+        }
+
+        return [order];
+    }
+
+    private static string ResolveAggregateStatusCode(IEnumerable<OrderEntity> orders, IReadOnlyDictionary<int, StatusRow> statusLookup)
+    {
+        var statusCodes = orders
+            .Select(order => statusLookup.TryGetValue(order.StatusID, out var status) ? status.StatusCode : null)
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Select(code => code!.ToUpperInvariant())
+            .ToArray();
+
+        return ResolveAggregateStatusCodeFromCodes(statusCodes);
+    }
+
+    private static string ResolveAggregateStatusCodeFromCodes(IEnumerable<string?> codes)
+    {
+        var statusCodes = codes
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Select(code => code!.ToUpperInvariant())
+            .ToArray();
+
+        if (statusCodes.Contains("PENDING")) return "PENDING";
+        if (statusCodes.Contains("CONFIRMED")) return "CONFIRMED";
+        if (statusCodes.Contains("PREPARING")) return "PREPARING";
+        if (statusCodes.Contains("READY")) return "READY";
+        if (statusCodes.Contains("SERVING")) return "SERVING";
+        if (statusCodes.Contains("COMPLETED")) return "COMPLETED";
+        if (statusCodes.Contains("CANCELLED")) return "CANCELLED";
+        return "PENDING";
+    }
+
+    private static int GetStatusPriority(string? statusCode)
+    {
+        return (statusCode ?? string.Empty).Trim().ToUpperInvariant() switch
+        {
+            "PENDING" => 6,
+            "CONFIRMED" => 5,
+            "PREPARING" => 4,
+            "READY" => 3,
+            "SERVING" => 2,
+            "COMPLETED" => 1,
+            "CANCELLED" => 0,
+            _ => -1
+        };
+    }
+
+    public sealed record AddItemRequest(int DishId, int Quantity, string? Note, string? ExpectedDiningSessionCode = null);
+    public sealed record SubmitOrderRequest(string? IdempotencyKey, string? ExpectedDiningSessionCode = null);
     public sealed record UpdateQuantityRequest(int Quantity);
     public sealed record UpdateItemNoteRequest(string? Note, bool? Append);
     public sealed record ScanLoyaltyCardRequest(string? PhoneNumber);
     public sealed record UpdateOrderStatusRequest(string? StatusCode);
-    public sealed record SubmitOrderBatchRequest(IReadOnlyList<AddItemRequest>? Items, string? CustomerPhoneNumber);
+    public sealed record SubmitOrderBatchRequest(IReadOnlyList<AddItemRequest>? Items, string? CustomerPhoneNumber, string? IdempotencyKey, string? ExpectedDiningSessionCode = null);
     public sealed record CancelOrderRequest(string? Reason);
+    private sealed record StatusRow(int StatusID, string StatusCode, string StatusName);
     public sealed record AdminRevenueRowResponse(
         DateOnly Date,
         int BranchId,

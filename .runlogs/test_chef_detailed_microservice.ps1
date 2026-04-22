@@ -53,6 +53,27 @@ function Invoke-Json {
     }
 }
 
+function Invoke-JsonNoSession {
+    param(
+        [ValidateSet('GET', 'POST', 'PUT', 'PATCH', 'DELETE')][string]$Method,
+        [string]$Uri,
+        $Body = $null
+    )
+
+    try {
+        if ($null -eq $Body) {
+            return Invoke-RestMethod -Method $Method -Uri $Uri -TimeoutSec 60
+        }
+
+        $json = $Body | ConvertTo-Json -Depth 20
+        $payload = [System.Text.Encoding]::UTF8.GetBytes($json)
+        return Invoke-RestMethod -Method $Method -Uri $Uri -TimeoutSec 60 -ContentType 'application/json; charset=utf-8' -Body $payload
+    }
+    catch {
+        throw (Get-ErrorBody $_)
+    }
+}
+
 function Expect-ApiError {
     param(
         [ValidateSet('GET', 'POST', 'PUT', 'PATCH', 'DELETE')][string]$Method,
@@ -83,14 +104,17 @@ function Find-AvailableTable([int]$BranchId) {
 function New-TestOrder([int]$BranchId, [int]$DishId, [string]$Note) {
     $table = Find-AvailableTable $BranchId
     $tableId = [int]$table.tableId
-    Invoke-WebRequest "$orders/api/tables/$tableId/reset" -Method POST -UseBasicParsing -TimeoutSec 60 | Out-Null
-    Invoke-WebRequest "$orders/api/tables/$tableId/order/items" -Method POST -UseBasicParsing -TimeoutSec 60 -ContentType 'application/json' -Body (@{
+    Invoke-JsonNoSession POST "$orders/api/tables/$tableId/reset" @{} | Out-Null
+    Invoke-JsonNoSession POST "$orders/api/tables/$tableId/order/items" @{
         dishId = $DishId
         quantity = 1
         note = $Note
-    } | ConvertTo-Json) | Out-Null
-    Invoke-WebRequest "$orders/api/tables/$tableId/order/submit" -Method POST -UseBasicParsing -TimeoutSec 60 -ContentType 'application/json' -Body '{}' | Out-Null
-    $active = Invoke-RestMethod -Method GET -Uri "$orders/api/tables/$tableId/order" -TimeoutSec 60
+    } | Out-Null
+    Invoke-JsonNoSession POST "$orders/api/tables/$tableId/order/submit" @{
+        idempotencyKey = [guid]::NewGuid().ToString('N')
+        expectedDiningSessionCode = $null
+    } | Out-Null
+    $active = Invoke-JsonNoSession GET "$orders/api/tables/$tableId/order"
     return [pscustomobject]@{
         TableId = $tableId
         OrderId = [int]$active.orderId
@@ -99,6 +123,9 @@ function New-TestOrder([int]$BranchId, [int]$DishId, [string]$Note) {
 }
 
 try {
+    Invoke-JsonNoSession POST "$base/api/gateway/customer/dev/reset-test-state" @{} | Out-Null
+    Add-Result 'Reset test state' $true 'ok'
+
     $login = Invoke-Json POST "$staffBase/auth/login" $session @{
         username = $chefUser
         password = $chefPasswordCurrent
@@ -124,7 +151,7 @@ try {
     }
 
     $dishWithIngredients = $null
-    foreach ($dish in @($menu.dishes | Select-Object -First 12)) {
+    foreach ($dish in @($menu.dishes | Where-Object { $_.available } | Select-Object -First 12)) {
         try {
             $ing = Invoke-Json GET "$staffBase/chef/dishes/$($dish.dishId)/ingredients" $session
             if (@($ing.items).Count -gt 0) {
@@ -155,16 +182,14 @@ try {
 
     $startResp = Invoke-Json POST "$staffBase/chef/orders/$($order1.OrderId)/start" $session @{}
     $readyResp = Invoke-Json POST "$staffBase/chef/orders/$($order1.OrderId)/ready" $session @{}
-    $serveResp = Invoke-Json POST "$staffBase/chef/orders/$($order1.OrderId)/serve" $session @{}
     Add-Result 'Bat dau che bien' ([bool]$startResp.success) $startResp.message
     Add-Result 'Danh dau san sang' ([bool]$readyResp.success) $readyResp.message
-    Add-Result 'Chuyen sang phuc vu' ([bool]$serveResp.success) $serveResp.message
 
     $order2 = New-TestOrder -BranchId ([int]$dashboard.staff.branchId) -DishId $dishId -Note 'chef-cancel-flow'
-    $cancelResp = Invoke-Json POST "$staffBase/chef/orders/$($order2.OrderId)/cancel" $session @{
+    $cancelResp = Invoke-Json POST "$staffBase/chef/orders/$($order2.OrderId)/items/$($order2.ItemId)/cancel" $session @{
         reason = 'Het nguyen lieu tam thoi'
     }
-    Add-Result 'Huy don Chef' ([bool]$cancelResp.success) $cancelResp.message
+    Add-Result 'Huy mon Chef' ([bool]$cancelResp.success) $cancelResp.message
 
     $ingredientResp = Invoke-Json GET "$staffBase/chef/dishes/$dishId/ingredients" $session
     Add-Result 'Xem nguyen lieu mon' (@($ingredientResp.items).Count -gt 0) "count=$(@($ingredientResp.items).Count)"

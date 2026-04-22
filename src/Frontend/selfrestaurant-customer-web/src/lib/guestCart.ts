@@ -26,6 +26,7 @@ type GuestCartStore = Record<string, GuestCartRecord>;
 type PendingSubmitIntent = {
   tableId: number;
   branchId: number;
+  idempotencyKey: string;
 };
 
 function canUseStorage() {
@@ -162,12 +163,21 @@ export function getGuestCartSubtotal(items: GuestCartItem[]) {
   return items.reduce((sum, item) => sum + item.lineTotal, 0);
 }
 
-export function savePendingSubmitIntent(tableContext: CustomerTableContextDto) {
+function createIntentKey() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `submit-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+export function savePendingSubmitIntent(tableContext: CustomerTableContextDto, existingKey?: string | null) {
   if (!canUseStorage()) return;
 
   const payload: PendingSubmitIntent = {
     tableId: tableContext.tableId,
     branchId: tableContext.branchId,
+    idempotencyKey: existingKey?.trim() || createIntentKey(),
   };
 
   try {
@@ -198,3 +208,12 @@ export function clearPendingSubmitIntent() {
   }
 }
 
+export function getOrCreatePendingSubmitKey(tableContext: CustomerTableContextDto) {
+  const current = readPendingSubmitIntent();
+  if (current && current.tableId === tableContext.tableId && current.branchId === tableContext.branchId && current.idempotencyKey) {
+    return current.idempotencyKey;
+  }
+
+  savePendingSubmitIntent(tableContext);
+  return readPendingSubmitIntent()?.idempotencyKey ?? createIntentKey();
+}

@@ -188,7 +188,7 @@ export function CustomersModulePage({ mode, onLogout }: Props) {
                 <input value={search} onChange={(e) => navigate(buildIndexUrl(1, e.target.value), { replace: true })} placeholder="Tên, tài khoản, số điện thoại..." />
               </label>
               <div className="admin-filter-actions">
-                <button className="ghost" onClick={() => navigate("/Admin/Customers/Index")}>Xóa lọc</button>
+                <button className="ghost" onClick={() => navigate("/Admin/Customers/Index")}>Xóa bộ lọc</button>
               </div>
             </div>
           </div>
