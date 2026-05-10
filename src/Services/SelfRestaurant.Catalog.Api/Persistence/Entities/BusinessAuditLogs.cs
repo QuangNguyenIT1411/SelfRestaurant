@@ -12,6 +12,7 @@ public sealed class BusinessAuditLogs
     public string? ActorCode { get; set; }
     public string? ActorName { get; set; }
     public string? ActorRoleCode { get; set; }
+    public int? BranchId { get; set; }
     public int? TableId { get; set; }
     public int? OrderId { get; set; }
     public int? OrderItemId { get; set; }

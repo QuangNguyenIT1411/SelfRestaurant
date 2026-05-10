@@ -11,16 +11,17 @@ public sealed class BillingApiClient
         _http = http;
     }
 
-    public async Task<IReadOnlyList<CashierHistoryAggregateResponse>> GetCashierHistoryAsync(
+    public async Task<CashierHistoryPagedResponse?> GetCashierHistoryAsync(
         int employeeId,
+        int page,
+        int pageSize,
         int days,
-        int take,
         CancellationToken cancellationToken)
     {
-        var list = await _http.GetFromJsonAsync<IReadOnlyList<CashierHistoryAggregateResponse>>(
-            $"/api/internal/employees/{employeeId}/cashier/history?days={days}&take={take}",
+        var response = await _http.GetFromJsonAsync<CashierHistoryPagedResponse>(
+            $"/api/internal/employees/{employeeId}/cashier/history?page={page}&pageSize={pageSize}&days={days}",
             cancellationToken);
 
-        return list ?? Array.Empty<CashierHistoryAggregateResponse>();
+        return response;
     }
 }

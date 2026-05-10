@@ -85,8 +85,17 @@ public sealed class CatalogClient : ApiClientBase
     public Task UpdateChefDishForBranchAsync(int branchId, int dishId, AdminUpsertDishRequest request, CancellationToken cancellationToken) =>
         PutAsync($"/api/admin/branches/{branchId}/chef/dishes/{dishId}", request, cancellationToken);
 
+    public Task<ChefSetCatalogDishAvailabilityResponse?> SetChefDishAvailabilityAsync(int branchId, int dishId, bool available, CancellationToken cancellationToken) =>
+        PostForAsync<ChefSetCatalogDishAvailabilityRequest, ChefSetCatalogDishAvailabilityResponse>(
+            $"/api/admin/branches/{branchId}/chef/dishes/{dishId}/availability",
+            new ChefSetCatalogDishAvailabilityRequest(available),
+            cancellationToken);
+
     public Task DeactivateAdminDishAsync(int dishId, CancellationToken cancellationToken) =>
         PostAsync<object>($"/api/admin/dishes/{dishId}/deactivate", new { }, cancellationToken);
+
+    public Task DeleteAdminDishAsync(int dishId, CancellationToken cancellationToken) =>
+        DeleteAsync($"/api/admin/dishes/{dishId}", cancellationToken);
 
     public async Task<IReadOnlyList<AdminDishIngredientLineDto>> GetDishIngredientsAsync(int dishId, CancellationToken cancellationToken)
     {
@@ -133,6 +142,130 @@ public sealed class CatalogClient : ApiClientBase
 
     public Task DeleteAdminIngredientAsync(int ingredientId, CancellationToken cancellationToken) =>
         DeleteAsync($"/api/admin/ingredients/{ingredientId}", cancellationToken);
+
+    public async Task<IReadOnlyList<AdminIngredientBatchDto>> GetIngredientBatchesAsync(int ingredientId, CancellationToken cancellationToken)
+    {
+        var list = await GetAsync<IReadOnlyList<AdminIngredientBatchDto>>($"/api/admin/ingredients/{ingredientId}/batches", cancellationToken);
+        return list ?? Array.Empty<AdminIngredientBatchDto>();
+    }
+
+    public Task CreateIngredientBatchAsync(int ingredientId, CreateIngredientBatchRequest request, CancellationToken cancellationToken) =>
+        PostAsync($"/api/admin/ingredients/{ingredientId}/batches", request, cancellationToken);
+
+    public Task UpdateIngredientBatchAsync(int ingredientId, int batchId, UpdateIngredientBatchRequest request, CancellationToken cancellationToken) =>
+        PutAsync($"/api/admin/ingredients/{ingredientId}/batches/{batchId}", request, cancellationToken);
+
+    public Task DeactivateIngredientBatchAsync(int ingredientId, int batchId, CancellationToken cancellationToken) =>
+        PostAsync<object>($"/api/admin/ingredients/{ingredientId}/batches/{batchId}/deactivate", new { }, cancellationToken);
+
+    public Task<PagedResponse<IngredientStockMovementDto>?> GetIngredientStockMovementsAsync(
+        int ingredientId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken) =>
+        GetAsync<PagedResponse<IngredientStockMovementDto>>(
+            $"/api/admin/ingredients/{ingredientId}/stock-movements?page={Math.Max(1, page)}&pageSize={Math.Clamp(pageSize, 1, 100)}",
+            cancellationToken);
+
+    public Task<InventorySummaryDto?> GetInventorySummaryAsync(CancellationToken cancellationToken) =>
+        GetAsync<InventorySummaryDto>("/api/admin/inventory/summary", cancellationToken);
+
+    public Task<PagedResponse<InventoryBatchDto>?> GetInventoryBatchesAsync(
+        string? search,
+        string? status,
+        int? ingredientId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var qs = new List<string>
+        {
+            $"page={Math.Max(1, page)}",
+            $"pageSize={Math.Clamp(pageSize, 1, 100)}",
+        };
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            qs.Add($"search={Uri.EscapeDataString(search.Trim())}");
+        }
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            qs.Add($"status={Uri.EscapeDataString(status.Trim())}");
+        }
+        if (ingredientId is > 0)
+        {
+            qs.Add($"ingredientId={ingredientId.Value}");
+        }
+
+        return GetAsync<PagedResponse<InventoryBatchDto>>($"/api/admin/inventory/batches?{string.Join("&", qs)}", cancellationToken);
+    }
+
+    public Task StockInAsync(InventoryStockInRequest request, CancellationToken cancellationToken) =>
+        PostAsync("/api/admin/inventory/stock-in", request, cancellationToken);
+
+    public Task StockOutAsync(InventoryStockOutRequest request, CancellationToken cancellationToken) =>
+        PostAsync("/api/admin/inventory/stock-out", request, cancellationToken);
+
+    public Task<PagedResponse<InventoryMovementDto>?> GetInventoryMovementsAsync(
+        int? ingredientId,
+        int? batchId,
+        string? movementType,
+        DateOnly? dateFrom,
+        DateOnly? dateTo,
+        string? search,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var qs = new List<string>
+        {
+            $"page={Math.Max(1, page)}",
+            $"pageSize={Math.Clamp(pageSize, 1, 100)}",
+        };
+
+        if (ingredientId is > 0) qs.Add($"ingredientId={ingredientId.Value}");
+        if (batchId is > 0) qs.Add($"batchId={batchId.Value}");
+        if (!string.IsNullOrWhiteSpace(movementType)) qs.Add($"movementType={Uri.EscapeDataString(movementType.Trim())}");
+        if (dateFrom is not null) qs.Add($"dateFrom={dateFrom:yyyy-MM-dd}");
+        if (dateTo is not null) qs.Add($"dateTo={dateTo:yyyy-MM-dd}");
+        if (!string.IsNullOrWhiteSpace(search)) qs.Add($"search={Uri.EscapeDataString(search.Trim())}");
+
+        return GetAsync<PagedResponse<InventoryMovementDto>>($"/api/admin/inventory/movements?{string.Join("&", qs)}", cancellationToken);
+    }
+
+    public Task<AdminUnitPagedResponse?> GetAdminUnitsAsync(
+        string? search,
+        int page,
+        int pageSize,
+        bool includeInactive,
+        CancellationToken cancellationToken)
+    {
+        var qs = new List<string>
+        {
+            $"page={Math.Max(1, page)}",
+            $"pageSize={Math.Clamp(pageSize, 1, 100)}",
+            $"includeInactive={(includeInactive ? "true" : "false")}",
+        };
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            qs.Add($"search={Uri.EscapeDataString(search.Trim())}");
+        }
+
+        return GetAsync<AdminUnitPagedResponse>($"/api/admin/units?{string.Join("&", qs)}", cancellationToken);
+    }
+
+    public Task<AdminUnitDto?> GetAdminUnitByIdAsync(int unitId, CancellationToken cancellationToken) =>
+        GetAsync<AdminUnitDto>($"/api/admin/units/{unitId}", cancellationToken);
+
+    public Task CreateAdminUnitAsync(AdminUpsertUnitRequest request, CancellationToken cancellationToken) =>
+        PostAsync("/api/admin/units", request, cancellationToken);
+
+    public Task UpdateAdminUnitAsync(int unitId, AdminUpsertUnitRequest request, CancellationToken cancellationToken) =>
+        PutAsync($"/api/admin/units/{unitId}", request, cancellationToken);
+
+    public Task DeleteAdminUnitAsync(int unitId, CancellationToken cancellationToken) =>
+        DeleteAsync($"/api/admin/units/{unitId}", cancellationToken);
 
     public async Task<IReadOnlyList<TableStatusDto>> GetTableStatusesAsync(CancellationToken cancellationToken)
     {

@@ -17,10 +17,13 @@ public sealed class CatalogDbContext : DbContext
     public DbSet<DiningTables> DiningTables => Set<DiningTables>();
     public DbSet<DishIngredients> DishIngredients => Set<DishIngredients>();
     public DbSet<Dishes> Dishes => Set<Dishes>();
+    public DbSet<IngredientBatches> IngredientBatches => Set<IngredientBatches>();
+    public DbSet<IngredientStockMovements> IngredientStockMovements => Set<IngredientStockMovements>();
     public DbSet<Ingredients> Ingredients => Set<Ingredients>();
     public DbSet<MenuCategory> MenuCategory => Set<MenuCategory>();
     public DbSet<Menus> Menus => Set<Menus>();
     public DbSet<TableStatus> TableStatus => Set<TableStatus>();
+    public DbSet<Units> Units => Set<Units>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -47,6 +50,7 @@ public sealed class CatalogDbContext : DbContext
             entity.HasKey(e => e.BusinessAuditLogId);
             entity.HasIndex(e => e.CreatedAtUtc).HasDatabaseName("IX_BusinessAuditLogs_CreatedAtUtc");
             entity.HasIndex(e => new { e.EntityType, e.EntityId }).HasDatabaseName("IX_BusinessAuditLogs_Entity");
+            entity.HasIndex(e => e.BranchId).HasDatabaseName("IX_BusinessAuditLogs_BranchId");
             entity.HasIndex(e => e.DishId).HasDatabaseName("IX_BusinessAuditLogs_DishId");
             entity.HasIndex(e => e.TableId).HasDatabaseName("IX_BusinessAuditLogs_TableId");
             entity.Property(e => e.CreatedAtUtc).HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");
@@ -103,9 +107,13 @@ public sealed class CatalogDbContext : DbContext
             entity.HasIndex(e => e.BranchID).HasDatabaseName("idx_tables_branch");
             entity.HasIndex(e => e.IsActive).HasDatabaseName("idx_tables_active");
             entity.HasIndex(e => e.StatusID).HasDatabaseName("idx_tables_status");
+            entity.HasIndex(e => new { e.BranchID, e.TableNumber })
+                .IsUnique()
+                .HasDatabaseName("UQ_DiningTables_Branch_TableNumber");
             entity.Property(e => e.CreatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.QRCode).HasMaxLength(100);
+            entity.Property(e => e.TableNumber).HasDefaultValue(0);
             entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
             entity.Ignore(e => e.Orders);
             entity.HasOne(e => e.Branch)
@@ -162,6 +170,46 @@ public sealed class CatalogDbContext : DbContext
             entity.Ignore(e => e.OrderItemIngredients);
         });
 
+        modelBuilder.Entity<IngredientBatches>(entity =>
+        {
+            entity.HasKey(e => e.BatchID);
+            entity.HasIndex(e => new { e.IngredientID, e.IsActive, e.ExpiryDate, e.ReceivedDate, e.BatchID })
+                .HasDatabaseName("IX_IngredientBatches_Ingredient_Fefo");
+            entity.HasIndex(e => e.ExpiryDate).HasDatabaseName("IX_IngredientBatches_ExpiryDate");
+            entity.Property(e => e.BatchCode).HasMaxLength(100);
+            entity.Property(e => e.QuantityInitial).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.QuantityRemaining).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.Unit).HasMaxLength(50);
+            entity.Property(e => e.SupplierName).HasMaxLength(200);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.CreatedAt).HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");
+            entity.Property(e => e.UpdatedAt).HasColumnType("datetime2");
+            entity.Property(e => e.RowVersion).IsRowVersion();
+            entity.HasOne(e => e.Ingredient)
+                .WithMany(i => i.IngredientBatches)
+                .HasForeignKey(e => e.IngredientID);
+        });
+
+        modelBuilder.Entity<IngredientStockMovements>(entity =>
+        {
+            entity.HasKey(e => e.MovementID);
+            entity.HasIndex(e => new { e.IngredientID, e.CreatedAt }).HasDatabaseName("IX_IngredientStockMovements_Ingredient_CreatedAt");
+            entity.HasIndex(e => e.BatchID).HasDatabaseName("IX_IngredientStockMovements_BatchID");
+            entity.Property(e => e.QuantityChange).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.MovementType).HasMaxLength(50);
+            entity.Property(e => e.ReferenceType).HasMaxLength(50);
+            entity.Property(e => e.CreatedAt).HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");
+            entity.Property(e => e.Note).HasMaxLength(500);
+            entity.HasOne(e => e.Ingredient)
+                .WithMany(i => i.IngredientStockMovements)
+                .HasForeignKey(e => e.IngredientID)
+                .OnDelete(DeleteBehavior.ClientSetNull);
+            entity.HasOne(e => e.Batch)
+                .WithMany(b => b.StockMovements)
+                .HasForeignKey(e => e.BatchID)
+                .OnDelete(DeleteBehavior.ClientSetNull);
+        });
+
         modelBuilder.Entity<MenuCategory>(entity =>
         {
             entity.HasKey(e => e.MenuCategoryID);
@@ -197,6 +245,21 @@ public sealed class CatalogDbContext : DbContext
             entity.HasKey(e => e.StatusID);
             entity.Property(e => e.StatusCode).HasMaxLength(50);
             entity.Property(e => e.StatusName).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<Units>(entity =>
+        {
+            entity.HasKey(e => e.UnitID);
+            entity.HasIndex(e => e.Name)
+                .IsUnique()
+                .HasDatabaseName("UX_Units_Name");
+            entity.HasIndex(e => e.IsActive).HasDatabaseName("IX_Units_IsActive");
+            entity.Property(e => e.Name).HasMaxLength(50);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.DisplayOrder).HasDefaultValue(0);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.CreatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
+            entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
         });
     }
 }

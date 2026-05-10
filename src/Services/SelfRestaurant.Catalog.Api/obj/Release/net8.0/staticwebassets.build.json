@@ -1,11 +1,1 @@
-{
-  "Version": 1,
-  "Hash": "kCuYQ6mySCOvs+7YpM7wFJgaXvRfAFlZDRrvzZgRSFw=",
-  "Source": "SelfRestaurant.Catalog.Api",
-  "BasePath": "_content/SelfRestaurant.Catalog.Api",
-  "Mode": "Default",
-  "ManifestType": "Build",
-  "ReferencedProjectsConfiguration": [],
-  "DiscoveryPatterns": [],
-  "Assets": []
-}
+{"Version":1,"Hash":"9xYh0F0ja3enc6+JVBYGHUTNI29sj3dG0oHX3sxNgxM=","Source":"SelfRestaurant.Catalog.Api","BasePath":"/","Mode":"Root","ManifestType":"Build","ReferencedProjectsConfiguration":[],"DiscoveryPatterns":[],"Assets":[],"Endpoints":[]}

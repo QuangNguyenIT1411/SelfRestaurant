@@ -10,6 +10,7 @@ public sealed class IdentityDbContext : DbContext
     {
     }
 
+    public DbSet<BusinessAuditLogs> BusinessAuditLogs => Set<BusinessAuditLogs>();
     public DbSet<CatalogBranchSnapshots> CatalogBranchSnapshots => Set<CatalogBranchSnapshots>();
     public DbSet<CustomerLoyalty> CustomerLoyalty => Set<CustomerLoyalty>();
     public DbSet<Customers> Customers => Set<Customers>();
@@ -19,6 +20,27 @@ public sealed class IdentityDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<BusinessAuditLogs>(entity =>
+        {
+            entity.HasKey(e => e.BusinessAuditLogId);
+            entity.HasIndex(e => e.CreatedAtUtc).HasDatabaseName("IX_BusinessAuditLogs_CreatedAtUtc");
+            entity.HasIndex(e => new { e.EntityType, e.EntityId }).HasDatabaseName("IX_BusinessAuditLogs_Entity");
+            entity.HasIndex(e => e.CustomerId).HasDatabaseName("IX_BusinessAuditLogs_CustomerId");
+            entity.HasIndex(e => e.EmployeeId).HasDatabaseName("IX_BusinessAuditLogs_EmployeeId");
+            entity.Property(e => e.CreatedAtUtc).HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");
+            entity.Property(e => e.ActionType).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.EntityType).HasMaxLength(50).IsUnicode(false);
+            entity.Property(e => e.EntityId).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.ActorType).HasMaxLength(30).IsUnicode(false);
+            entity.Property(e => e.ActorCode).HasMaxLength(50).IsUnicode(false);
+            entity.Property(e => e.ActorName).HasMaxLength(100);
+            entity.Property(e => e.ActorRoleCode).HasMaxLength(50).IsUnicode(false);
+            entity.Property(e => e.IpAddress).HasMaxLength(50).IsUnicode(false);
+            entity.Property(e => e.UserAgent).HasMaxLength(500).IsUnicode(false);
+            entity.Property(e => e.CorrelationId).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.Notes).HasMaxLength(1000);
+        });
+
         modelBuilder.Entity<CatalogBranchSnapshots>(entity =>
         {
             entity.HasKey(e => e.BranchId);
@@ -33,14 +55,18 @@ public sealed class IdentityDbContext : DbContext
             entity.HasKey(e => e.CustomerID);
             entity.HasIndex(e => e.Username).IsUnique().HasDatabaseName("UQ_Customers_Username");
             entity.HasIndex(e => e.IsActive).HasDatabaseName("idx_customers_active");
+            entity.HasIndex(e => new { e.ExternalProvider, e.ExternalSubject }).HasDatabaseName("idx_customers_external_login");
             entity.Property(e => e.Address).HasMaxLength(500);
+            entity.Property(e => e.AuthProvider).HasMaxLength(30).IsUnicode(false).HasDefaultValue("Password");
             entity.Property(e => e.CreatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
             entity.Property(e => e.Email).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.ExternalProvider).HasMaxLength(30).IsUnicode(false);
+            entity.Property(e => e.ExternalSubject).HasMaxLength(120).IsUnicode(false);
             entity.Property(e => e.Gender).HasMaxLength(10);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.LoyaltyPoints).HasDefaultValue(0);
             entity.Property(e => e.Name).HasMaxLength(100);
-            entity.Property(e => e.Password).HasMaxLength(255).IsUnicode(false);
+            entity.Property(e => e.Password).HasMaxLength(255).IsUnicode(false).IsRequired(false);
             entity.Property(e => e.PhoneNumber).HasMaxLength(20).IsUnicode(false);
             entity.Property(e => e.UpdatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
             entity.Property(e => e.Username).HasMaxLength(50).IsUnicode(false);

@@ -1,0 +1,18 @@
+﻿{
+    "timestamp":  "20260422_231807",
+    "passed":  1,
+    "total":  2,
+    "log":  "C:\\users\\quang\\downloads\\sinh_vien\\sinh_vien\\selfrestaurant-main\\.runlogs\\customer_detailed_new_20260422_231807.log",
+    "results":  [
+                    {
+                        "Step":  "Open Register",
+                        "Pass":  true,
+                        "Detail":  "status=200"
+                    },
+                    {
+                        "Step":  "Unhandled Error",
+                        "Pass":  false,
+                        "Detail":  "No anti-forgery token"
+                    }
+                ]
+}

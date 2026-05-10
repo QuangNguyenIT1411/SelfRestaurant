@@ -100,6 +100,7 @@ const t = {
   ingredientsFallback: "Ch\u01b0a khai b\u00e1o th\u00e0nh ph\u1ea7n cho m\u00f3n n\u00e0y.",
   quickAdd: "Th\u00eam v\u00e0o gi\u1ecf",
   noDish: "Kh\u00f4ng c\u00f3 m\u00f3n \u0103n n\u00e0o",
+  categoryChip: "Danh mục",
   unavailableHint: "M\u00f3n \u0111ang t\u1ea1m h\u1ebft ho\u1eb7c ng\u1eebng b\u00e1n",
   unavailableCartHint: "Gi\u1ecf h\u00e0ng c\u00f3 m\u00f3n \u0111ang t\u1ea1m h\u1ebft. Vui l\u00f2ng x\u00f3a ho\u1eb7c gi\u1ea3m m\u00f3n \u0111\u00f3 tr\u01b0\u1edbc khi g\u1eedi b\u1ebfp.",
 } as const;
@@ -107,6 +108,7 @@ const t = {
 const vnd = (n: number) => `${n.toLocaleString("vi-VN")} \u0111`;
 const line = (n: number, q: number) => `${vnd(n)} \u00d7 ${q}`;
 const placeholderDishImage = "/images/placeholder-dish.svg";
+const recommendationLimit = 6;
 const textFixups = new Map<string, string>([
   ["Mi Xao Bo", "Mì Xào Bò"],
   ["Mi xao bo dam da huong vi", "Mì xào bò đậm đà hương vị"],
@@ -523,7 +525,7 @@ export function MenuPage() {
     .flatMap((category) => category.dishes.map((dish) => ({ ...dish, categoryId: category.categoryId })))
     .filter((dish) => dish.available);
 
-  const topDishIds = safeData.topDishIds.slice(0, 5);
+  const topDishIds = safeData.topDishIds.slice(0, recommendationLimit);
   const recommendationLookup = new Map(
     (recommendations.data?.recommendations ?? []).map((item) => [item.dishId, item]),
   );
@@ -552,7 +554,7 @@ export function MenuPage() {
     })))
     .filter((item): item is { dish: MenuDishDto & { categoryId: number }; reason: string } => Boolean(item.dish))
     .filter((item) => !vegOnly || item.dish.isVegetarian)
-    .slice(0, 5);
+    .slice(0, recommendationLimit);
   const topSellerDishIds = topDishIds
     .map((dishId) => allAvailableDishes.find((dish) => dish.dishId === dishId))
     .filter((dish): dish is (MenuDishDto & { categoryId: number }) => Boolean(dish))
@@ -567,6 +569,9 @@ export function MenuPage() {
     .map((item) => item.dishName)
     .filter((name, index, array) => array.indexOf(name) === index)
     .slice(0, 4);
+  const resetConfirmationBody = isAuthenticated
+    ? t.resetBody
+    : "Bạn chưa đăng nhập. Reset sẽ dọn trạng thái tất cả bàn về trống/sẵn sàng trên hệ thống. Bạn có chắc chắn muốn tiếp tục?";
 
   function getDishQuantity(dishId: number) {
     return dishQuantities[dishId] ?? 1;
@@ -703,7 +708,7 @@ export function MenuPage() {
                 </div>
                 <div className="row g-3" id="topDishesSection">
                   {recommendedDishes.length > 0 ? recommendedDishes.map(({ dish, reason }) => (
-                    <div key={`top-${dish.dishId}`} className="col-md-6">
+                    <div key={`top-${dish.dishId}`} className="col-xl-4 col-lg-4 col-md-6">
                       <article className={`card dish-card ${dish.available ? "" : "dish-card-unavailable"}`}>
                         <div className="position-relative">
                           <img className="dish-image" src={resolveDishImage(dish.image, dish.name)} alt={normalizeDishText(dish.name)} onError={handleDishImageError} />
@@ -776,39 +781,32 @@ export function MenuPage() {
 
             <div className="row g-3" id="dishesGrid">
               {categories.flatMap((category) => category.dishes.map((dish) => (
-                <div key={dish.dishId} className="col-md-6">
-                  <article className={`card dish-card ${dish.available ? "" : "dish-card-unavailable"}`}>
+                <div key={dish.dishId} className="col-xl-4 col-md-6">
+                  <article className={`card dish-card ai-recommendation-card ${dish.available ? "" : "dish-card-unavailable"}`}>
                     <div className="position-relative">
                       <img className="dish-image" src={resolveDishImage(dish.image, dish.name)} alt={normalizeDishText(dish.name)} onError={handleDishImageError} />
-                      {dish.isDailySpecial ? <span className="badge-special">{t.today}</span> : null}
                       {dish.isVegetarian ? <span className="badge-vegetarian"><i className="bi bi-leaf" /> {t.vegBadge}</span> : null}
                       {topSellerDishIds.includes(dish.dishId) ? <span className="badge-top-seller">{t.topBadge}</span> : null}
+                      {dish.isDailySpecial ? <span className="badge-special">{t.today}</span> : null}
                       {!dish.available ? <span className="badge-unavailable">{t.unavailable}</span> : null}
                     </div>
-                    <div className="card-body d-flex flex-column">
+                    <div className="card-body">
                       <h5 className="card-title">{normalizeDishText(dish.name)}</h5>
+                      <div className="dish-suggestion-chip">
+                        <i className="bi bi-grid-3x3-gap me-1" />
+                        {t.categoryChip}: {category.categoryName}
+                      </div>
+                      <p className="card-text text-muted small">{normalizeDishText(dish.description) || t.cardDescFallback}</p>
                       {!dish.available ? <div className="dish-unavailable-text">{t.unavailableHint}</div> : null}
-                      <p className="card-text text-muted small flex-grow-1">{normalizeDishText(dish.description) || t.cardDescFallback}</p>
-                      <div className="d-flex justify-content-between align-items-center mt-2">
+                      <div className="d-flex justify-content-between align-items-center">
                         <div>
                           <div className="price">{vnd(dish.price)}</div>
                           <small className="text-muted">{normalizeDishText(dish.unit) || "Phần"}</small>
                         </div>
-                        <div className="d-flex align-items-center gap-2">
-                          <div className={`quantity-control ${dish.available ? "" : "disabled"}`}>
-                            <button type="button" disabled={!dish.available} onClick={() => decreaseDishQuantity(dish.dishId)}>
-                              <i className="bi bi-dash" />
-                            </button>
-                            <span className="px-3 fw-bold quantity-display">{getDishQuantity(dish.dishId)}</span>
-                            <button type="button" disabled={!dish.available} onClick={() => increaseDishQuantity(dish.dishId)}>
-                              <i className="bi bi-plus" />
-                            </button>
-                          </div>
-                          <button type="button" className="btn-add" disabled={!dish.available} onClick={() => addDishToCart(dish.dishId)}>
-                            <i className="bi bi-plus-lg me-1" />
-                            {dish.available ? t.add : t.unavailable}
-                          </button>
-                        </div>
+                        <button type="button" className="btn-add" disabled={!dish.available} onClick={() => addDishToCart(dish.dishId)}>
+                          <i className="bi bi-plus-lg me-1" />
+                          {dish.available ? t.add : t.unavailable}
+                        </button>
                       </div>
                       <button type="button" className="btn btn-link p-0 mt-2 small dish-detail-link" onClick={() => setSelectedDish(dish)}>
                         <i className="bi bi-info-circle me-1" />
@@ -1051,10 +1049,13 @@ export function MenuPage() {
                       }}
                     ><i className="bi bi-credit-card me-2" />{t.checkout}</button>
                     <div className="text-center text-muted small mt-2"><i className="bi bi-clock me-1" />{t.checkoutHint}</div>
-                    <button type="button" className="btn btn-outline-danger w-100 mt-3" onClick={() => setShowResetConfirm(true)}><i className="bi bi-arrow-repeat me-2" />{t.reset}</button>
                   </div>
                 </>
               )}
+              <button type="button" className="btn btn-outline-danger w-100 mt-3" onClick={() => setShowResetConfirm(true)}>
+                <i className="bi bi-arrow-repeat me-2" />
+                {t.reset}
+              </button>
             </div>
           </div>
         </div>
@@ -1235,7 +1236,7 @@ export function MenuPage() {
                 <button type="button" className="btn-close" aria-label={t.close} onClick={() => setShowResetConfirm(false)} />
               </div>
               <div className="modal-body">
-                <p className="mb-0">{t.resetBody}</p>
+                <p className="mb-0">{resetConfirmationBody}</p>
               </div>
               <div className="modal-footer border-0">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowResetConfirm(false)}>{t.cancel}</button>

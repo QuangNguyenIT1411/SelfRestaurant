@@ -66,17 +66,17 @@
                     {
                         "feature":  "Admin Category Create",
                         "pass":  true,
-                        "detail":  "categoryId=114"
+                        "detail":  "categoryId=118"
                     },
                     {
                         "feature":  "Admin Category Update",
                         "pass":  true,
-                        "detail":  "categoryId=114"
+                        "detail":  "categoryId=118"
                     },
                     {
                         "feature":  "Admin Category Delete",
                         "pass":  true,
-                        "detail":  "categoryId=114"
+                        "detail":  "categoryId=118"
                     },
                     {
                         "feature":  "Admin SPA Route",

@@ -22,7 +22,7 @@ const text = {
 } as const;
 
 function formatCurrency(value: number) {
-  return `${value.toLocaleString("vi-VN")} đ`;
+  return `${value.toLocaleString("vi-VN")} `;
 }
 
 function formatDateTime(value?: string | null) {

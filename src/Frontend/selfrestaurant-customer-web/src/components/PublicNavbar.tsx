@@ -5,7 +5,7 @@ import { api } from "../lib/api";
 import { toMvcPath } from "../lib/mvcPaths";
 
 const labels = {
-  toggleNav: "Chuyển điều hướng",
+  toggleNav: "Chuyn iu hng",
   home: "Trang Chủ",
   about: "Về Chúng Tôi",
   contact: "Liên Hệ",

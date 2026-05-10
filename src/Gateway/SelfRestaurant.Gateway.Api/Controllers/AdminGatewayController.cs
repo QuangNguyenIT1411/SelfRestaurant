@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using SelfRestaurant.Gateway.Api.Infrastructure;
 using SelfRestaurant.Gateway.Api.Models;
@@ -87,10 +88,11 @@ public sealed class AdminGatewayController : ControllerBase
     {
         var admin = RequireAdmin();
         if (admin is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        var branchId = admin.BranchId;
 
-        var identityStatsTask = _identityClient.GetAdminStatsAsync(cancellationToken);
-        var orderStatsTask = _ordersClient.GetAdminStatsAsync(null, cancellationToken);
-        var employeesTask = _identityClient.GetAdminEmployeesAsync(null, null, null, 1, 5, cancellationToken);
+        var identityStatsTask = _identityClient.GetAdminStatsAsync(branchId, cancellationToken);
+        var orderStatsTask = _ordersClient.GetAdminStatsAsync(null, branchId, cancellationToken);
+        var employeesTask = _identityClient.GetAdminEmployeesAsync(null, branchId, null, 1, 5, cancellationToken);
         var branchesTask = _catalogClient.GetBranchesAsync(cancellationToken);
         var rolesTask = _identityClient.GetEmployeeRolesAsync(cancellationToken);
         var categoriesTask = _catalogClient.GetCategoriesAsync(false, cancellationToken);
@@ -108,7 +110,7 @@ public sealed class AdminGatewayController : ControllerBase
                 orderStatsTask.Result?.PendingOrders ?? 0,
                 orderStatsTask.Result?.TodayRevenue ?? 0),
             employeesTask.Result?.Items ?? Array.Empty<AdminEmployeeDto>(),
-            branchesTask.Result ?? Array.Empty<BranchDto>(),
+            ScopeBranches(admin, branchesTask.Result),
             rolesTask.Result,
             categoriesTask.Result ?? Array.Empty<CategoryDto>(),
             statusesTask.Result,
@@ -144,8 +146,77 @@ public sealed class AdminGatewayController : ControllerBase
     public async Task<ActionResult<object>> DeleteCategory(int categoryId, CancellationToken cancellationToken)
     {
         if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
-        await _catalogClient.DeleteCategoryAsync(categoryId, cancellationToken);
-        return Ok(new { success = true, message = "Đã xóa danh mục." });
+        try
+        {
+            await _catalogClient.DeleteCategoryAsync(categoryId, cancellationToken);
+            return Ok(new { success = true, message = "Đã xóa danh mục." });
+        }
+        catch (ApiClientException ex)
+        {
+            return HandleApiClientException("category_delete_failed", ex);
+        }
+    }
+
+    [HttpGet("units")]
+    public async Task<ActionResult<AdminUnitPagedResponse>> GetUnits([FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] bool includeInactive = true, CancellationToken cancellationToken = default)
+    {
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        var units = await _catalogClient.GetAdminUnitsAsync(search, page, pageSize, includeInactive, cancellationToken)
+            ?? new AdminUnitPagedResponse(Math.Max(1, page), Math.Clamp(pageSize, 1, 100), 0, 0, Array.Empty<AdminUnitDto>());
+        return Ok(units);
+    }
+
+    [HttpGet("units/{unitId:int}")]
+    public async Task<ActionResult<AdminUnitDto>> GetUnitById(int unitId, CancellationToken cancellationToken)
+    {
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        var unit = await _catalogClient.GetAdminUnitByIdAsync(unitId, cancellationToken);
+        return unit is null ? Error("unit_not_found", "Không tìm thấy đơn vị.", 404) : Ok(unit);
+    }
+
+    [HttpPost("units")]
+    public async Task<ActionResult<object>> CreateUnit([FromBody] AdminUpsertUnitRequest request, CancellationToken cancellationToken)
+    {
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        try
+        {
+            await _catalogClient.CreateAdminUnitAsync(request, cancellationToken);
+            return Ok(new { success = true, message = "Đã tạo đơn vị mới." });
+        }
+        catch (ApiClientException ex)
+        {
+            return HandleApiClientException("unit_create_failed", ex);
+        }
+    }
+
+    [HttpPut("units/{unitId:int}")]
+    public async Task<ActionResult<object>> UpdateUnit(int unitId, [FromBody] AdminUpsertUnitRequest request, CancellationToken cancellationToken)
+    {
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        try
+        {
+            await _catalogClient.UpdateAdminUnitAsync(unitId, request, cancellationToken);
+            return Ok(new { success = true, message = "Đã cập nhật đơn vị." });
+        }
+        catch (ApiClientException ex)
+        {
+            return HandleApiClientException("unit_update_failed", ex);
+        }
+    }
+
+    [HttpDelete("units/{unitId:int}")]
+    public async Task<ActionResult<object>> DeleteUnit(int unitId, CancellationToken cancellationToken)
+    {
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        try
+        {
+            await _catalogClient.DeleteAdminUnitAsync(unitId, cancellationToken);
+            return Ok(new { success = true, message = "Đã xóa đơn vị." });
+        }
+        catch (ApiClientException ex)
+        {
+            return HandleApiClientException("unit_delete_failed", ex);
+        }
     }
 
     [HttpGet("dishes")]
@@ -201,7 +272,39 @@ public sealed class AdminGatewayController : ControllerBase
     {
         if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
         await _catalogClient.DeactivateAdminDishAsync(dishId, cancellationToken);
-        return Ok(new { success = true, message = "Đã vô hiệu món ăn." });
+        return Ok(new { success = true, message = "Đã vô hiệu hóa món ăn." });
+    }
+
+    [HttpDelete("dishes/{dishId:int}")]
+    public async Task<ActionResult<object>> DeleteDish(int dishId, CancellationToken cancellationToken)
+    {
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+
+        var current = await _catalogClient.GetAdminDishByIdAsync(dishId, cancellationToken);
+        if (current is null) return Error("dish_not_found", "Không tìm thấy món ăn.", 404);
+        if (current.IsActive)
+        {
+            return Error("dish_delete_failed", "Vui lòng vô hiệu hóa trước khi xóa.", 409);
+        }
+
+        var referenceStatus = await _ordersClient.GetDishReferenceStatusAsync(dishId, cancellationToken);
+        if (referenceStatus?.HasHistory == true)
+        {
+            return Error(
+                "dish_delete_failed",
+                "Món ăn đã có lịch sử đơn hàng. Hãy dùng \"Vô hiệu\" hoặc \"Tạm ngưng\" thay vì xóa.",
+                409);
+        }
+
+        try
+        {
+            await _catalogClient.DeleteAdminDishAsync(dishId, cancellationToken);
+            return Ok(new { success = true, message = "Đã xóa món ăn khỏi danh mục." });
+        }
+        catch (ApiClientException ex)
+        {
+            return HandleApiClientException("dish_delete_failed", ex);
+        }
     }
 
     [HttpPost("dishes/{dishId:int}/availability")]
@@ -236,6 +339,14 @@ public sealed class AdminGatewayController : ControllerBase
         var ingredients = await _catalogClient.GetAdminIngredientsAsync(search, page, pageSize, includeInactive, cancellationToken)
             ?? new AdminIngredientPagedResponse(Math.Max(1, page), Math.Clamp(pageSize, 1, 100), 0, 0, Array.Empty<AdminIngredientDto>());
         return Ok(new AdminIngredientsScreenDto(ingredients));
+    }
+
+    [HttpGet("ingredients/{ingredientId:int}")]
+    public async Task<ActionResult<AdminIngredientDto>> GetIngredientById(int ingredientId, CancellationToken cancellationToken = default)
+    {
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        var ingredient = await _catalogClient.GetAdminIngredientByIdAsync(ingredientId, cancellationToken);
+        return ingredient is null ? Error("ingredient_not_found", "Không tìm thấy nguyên liệu.", 404) : Ok(ingredient);
     }
 
     [HttpPost("ingredients")]
@@ -275,7 +386,7 @@ public sealed class AdminGatewayController : ControllerBase
         try
         {
             await _catalogClient.DeactivateAdminIngredientAsync(ingredientId, cancellationToken);
-            return Ok(new { success = true, message = "Đã vô hiệu nguyên liệu." });
+            return Ok(new { success = true, message = "Đã vô hiệu hóa nguyên liệu." });
         }
         catch (ApiClientException ex)
         {
@@ -298,91 +409,326 @@ public sealed class AdminGatewayController : ControllerBase
         }
     }
 
+    [HttpGet("ingredients/{ingredientId:int}/batches")]
+    public async Task<ActionResult<IReadOnlyList<AdminIngredientBatchDto>>> GetIngredientBatches(int ingredientId, CancellationToken cancellationToken)
+    {
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        try
+        {
+            return Ok(await _catalogClient.GetIngredientBatchesAsync(ingredientId, cancellationToken));
+        }
+        catch (ApiClientException ex)
+        {
+            return HandleApiClientException("ingredient_batches_load_failed", ex);
+        }
+    }
+
+    [HttpPost("ingredients/{ingredientId:int}/batches")]
+    public async Task<ActionResult<object>> CreateIngredientBatch(int ingredientId, [FromBody] CreateIngredientBatchRequest request, CancellationToken cancellationToken)
+    {
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        try
+        {
+            await _catalogClient.CreateIngredientBatchAsync(ingredientId, request, cancellationToken);
+            return Ok(new { success = true, message = "Đã thêm lô nguyên liệu." });
+        }
+        catch (ApiClientException ex)
+        {
+            return HandleApiClientException("ingredient_batch_create_failed", ex);
+        }
+    }
+
+    [HttpPut("ingredients/{ingredientId:int}/batches/{batchId:int}")]
+    public async Task<ActionResult<object>> UpdateIngredientBatch(int ingredientId, int batchId, [FromBody] UpdateIngredientBatchRequest request, CancellationToken cancellationToken)
+    {
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        try
+        {
+            await _catalogClient.UpdateIngredientBatchAsync(ingredientId, batchId, request, cancellationToken);
+            return Ok(new { success = true, message = "Đã cập nhật lô nguyên liệu." });
+        }
+        catch (ApiClientException ex)
+        {
+            return HandleApiClientException("ingredient_batch_update_failed", ex);
+        }
+    }
+
+    [HttpPost("ingredients/{ingredientId:int}/batches/{batchId:int}/deactivate")]
+    public async Task<ActionResult<object>> DeactivateIngredientBatch(int ingredientId, int batchId, CancellationToken cancellationToken)
+    {
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        try
+        {
+            await _catalogClient.DeactivateIngredientBatchAsync(ingredientId, batchId, cancellationToken);
+            return Ok(new { success = true, message = "Đã vô hiệu hóa lô nguyên liệu." });
+        }
+        catch (ApiClientException ex)
+        {
+            return HandleApiClientException("ingredient_batch_deactivate_failed", ex);
+        }
+    }
+
+    [HttpGet("ingredients/{ingredientId:int}/stock-movements")]
+    public async Task<ActionResult<PagedResponse<IngredientStockMovementDto>>> GetIngredientStockMovements(
+        int ingredientId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        try
+        {
+            var movements = await _catalogClient.GetIngredientStockMovementsAsync(ingredientId, page, pageSize, cancellationToken)
+                ?? new PagedResponse<IngredientStockMovementDto>(Math.Max(1, page), Math.Clamp(pageSize, 1, 100), 0, 0, Array.Empty<IngredientStockMovementDto>());
+            return Ok(movements);
+        }
+        catch (ApiClientException ex)
+        {
+            return HandleApiClientException("ingredient_movements_load_failed", ex);
+        }
+    }
+
+    [HttpGet("inventory/summary")]
+    public async Task<ActionResult<InventorySummaryDto>> GetInventorySummary(CancellationToken cancellationToken = default)
+    {
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        try
+        {
+            return Ok(await _catalogClient.GetInventorySummaryAsync(cancellationToken)
+                ?? new InventorySummaryDto(0, 0, 0, 0, 0, 0, 7));
+        }
+        catch (ApiClientException ex)
+        {
+            return HandleApiClientException("inventory_summary_load_failed", ex);
+        }
+    }
+
+    [HttpGet("inventory/batches")]
+    public async Task<ActionResult<PagedResponse<InventoryBatchDto>>> GetInventoryBatches(
+        [FromQuery] string? search,
+        [FromQuery] string? status,
+        [FromQuery] int? ingredientId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        try
+        {
+            var batches = await _catalogClient.GetInventoryBatchesAsync(search, status, ingredientId, page, pageSize, cancellationToken)
+                ?? new PagedResponse<InventoryBatchDto>(Math.Max(1, page), Math.Clamp(pageSize, 1, 100), 0, 0, Array.Empty<InventoryBatchDto>());
+            return Ok(batches);
+        }
+        catch (ApiClientException ex)
+        {
+            return HandleApiClientException("inventory_batches_load_failed", ex);
+        }
+    }
+
+    [HttpPost("inventory/stock-in")]
+    public async Task<ActionResult<object>> StockIn([FromBody] InventoryStockInRequest request, CancellationToken cancellationToken)
+    {
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        try
+        {
+            await _catalogClient.StockInAsync(request, cancellationToken);
+            return Ok(new { success = true, message = "Đã nhập kho nguyên liệu." });
+        }
+        catch (ApiClientException ex)
+        {
+            return HandleApiClientException("inventory_stock_in_failed", ex);
+        }
+    }
+
+    [HttpPost("inventory/stock-out")]
+    public async Task<ActionResult<object>> StockOut([FromBody] InventoryStockOutRequest request, CancellationToken cancellationToken)
+    {
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        try
+        {
+            await _catalogClient.StockOutAsync(request, cancellationToken);
+            return Ok(new { success = true, message = "Đã xuất kho nguyên liệu." });
+        }
+        catch (ApiClientException ex)
+        {
+            return HandleApiClientException("inventory_stock_out_failed", ex);
+        }
+    }
+
+    [HttpGet("inventory/movements")]
+    public async Task<ActionResult<PagedResponse<InventoryMovementDto>>> GetInventoryMovements(
+        [FromQuery] int? ingredientId,
+        [FromQuery] int? batchId,
+        [FromQuery] string? movementType,
+        [FromQuery] DateOnly? dateFrom,
+        [FromQuery] DateOnly? dateTo,
+        [FromQuery] string? search,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        try
+        {
+            var movements = await _catalogClient.GetInventoryMovementsAsync(ingredientId, batchId, movementType, dateFrom, dateTo, search, page, pageSize, cancellationToken)
+                ?? new PagedResponse<InventoryMovementDto>(Math.Max(1, page), Math.Clamp(pageSize, 1, 100), 0, 0, Array.Empty<InventoryMovementDto>());
+            return Ok(movements);
+        }
+        catch (ApiClientException ex)
+        {
+            return HandleApiClientException("inventory_movements_load_failed", ex);
+        }
+    }
+
     [HttpGet("tables")]
     public async Task<ActionResult<AdminTablesScreenDto>> GetTables([FromQuery] int? branchId, [FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default)
     {
-        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
-        var tablesTask = _catalogClient.GetAdminTablesAsync(branchId, search, page, pageSize, cancellationToken);
+        var admin = RequireAdmin();
+        if (admin is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        var scopedBranchId = ResolveScopedBranchId(admin, branchId);
+        var tablesTask = _catalogClient.GetAdminTablesAsync(scopedBranchId, search, page, pageSize, cancellationToken);
         var branchesTask = _catalogClient.GetBranchesAsync(cancellationToken);
         var statusesTask = _catalogClient.GetTableStatusesAsync(cancellationToken);
         await Task.WhenAll(tablesTask, branchesTask, statusesTask);
         var tables = tablesTask.Result ?? new AdminTablePagedResponse(Math.Max(1, page), Math.Clamp(pageSize, 1, 100), 0, 0, Array.Empty<AdminTableDto>());
-        return Ok(new AdminTablesScreenDto(tables, branchesTask.Result ?? Array.Empty<BranchDto>(), statusesTask.Result));
+        return Ok(new AdminTablesScreenDto(tables, ScopeBranches(admin, branchesTask.Result), statusesTask.Result));
     }
 
     [HttpPost("tables")]
     public async Task<ActionResult<object>> CreateTable([FromBody] AdminUpsertTableRequest request, CancellationToken cancellationToken)
     {
-        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
-        await _catalogClient.CreateAdminTableAsync(request, cancellationToken);
+        var admin = RequireAdmin();
+        if (admin is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        if (request.BranchId is > 0 && request.BranchId.Value != admin.BranchId)
+        {
+            return Error("forbidden_branch_scope", "Bạn chỉ có thể quản lý bàn thuộc chi nhánh của mình.", 403);
+        }
+
+        await _catalogClient.CreateAdminTableAsync(request with { BranchId = admin.BranchId }, cancellationToken);
         return Ok(new { success = true, message = "Đã thêm bàn mới." });
     }
 
     [HttpPut("tables/{tableId:int}")]
     public async Task<ActionResult<object>> UpdateTable(int tableId, [FromBody] AdminUpsertTableRequest request, CancellationToken cancellationToken)
     {
-        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
-        await _catalogClient.UpdateAdminTableAsync(tableId, request, cancellationToken);
+        var admin = RequireAdmin();
+        if (admin is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        var table = await _catalogClient.GetAdminTableByIdAsync(tableId, cancellationToken);
+        if (table is null) return Error("table_not_found", "Không tìm thấy bàn.", 404);
+        if (table.BranchId != admin.BranchId || (request.BranchId is > 0 && request.BranchId.Value != admin.BranchId))
+        {
+            return Error("forbidden_branch_scope", "Bạn chỉ có thể cập nhật bàn thuộc chi nhánh của mình.", 403);
+        }
+
+        await _catalogClient.UpdateAdminTableAsync(tableId, request with { BranchId = admin.BranchId }, cancellationToken);
         return Ok(new { success = true, message = "Đã cập nhật bàn." });
     }
 
     [HttpPost("tables/{tableId:int}/deactivate")]
     public async Task<ActionResult<object>> DeactivateTable(int tableId, CancellationToken cancellationToken)
     {
-        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        var admin = RequireAdmin();
+        if (admin is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        var table = await _catalogClient.GetAdminTableByIdAsync(tableId, cancellationToken);
+        if (table is null) return Error("table_not_found", "Không tìm thấy bàn.", 404);
+        if (table.BranchId != admin.BranchId)
+        {
+            return Error("forbidden_branch_scope", "Bạn chỉ có thể vô hiệu bàn thuộc chi nhánh của mình.", 403);
+        }
+
         await _catalogClient.DeactivateAdminTableAsync(tableId, cancellationToken);
-        return Ok(new { success = true, message = "Đã vô hiệu bàn." });
+        return Ok(new { success = true, message = "Đã vô hiệu hóa bàn." });
     }
 
     [HttpGet("employees")]
     public async Task<ActionResult<AdminEmployeesScreenDto>> GetEmployees([FromQuery] string? search, [FromQuery] int? branchId, [FromQuery] int? roleId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, CancellationToken cancellationToken = default)
     {
-        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
-        var employeesTask = _identityClient.GetAdminEmployeesAsync(search, branchId, roleId, page, pageSize, cancellationToken);
+        var admin = RequireAdmin();
+        if (admin is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        var scopedBranchId = ResolveScopedBranchId(admin, branchId);
+        var employeesTask = _identityClient.GetAdminEmployeesAsync(search, scopedBranchId, roleId, page, pageSize, cancellationToken);
         var branchesTask = _catalogClient.GetBranchesAsync(cancellationToken);
         var rolesTask = _identityClient.GetEmployeeRolesAsync(cancellationToken);
         await Task.WhenAll(employeesTask, branchesTask, rolesTask);
         var employees = employeesTask.Result ?? new AdminEmployeePagedResponse(Math.Max(1, page), Math.Clamp(pageSize, 1, 100), 0, 0, Array.Empty<AdminEmployeeDto>());
-        return Ok(new AdminEmployeesScreenDto(employees, branchesTask.Result ?? Array.Empty<BranchDto>(), rolesTask.Result));
+        return Ok(new AdminEmployeesScreenDto(employees, ScopeBranches(admin, branchesTask.Result), rolesTask.Result));
     }
 
     [HttpGet("employees/{employeeId:int}")]
     public async Task<ActionResult<AdminEmployeeDto>> GetEmployeeById(int employeeId, CancellationToken cancellationToken)
     {
-        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        var admin = RequireAdmin();
+        if (admin is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
         var employee = await _identityClient.GetAdminEmployeeByIdAsync(employeeId, cancellationToken);
+        if (employee is not null && employee.BranchId != admin.BranchId)
+        {
+            return Error("forbidden_branch_scope", "Bạn chỉ có thể xem nhân viên thuộc chi nhánh của mình.", 403);
+        }
         return employee is null ? Error("employee_not_found", "Không tìm thấy nhân viên.", 404) : Ok(employee);
     }
 
     [HttpPost("employees")]
     public async Task<ActionResult<object>> CreateEmployee([FromBody] AdminUpsertEmployeeRequest request, CancellationToken cancellationToken)
     {
-        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
-        await _identityClient.CreateAdminEmployeeAsync(request, cancellationToken);
+        var admin = RequireAdmin();
+        if (admin is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        if (request.BranchId is > 0 && request.BranchId.Value != admin.BranchId)
+        {
+            return Error("forbidden_branch_scope", "Bạn chỉ có thể tạo nhân viên cho chi nhánh của mình.", 403);
+        }
+
+        await _identityClient.CreateAdminEmployeeAsync(request with { BranchId = admin.BranchId }, cancellationToken);
         return Ok(new { success = true, message = "Đã thêm nhân viên mới." });
     }
 
     [HttpPut("employees/{employeeId:int}")]
     public async Task<ActionResult<object>> UpdateEmployee(int employeeId, [FromBody] AdminUpsertEmployeeRequest request, CancellationToken cancellationToken)
     {
-        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
-        await _identityClient.UpdateAdminEmployeeAsync(employeeId, request, cancellationToken);
+        var admin = RequireAdmin();
+        if (admin is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        var currentEmployee = await _identityClient.GetAdminEmployeeByIdAsync(employeeId, cancellationToken);
+        if (currentEmployee is null) return Error("employee_not_found", "Không tìm thấy nhân viên.", 404);
+        if (currentEmployee.BranchId != admin.BranchId || (request.BranchId is > 0 && request.BranchId.Value != admin.BranchId))
+        {
+            return Error("forbidden_branch_scope", "Bạn chỉ có thể cập nhật nhân viên thuộc chi nhánh của mình.", 403);
+        }
+
+        await _identityClient.UpdateAdminEmployeeAsync(employeeId, request with { BranchId = admin.BranchId }, cancellationToken);
         return Ok(new { success = true, message = "Đã cập nhật nhân viên." });
     }
 
     [HttpPost("employees/{employeeId:int}/deactivate")]
     public async Task<ActionResult<object>> DeactivateEmployee(int employeeId, CancellationToken cancellationToken)
     {
-        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        var admin = RequireAdmin();
+        if (admin is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        var employee = await _identityClient.GetAdminEmployeeByIdAsync(employeeId, cancellationToken);
+        if (employee is null) return Error("employee_not_found", "Không tìm thấy nhân viên.", 404);
+        if (employee.BranchId != admin.BranchId)
+        {
+            return Error("forbidden_branch_scope", "Bạn chỉ có thể khóa nhân viên thuộc chi nhánh của mình.", 403);
+        }
+
         await _identityClient.DeactivateAdminEmployeeAsync(employeeId, cancellationToken);
         return Ok(new { success = true, message = "Đã khóa nhân viên." });
     }
 
     [HttpGet("employees/{employeeId:int}/history")]
-    public async Task<ActionResult<AdminEmployeeHistoryResponse>> GetEmployeeHistory(int employeeId, [FromQuery] int days = 90, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<AdminEmployeeHistoryResponse>> GetEmployeeHistory(
+        int employeeId, 
+        [FromQuery] int activityPage = 1,
+        [FromQuery] int cookingPage = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] int days = 90, 
+        CancellationToken cancellationToken = default)
     {
-        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
-        var history = await _identityClient.GetAdminEmployeeHistoryAsync(employeeId, days, 200, cancellationToken);
+        var admin = RequireAdmin();
+        if (admin is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        var history = await _identityClient.GetAdminEmployeeHistoryAsync(employeeId, activityPage, cookingPage, pageSize, days, cancellationToken);
+        if (history is not null && history.Employee.BranchId != admin.BranchId)
+        {
+            return Error("forbidden_branch_scope", "Bạn chỉ có thể xem lịch sử nhân viên thuộc chi nhánh của mình.", 403);
+        }
         return history is null ? Error("history_not_found", "Không tải được lịch sử nhân viên.", 404) : Ok(history);
     }
 
@@ -401,6 +747,37 @@ public sealed class AdminGatewayController : ControllerBase
         if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
         var customer = await _customersClient.GetAdminCustomerByIdAsync(customerId, cancellationToken);
         return customer is null ? Error("customer_not_found", "Không tìm thấy khách hàng.", 404) : Ok(customer);
+    }
+
+    [HttpGet("customers/{customerId:int}/activity-logs")]
+    public async Task<ActionResult<object>> GetCustomerActivityLogs(int customerId, [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken cancellationToken = default)
+    {
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        var result = await _customersClient.GetCustomerActivityLogsAsync(customerId, page, pageSize, cancellationToken);
+        return result is null ? Error("customer_not_found", "Không tìm thấy khách hàng.", 404) : Ok(result);
+    }
+
+    [HttpGet("customers/{customerId:int}/order-history")]
+    public async Task<ActionResult<object>> GetCustomerOrderHistory(int customerId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] int days = 90, CancellationToken cancellationToken = default)
+    {
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        
+        try
+        {
+            var result = await _customersClient.GetCustomerOrderHistoryAsync(customerId, page, pageSize, days, cancellationToken);
+            if (result is null)
+            {
+                // Return empty result instead of error
+                return Ok(new { page, pageSize, totalItems = 0, totalPages = 0, items = Array.Empty<object>() });
+            }
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting customer order history for customerId={CustomerId}", customerId);
+            // Return empty result on error
+            return Ok(new { page, pageSize, totalItems = 0, totalPages = 0, items = Array.Empty<object>() });
+        }
     }
 
     [HttpPost("customers")]
@@ -430,9 +807,10 @@ public sealed class AdminGatewayController : ControllerBase
     [HttpGet("reports")]
     public async Task<ActionResult<AdminReportsScreenDto>> GetReports([FromQuery] int revenueDays = 30, [FromQuery] int topDishDays = 30, [FromQuery] int topDishTake = 10, CancellationToken cancellationToken = default)
     {
-        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
-        var revenueTask = _ordersClient.GetAdminRevenueReportAsync(revenueDays, cancellationToken);
-        var topDishesTask = _ordersClient.GetAdminTopDishesReportAsync(topDishDays, topDishTake, cancellationToken);
+        var admin = RequireAdmin();
+        if (admin is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        var revenueTask = _ordersClient.GetAdminRevenueReportAsync(revenueDays, admin.BranchId, cancellationToken);
+        var topDishesTask = _ordersClient.GetAdminTopDishesReportAsync(topDishDays, topDishTake, admin.BranchId, cancellationToken);
         await Task.WhenAll(revenueTask, topDishesTask);
         return Ok(new AdminReportsScreenDto(
             Math.Clamp(revenueDays, 1, 365),
@@ -621,8 +999,7 @@ public sealed class AdminGatewayController : ControllerBase
 
             var mapped = ch switch
             {
-                'đ' or 'Ð' => 'd',
-                'Đ' => 'd',
+                '\u0111' or '\u0110' => 'd',
                 _ => char.ToLowerInvariant(ch)
             };
 
@@ -667,6 +1044,25 @@ public sealed class AdminGatewayController : ControllerBase
         }
 
         return counts.OrderBy(x => x.Key).Select(x => new AdminCategorySummaryDto(x.Key, x.Value)).ToArray();
+    }
+
+    private static int ResolveScopedBranchId(StaffSessionUserDto admin, int? requestedBranchId) =>
+        requestedBranchId is > 0 && requestedBranchId.Value == admin.BranchId
+            ? requestedBranchId.Value
+            : admin.BranchId;
+
+    private IReadOnlyList<BranchDto> ScopeBranches(StaffSessionUserDto admin, IReadOnlyList<BranchDto>? branches)
+    {
+        var scoped = (branches ?? Array.Empty<BranchDto>())
+            .Where(branch => branch.BranchId == admin.BranchId)
+            .ToArray();
+
+        if (scoped.Length > 0)
+        {
+            return scoped;
+        }
+
+        return new[] { new BranchDto(admin.BranchId, admin.BranchName, null) };
     }
 
     private void ApplyStaffSession(StaffLoginResponse login)
@@ -747,6 +1143,45 @@ public sealed class AdminGatewayController : ControllerBase
     {
         var statusCode = exception.StatusCode is >= 400 and <= 599 ? exception.StatusCode : 400;
         var code = string.IsNullOrWhiteSpace(exception.Code) ? fallbackCode : exception.Code!;
-        return Error(code, exception.Message, statusCode);
+        return Error(code, exception.Message, statusCode, ExtractErrorDetails(exception.ResponseBody));
+    }
+
+    private static object? ExtractErrorDetails(string? responseBody)
+    {
+        if (string.IsNullOrWhiteSpace(responseBody))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(responseBody);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            if (doc.RootElement.TryGetProperty("details", out var details))
+            {
+                return JsonSerializer.Deserialize<object>(details.GetRawText());
+            }
+
+            var detail = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+            foreach (var property in doc.RootElement.EnumerateObject())
+            {
+                if (property.NameEquals("message") || property.NameEquals("code") || property.NameEquals("success"))
+                {
+                    continue;
+                }
+
+                detail[property.Name] = JsonSerializer.Deserialize<object>(property.Value.GetRawText());
+            }
+
+            return detail.Count == 0 ? null : detail;
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

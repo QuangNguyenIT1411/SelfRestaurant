@@ -10,4 +10,5 @@ public sealed class OrderItems
     public string StatusCode { get; set; } = "PENDING";
     public int OrderID { get; set; }
     public int DishID { get; set; }
+    public int? ChefId { get; set; }
 }

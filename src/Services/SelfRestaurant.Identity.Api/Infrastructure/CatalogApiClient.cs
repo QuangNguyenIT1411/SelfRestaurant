@@ -50,6 +50,27 @@ public sealed class CatalogApiClient
                () => GetAllActiveBranchesCoreAsync(cancellationToken))
            ?? Array.Empty<BranchSnapshotResponse>();
 
+    public async Task<ChefActivityLogsPagedResponse?> GetChefActivityLogsAsync(
+        int branchId,
+        int chefId,
+        int page,
+        int pageSize,
+        int days,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await _http.GetFromJsonAsync<ChefActivityLogsPagedResponse>(
+                $"/api/admin/branches/{branchId}/chef/{chefId}/activity-logs?page={page}&pageSize={pageSize}&days={days}",
+                cancellationToken);
+            return response;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private Task<T?> GetOrCreateAsync<T>(string cacheKey, Func<Task<T?>> factory)
     {
         return _cache.GetOrCreateAsync(cacheKey, async entry =>

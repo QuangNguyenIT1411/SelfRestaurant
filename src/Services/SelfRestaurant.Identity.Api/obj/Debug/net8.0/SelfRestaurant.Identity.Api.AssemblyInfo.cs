@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SelfRestaurant.Identity.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7bb092bbda5e96616a71a05966316082d6e1e8b9")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9ca2e7c2bcee184c7319f7ace0fc25ad4b663cb0")]
 [assembly: System.Reflection.AssemblyProductAttribute("SelfRestaurant.Identity.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SelfRestaurant.Identity.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

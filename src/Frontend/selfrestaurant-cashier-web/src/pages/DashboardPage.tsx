@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { HubConnectionBuilder, HubConnectionState } from "@microsoft/signalr";
 import { Link } from "react-router-dom";
+import { useAppDialog } from "../components/AppDialog";
 import { cashierApi } from "../lib/api";
 import { buildCashierTransferReference, buildCashierVietQrUrl, cashierQrBankInfo } from "../lib/vietQr";
 import type { CashierCheckoutResultDto, CashierDashboardDto } from "../lib/types";
@@ -44,6 +46,7 @@ function itemStatusBadgeClass(statusCode?: string | null) {
 }
 
 export function DashboardPage({ onLogout }: Props) {
+  const { alert, prompt, Dialog } = useAppDialog();
   const [dashboard, setDashboard] = useState<CashierDashboardDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,21 +97,57 @@ export function DashboardPage({ onLogout }: Props) {
     window.sessionStorage.removeItem(getCheckoutStorageKey(orderId));
   }
 
-  async function loadDashboard() {
-    setLoading(true);
+  async function loadDashboard(silent = false) {
+    if (!silent) {
+      setLoading(true);
+    }
     setError(null);
     try {
       setDashboard(await cashierApi.getDashboard());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tải dữ liệu thu ngân.");
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }
 
   useEffect(() => {
     void loadDashboard();
   }, []);
+
+  useEffect(() => {
+    const branchId = dashboard?.staff.branchId;
+    if (!branchId) return;
+
+    const connection = new HubConnectionBuilder()
+      .withUrl("/hubs/customer-notifications")
+      .withAutomaticReconnect()
+      .build();
+    const refreshDashboard = () => void loadDashboard(true);
+
+    connection.on("cashierDashboardChanged", refreshDashboard);
+    connection
+      .start()
+      .then(() => {
+        if (connection.state === HubConnectionState.Connected) {
+          return connection.invoke("SubscribeBranch", branchId);
+        }
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Không thể kết nối cập nhật realtime thu ngân.");
+      });
+
+    return () => {
+      connection.off("cashierDashboardChanged", refreshDashboard);
+      if (connection.state === HubConnectionState.Connected) {
+        void connection.invoke("UnsubscribeBranch", branchId).finally(() => void connection.stop());
+        return;
+      }
+      void connection.stop();
+    };
+  }, [dashboard?.staff.branchId]);
 
   useEffect(() => {
     if (!dashboard) return;
@@ -197,12 +236,26 @@ export function DashboardPage({ onLogout }: Props) {
       if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(value);
       } else {
-        window.prompt("Sao chép nội dung bên dưới:", value);
+        await prompt({
+          title: "Sao chép nội dung",
+          message: "Sao chép nội dung bên dưới:",
+          defaultValue: value,
+          confirmLabel: "Đồng ý",
+          cancelLabel: "Hủy",
+          multiline: true,
+        });
       }
 
       setMessage(successMessage);
     } catch {
-      window.prompt("Sao chép nội dung bên dưới:", value);
+      await prompt({
+        title: "Sao chép nội dung",
+        message: "Sao chép nội dung bên dưới:",
+        defaultValue: value,
+        confirmLabel: "Đồng ý",
+        cancelLabel: "Hủy",
+        multiline: true,
+      });
       setMessage(successMessage);
     }
   }
@@ -246,7 +299,12 @@ export function DashboardPage({ onLogout }: Props) {
     setMessage(null);
 
     if (paymentMethod === "CASH" && checkoutPreview.paymentAmount < checkoutPreview.total) {
-      window.alert("Không đủ tiền thanh toán hóa đơn.");
+      await alert({
+        title: "Không đủ tiền",
+        message: "Không đủ tiền thanh toán hóa đơn.",
+        confirmLabel: "Đồng ý",
+        variant: "danger",
+      });
       return;
     }
 
@@ -268,7 +326,8 @@ export function DashboardPage({ onLogout }: Props) {
       });
       setMessage(result.message);
       clearCheckoutIntentKey(activeOrder.orderId);
-      await loadDashboard();
+      await loadDashboard(true);
+      window.setTimeout(() => window.location.reload(), 900);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể thanh toán hóa đơn.");
     } finally {
@@ -450,7 +509,7 @@ export function DashboardPage({ onLogout }: Props) {
                     onChange={(event) => handleDiscountAmountChange(event.target.value)}
                     style={{ width: "120px" }}
                   />
-                  <span className="muted">đ</span>
+                  <span className="muted"></span>
                 </div>
               </div>
               <div className="total-row">
@@ -470,7 +529,7 @@ export function DashboardPage({ onLogout }: Props) {
               </div>
               {checkoutPreview.pointsUsed > 0 ? (
                 <div className="total-row">
-                  <span>Giảm bằng điểm:</span>
+                  <span>Gim bng im:</span>
                   <strong>-{checkoutPreview.pointsUsed.toLocaleString("vi-VN")} đ</strong>
                 </div>
               ) : null}
@@ -529,7 +588,7 @@ export function DashboardPage({ onLogout }: Props) {
                 >
                   <i className="bi bi-qr-code" />
                   <strong>QR chuyển khoản</strong>
-                  <small>BIDV - điền sẵn số tiền</small>
+                  <small>BIDV - in sẵn số tiền</small>
                 </button>
               </div>
             </div>
@@ -579,7 +638,7 @@ export function DashboardPage({ onLogout }: Props) {
                     <span>Số tiền</span>
                     <strong>{checkoutPreview.total.toLocaleString("vi-VN")} đ</strong>
                   </div>
-                  <div className="qr-payment-summary">
+                  <div className="qr-payment-summary qr-payment-reference">
                     <span>Nội dung chuyển khoản</span>
                     <strong>{qrTransferReference}</strong>
                   </div>
@@ -666,6 +725,7 @@ export function DashboardPage({ onLogout }: Props) {
           </div>
         </div>
       ) : null}
+      <Dialog />
     </main>
   );
 }

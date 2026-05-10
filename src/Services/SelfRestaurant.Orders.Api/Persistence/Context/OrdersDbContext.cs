@@ -46,6 +46,7 @@ public sealed class OrdersDbContext : DbContext
         modelBuilder.Entity<CatalogTableSnapshots>(entity =>
         {
             entity.HasKey(e => e.TableId);
+            entity.Property(e => e.TableNumber);
             entity.Property(e => e.QrCode).HasMaxLength(100);
             entity.Property(e => e.StatusCode).HasMaxLength(50);
             entity.Property(e => e.StatusName).HasMaxLength(100);

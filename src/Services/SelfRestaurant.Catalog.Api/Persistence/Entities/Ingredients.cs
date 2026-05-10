@@ -17,6 +17,10 @@ public partial class Ingredients
 
     public bool IsActive { get; set; }
 
+    public virtual ICollection<IngredientBatches> IngredientBatches { get; set; } = new List<IngredientBatches>();
+
+    public virtual ICollection<IngredientStockMovements> IngredientStockMovements { get; set; } = new List<IngredientStockMovements>();
+
     public virtual ICollection<DishIngredients> DishIngredients { get; set; } = new List<DishIngredients>();
 
     public virtual ICollection<OrderItemIngredients> OrderItemIngredients { get; set; } = new List<OrderItemIngredients>();

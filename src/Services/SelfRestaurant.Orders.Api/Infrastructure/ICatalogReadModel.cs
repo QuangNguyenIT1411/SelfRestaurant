@@ -14,6 +14,7 @@ public interface ICatalogReadModel
     Task<IReadOnlyList<CatalogApiClient.BranchSnapshotResponse>?> GetBranchesAsync(IEnumerable<int> branchIds, CancellationToken cancellationToken);
     Task OccupyTableAsync(int tableId, int? currentOrderId, CancellationToken cancellationToken);
     Task ReleaseTableAsync(int tableId, CancellationToken cancellationToken);
+    Task<int> ResetAllTablesAsync(CancellationToken cancellationToken);
     Task<CatalogApiClient.IngredientConsumptionResult> ConsumeIngredientsForOrderAsync(
         int orderId,
         IReadOnlyList<CatalogApiClient.OrderIngredientConsumptionItem> items,

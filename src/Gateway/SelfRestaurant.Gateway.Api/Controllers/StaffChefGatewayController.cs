@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using SelfRestaurant.Gateway.Api.Infrastructure;
+using SelfRestaurant.Gateway.Api.Hubs;
 using SelfRestaurant.Gateway.Api.Models;
 using SelfRestaurant.Gateway.Api.Services;
 
@@ -17,6 +19,7 @@ public sealed class StaffChefGatewayController : ControllerBase
     private readonly OrdersClient _ordersClient;
     private readonly CatalogClient _catalogClient;
     private readonly IdentityClient _identityClient;
+    private readonly IHubContext<CustomerNotificationsHub> _customerNotificationsHub;
     private readonly ILogger<StaffChefGatewayController> _logger;
     private readonly IWebHostEnvironment _environment;
 
@@ -24,12 +27,14 @@ public sealed class StaffChefGatewayController : ControllerBase
         OrdersClient ordersClient,
         CatalogClient catalogClient,
         IdentityClient identityClient,
+        IHubContext<CustomerNotificationsHub> customerNotificationsHub,
         ILogger<StaffChefGatewayController> logger,
         IWebHostEnvironment environment)
     {
         _ordersClient = ordersClient;
         _catalogClient = catalogClient;
         _identityClient = identityClient;
+        _customerNotificationsHub = customerNotificationsHub;
         _logger = logger;
         _environment = environment;
     }
@@ -55,7 +60,7 @@ public sealed class StaffChefGatewayController : ControllerBase
 
             if (!StaffRoles.Contains(staff.RoleCode, StringComparer.OrdinalIgnoreCase))
             {
-                return Error("forbidden", "Tai khoan nay khong co quyen vao khu vuc nhan vien.", 403);
+                return Error("forbidden", "Tài khoản này không có quyền vào khu vực nhân viên.", 403);
             }
 
             ApplyStaffSession(staff);
@@ -177,7 +182,7 @@ public sealed class StaffChefGatewayController : ControllerBase
     public async Task<ActionResult<ChefDashboardDto>> GetChefDashboard(CancellationToken cancellationToken)
     {
         var staff = RequireChef();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
 
         var dashboard = await BuildDashboardAsync(staff, historyTake: 100, cancellationToken);
         return Ok(dashboard);
@@ -187,7 +192,7 @@ public sealed class StaffChefGatewayController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<ChefHistoryDto>>> GetHistory([FromQuery] int take = 100, CancellationToken cancellationToken = default)
     {
         var staff = RequireChef();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
         var items = await _ordersClient.GetChefHistoryAsync(staff.BranchId, Math.Clamp(take, 1, 300), cancellationToken);
         return Ok(items);
     }
@@ -196,7 +201,7 @@ public sealed class StaffChefGatewayController : ControllerBase
     public async Task<ActionResult<ChefMenuDto>> GetMenu(CancellationToken cancellationToken)
     {
         var staff = RequireChef();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
         var menu = await BuildMenuAsync(staff.BranchId, staff.BranchName, cancellationToken);
         return Ok(menu);
     }
@@ -205,7 +210,7 @@ public sealed class StaffChefGatewayController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<CategoryDto>>> GetCategories(CancellationToken cancellationToken)
     {
         var staff = RequireChef();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
 
         var categories = await _catalogClient.GetCategoriesAsync(false, cancellationToken);
         return Ok(categories ?? Array.Empty<CategoryDto>());
@@ -215,8 +220,8 @@ public sealed class StaffChefGatewayController : ControllerBase
     public async Task<ActionResult<object>> Start(int orderId, CancellationToken cancellationToken)
     {
         var staff = RequireChef();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
-        if (orderId <= 0) return Error("invalid_order", "Don hang khong hop le.", 400);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
+        if (orderId <= 0) return Error("invalid_order", "Đơn hàng không hợp lệ.", 400);
         try
         {
             await _ordersClient.ChefStartAsync(orderId, cancellationToken);
@@ -232,11 +237,12 @@ public sealed class StaffChefGatewayController : ControllerBase
     public async Task<ActionResult<object>> Ready(int orderId, CancellationToken cancellationToken)
     {
         var staff = RequireChef();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
-        if (orderId <= 0) return Error("invalid_order", "Don hang khong hop le.", 400);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
+        if (orderId <= 0) return Error("invalid_order", "Đơn hàng không hợp lệ.", 400);
         try
         {
-            await _ordersClient.ChefReadyAsync(orderId, cancellationToken);
+            await _ordersClient.ChefReadyAsync(orderId, staff.EmployeeId, cancellationToken);
+            await BroadcastOrderReadyAsync(orderId, null, cancellationToken);
             return Ok(new { success = true, message = "Đơn đã sẵn sàng." });
         }
         catch (InvalidOperationException ex)
@@ -249,11 +255,11 @@ public sealed class StaffChefGatewayController : ControllerBase
     public async Task<ActionResult<object>> StartItem(int orderId, int itemId, CancellationToken cancellationToken)
     {
         var staff = RequireChef();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
-        if (orderId <= 0 || itemId <= 0) return Error("invalid_item", "Mon trong don khong hop le.", 400);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
+        if (orderId <= 0 || itemId <= 0) return Error("invalid_item", "Món trong đơn không hợp lệ.", 400);
         try
         {
-            await _ordersClient.ChefStartItemAsync(orderId, itemId, cancellationToken);
+            await _ordersClient.ChefStartItemAsync(orderId, itemId, staff.EmployeeId, cancellationToken);
             return Ok(new { success = true, message = "Đã chuyển món sang đang chế biến." });
         }
         catch (InvalidOperationException ex)
@@ -266,11 +272,12 @@ public sealed class StaffChefGatewayController : ControllerBase
     public async Task<ActionResult<object>> ReadyItem(int orderId, int itemId, CancellationToken cancellationToken)
     {
         var staff = RequireChef();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
-        if (orderId <= 0 || itemId <= 0) return Error("invalid_item", "Mon trong don khong hop le.", 400);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
+        if (orderId <= 0 || itemId <= 0) return Error("invalid_item", "Món trong đơn không hợp lệ.", 400);
         try
         {
-            await _ordersClient.ChefReadyItemAsync(orderId, itemId, cancellationToken);
+            await _ordersClient.ChefReadyItemAsync(orderId, itemId, staff.EmployeeId, cancellationToken);
+            await BroadcastOrderReadyAsync(orderId, itemId, cancellationToken);
             return Ok(new { success = true, message = "Món đã sẵn sàng." });
         }
         catch (InvalidOperationException ex)
@@ -283,29 +290,29 @@ public sealed class StaffChefGatewayController : ControllerBase
     public ActionResult<object> Serve(int orderId, CancellationToken cancellationToken)
     {
         var staff = RequireChef();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
-        if (orderId <= 0) return Error("invalid_order", "Don hang khong hop le.", 400);
-        return Error("customer_confirmation_required", "Chi khach hang moi co the xac nhan da nhan mon.", 409);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
+        if (orderId <= 0) return Error("invalid_order", "Đơn hàng không hợp lệ.", 400);
+        return Error("customer_confirmation_required", "Chỉ khách hàng mới có thể xác nhận đã nhận món.", 409);
     }
 
     [HttpPost("chef/orders/{orderId:int}/cancel")]
     public async Task<ActionResult<object>> Cancel(int orderId, [FromBody] ChefCancelOrderApiRequest request, CancellationToken cancellationToken)
     {
         var staff = RequireChef();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
-        if (orderId <= 0) return Error("invalid_order", "Don hang khong hop le.", 400);
-        if (string.IsNullOrWhiteSpace(request.Reason)) return Error("invalid_reason", "Vui long nhap ly do huy don.", 400);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
+        if (orderId <= 0) return Error("invalid_order", "Đơn hàng không hợp lệ.", 400);
+        if (string.IsNullOrWhiteSpace(request.Reason)) return Error("invalid_reason", "Vui lòng nhập lý do hủy đơn.", 400);
         await _ordersClient.ChefCancelAsync(orderId, request.Reason.Trim(), cancellationToken);
-        return Ok(new { success = true, message = "Da huy don hang." });
+        return Ok(new { success = true, message = "Đã hủy đơn hàng." });
     }
 
     [HttpPost("chef/orders/{orderId:int}/items/{itemId:int}/cancel")]
     public async Task<ActionResult<object>> CancelItem(int orderId, int itemId, [FromBody] ChefCancelOrderApiRequest request, CancellationToken cancellationToken)
     {
         var staff = RequireChef();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
-        if (orderId <= 0 || itemId <= 0) return Error("invalid_item", "Mon trong don khong hop le.", 400);
-        if (string.IsNullOrWhiteSpace(request.Reason)) return Error("invalid_reason", "Vui long nhap ly do huy mon.", 400);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
+        if (orderId <= 0 || itemId <= 0) return Error("invalid_item", "Món trong đơn không hợp lệ.", 400);
+        if (string.IsNullOrWhiteSpace(request.Reason)) return Error("invalid_reason", "Vui lòng nhập lý do hủy món.", 400);
 
         try
         {
@@ -322,22 +329,22 @@ public sealed class StaffChefGatewayController : ControllerBase
     public async Task<ActionResult<object>> UpdateItemNote(int orderId, int itemId, [FromBody] ChefUpdateItemNoteApiRequest request, CancellationToken cancellationToken)
     {
         var staff = RequireChef();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
-        if (orderId <= 0 || itemId <= 0) return Error("invalid_item", "Mon trong don khong hop le.", 400);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
+        if (orderId <= 0 || itemId <= 0) return Error("invalid_item", "Món trong đơn không hợp lệ.", 400);
         await _ordersClient.ChefUpdateItemNoteAsync(orderId, itemId, request.Note, request.Append, cancellationToken);
-        return Ok(new { success = true, message = "Da cap nhat ghi chu mon." });
+        return Ok(new { success = true, message = "Đã cập nhật ghi chú món." });
     }
 
     [HttpGet("chef/dishes/{dishId:int}/ingredients")]
     public async Task<ActionResult<ChefDishIngredientsDto>> GetDishIngredients(int dishId, CancellationToken cancellationToken)
     {
         var staff = RequireChef();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
-        if (dishId <= 0) return Error("invalid_dish", "Mon an khong hop le.", 400);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
+        if (dishId <= 0) return Error("invalid_dish", "Món ăn không hợp lệ.", 400);
 
         await EnsureDishInTodayMenuAsync(staff.BranchId, dishId, cancellationToken);
         var dish = await _catalogClient.GetAdminDishByIdAsync(dishId, cancellationToken);
-        if (dish is null) return Error("dish_not_found", "Khong tim thay mon an.", 404);
+        if (dish is null) return Error("dish_not_found", "Không tìm thấy món ăn.", 404);
 
         var lines = await _catalogClient.GetDishIngredientsAsync(dishId, cancellationToken);
         var items = lines
@@ -352,33 +359,25 @@ public sealed class StaffChefGatewayController : ControllerBase
     public async Task<ActionResult<ChefDishIngredientsDto>> SaveDishIngredients(int dishId, [FromBody] ChefSaveDishIngredientsApiRequest request, CancellationToken cancellationToken)
     {
         var staff = RequireChef();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
-        if (dishId <= 0) return Error("invalid_dish", "Mon an khong hop le.", 400);
-
-        await EnsureDishInTodayMenuAsync(staff.BranchId, dishId, cancellationToken);
-
-        var payload = (request.Items ?? Array.Empty<ChefSaveDishIngredientItemDto>())
-            .Where(x => x.IngredientId > 0 && x.QuantityPerDish > 0)
-            .GroupBy(x => x.IngredientId)
-            .Select(x => new AdminDishIngredientItemRequest(x.Key, x.Last().QuantityPerDish))
-            .ToList();
-
-        await _catalogClient.UpdateDishIngredientsAsync(dishId, payload, cancellationToken);
-        return await GetDishIngredients(dishId, cancellationToken);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
+        if (dishId > 0) return Error("forbidden", "Dau bep chi duoc xem thanh phan mon; vui long dung trang quan tri de chinh sua cong thuc.", 403);
+        if (dishId <= 0) return Error("invalid_dish", "Món ăn không hợp lệ.", 400);
+        return Error("forbidden", "Dau bep chi duoc xem thanh phan mon; vui long dung trang quan tri de chinh sua cong thuc.", 403);
     }
 
     [HttpPut("chef/dishes/{dishId:int}/image")]
     [Consumes("multipart/form-data")]
-    public async Task<ActionResult<object>> UpdateDishImage(int dishId, [FromForm] IFormFile imageFile, CancellationToken cancellationToken)
+    public async Task<ActionResult<object>> UpdateDishImage(int dishId, [FromForm] IFormFile? imageFile, CancellationToken cancellationToken)
     {
         var staff = RequireChef();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
-        if (dishId <= 0) return Error("invalid_dish", "Mon an khong hop le.", 400);
-        if (imageFile is null || imageFile.Length <= 0) return Error("invalid_image", "Vui long chon anh hop le.", 400);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
+        if (dishId > 0) return Error("forbidden", "Dau bep khong co quyen chinh sua hinh anh mon; vui long dung trang quan tri.", 403);
+        if (dishId <= 0) return Error("invalid_dish", "Món ăn không hợp lệ.", 400);
+        if (imageFile is null || imageFile.Length <= 0) return Error("invalid_image", "Vui lòng chọn ảnh hợp lệ.", 400);
 
         await EnsureDishInTodayMenuAsync(staff.BranchId, dishId, cancellationToken);
         var current = await _catalogClient.GetAdminDishByIdAsync(dishId, cancellationToken);
-        if (current is null) return Error("dish_not_found", "Khong tim thay mon an.", 404);
+        if (current is null) return Error("dish_not_found", "Không tìm thấy món ăn.", 404);
 
         var imagePath = await SaveDishImageAsync(current.Name, imageFile, current.Image, cancellationToken);
         await _catalogClient.UpdateAdminDishAsync(
@@ -396,36 +395,34 @@ public sealed class StaffChefGatewayController : ControllerBase
                 current.IsActive),
             cancellationToken);
 
-        return Ok(new { success = true, message = "Da cap nhat anh mon an.", image = imagePath });
+        return Ok(new { success = true, message = "Đã cập nhật ảnh món ăn.", image = imagePath });
     }
 
     [HttpPost("chef/dishes/{dishId:int}/availability")]
     public async Task<ActionResult<object>> SetDishAvailability(int dishId, [FromBody] ChefSetDishAvailabilityApiRequest request, CancellationToken cancellationToken)
     {
         var staff = RequireChef();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
-        if (dishId <= 0) return Error("invalid_dish", "Mon an khong hop le.", 400);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
+        if (dishId <= 0) return Error("invalid_dish", "Món ăn không hợp lệ.", 400);
 
         await EnsureDishInTodayMenuAsync(staff.BranchId, dishId, cancellationToken);
         var current = await _catalogClient.GetAdminDishByIdAsync(dishId, cancellationToken);
-        if (current is null) return Error("dish_not_found", "Khong tim thay mon an.", 404);
+        if (current is null) return Error("dish_not_found", "Không tìm thấy món ăn.", 404);
 
-        await _catalogClient.UpdateAdminDishAsync(
-            dishId,
-            new AdminUpsertDishRequest(
-                current.Name,
-                current.Price,
-                current.CategoryId,
-                current.Description,
-                current.Unit,
-                current.Image,
-                current.IsVegetarian,
-                current.IsDailySpecial,
-                request.Available,
-                current.IsActive),
-            cancellationToken);
+        try
+        {
+            var result = await _catalogClient.SetChefDishAvailabilityAsync(staff.BranchId, dishId, request.Available, cancellationToken);
+            if (result is null)
+            {
+                return Error("availability_failed", "Không nhận được phản hồi cập nhật trạng thái bán.", 502);
+            }
 
-        return Ok(new { success = true, message = request.Available ? "Đã hiển thị lại món ăn." : "Đã ẩn món khỏi thực đơn.", available = request.Available });
+            return Ok(new { success = true, message = result.Message, available = result.Available });
+        }
+        catch (ApiClientException ex)
+        {
+            return Error("availability_blocked", ex.Message, ex.StatusCode);
+        }
     }
 
     [HttpPost("chef/dishes")]
@@ -433,11 +430,12 @@ public sealed class StaffChefGatewayController : ControllerBase
     public async Task<ActionResult<object>> CreateDish([FromForm] AdminUpsertDishFormRequest request, CancellationToken cancellationToken)
     {
         var staff = RequireChef();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
+        if (staff.BranchId > 0) return Error("forbidden", "Dau bep khong co quyen them mon; vui long dung trang quan tri.", 403);
 
         if (string.IsNullOrWhiteSpace(request.Name))
         {
-            return Error("invalid_name", "Vui long nhap ten mon an.", 400);
+            return Error("invalid_name", "Vui lòng nhập tên món ăn.", 400);
         }
 
         var dishName = request.Name.Trim();
@@ -466,12 +464,13 @@ public sealed class StaffChefGatewayController : ControllerBase
     public async Task<ActionResult<object>> UpdateDish(int dishId, [FromForm] AdminUpsertDishFormRequest request, CancellationToken cancellationToken)
     {
         var staff = RequireChef();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
-        if (dishId <= 0) return Error("invalid_dish", "Mon an khong hop le.", 400);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
+        if (dishId > 0) return Error("forbidden", "Dau bep khong co quyen chinh sua thong tin mon; chi duoc bat hoac tam ngung ban.", 403);
+        if (dishId <= 0) return Error("invalid_dish", "Món ăn không hợp lệ.", 400);
 
         await EnsureDishInTodayMenuAsync(staff.BranchId, dishId, cancellationToken);
         var current = await _catalogClient.GetAdminDishByIdAsync(dishId, cancellationToken);
-        if (current is null) return Error("dish_not_found", "Khong tim thay mon an.", 404);
+        if (current is null) return Error("dish_not_found", "Không tìm thấy món ăn.", 404);
 
         var dishName = string.IsNullOrWhiteSpace(request.Name) ? current.Name : request.Name.Trim();
         var imagePath = await ResolveDishImagePathAsync(dishName, request.ImageFile, request.Image ?? current.Image, cancellationToken, current.Image);
@@ -499,10 +498,10 @@ public sealed class StaffChefGatewayController : ControllerBase
     public async Task<ActionResult<StaffSessionUserDto>> UpdateAccount([FromBody] ChefAccountUpdateApiRequest request, CancellationToken cancellationToken)
     {
         var staff = RequireChef();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Phone))
         {
-            return Error("invalid_request", "Ho ten va so dien thoai la bat buoc.", 400);
+            return Error("invalid_request", "Họ tên và số điện thoại là bắt buộc.", 400);
         }
 
         try
@@ -535,14 +534,14 @@ public sealed class StaffChefGatewayController : ControllerBase
     public async Task<ActionResult<object>> ChangePassword([FromBody] ChefChangePasswordApiRequest request, CancellationToken cancellationToken)
     {
         var staff = RequireChef();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan bep.", 401);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
         if (string.IsNullOrWhiteSpace(request.CurrentPassword) || string.IsNullOrWhiteSpace(request.NewPassword))
         {
-            return Error("invalid_request", "Vui long nhap day du mat khau hien tai va mat khau moi.", 400);
+            return Error("invalid_request", "Vui lòng nhập đầy đủ mật khẩu hiện tại và mật khẩu mới.", 400);
         }
         if (!string.Equals(request.NewPassword, request.ConfirmPassword, StringComparison.Ordinal))
         {
-            return Error("password_mismatch", "Mat khau moi va xac nhan khong khop.", 400);
+            return Error("password_mismatch", "Mật khẩu mới và xác nhận không khớp.", 400);
         }
 
         try
@@ -550,13 +549,43 @@ public sealed class StaffChefGatewayController : ControllerBase
             await _identityClient.StaffChangePasswordAsync(
                 new StaffChangePasswordRequest(staff.EmployeeId, request.CurrentPassword, request.NewPassword),
                 cancellationToken);
-            return Ok(new { success = true, message = "Doi mat khau thanh cong." });
+            return Ok(new { success = true, message = "Đổi mật khẩu thành công." });
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Chef change password failed.");
             return Error("change_password_failed", ex.Message, 400);
         }
+    }
+
+    private async Task BroadcastOrderReadyAsync(int orderId, int? orderItemId, CancellationToken cancellationToken)
+    {
+        var order = await _ordersClient.GetOrderByIdAsync(orderId, cancellationToken);
+        if (order?.TableId is not int tableId || tableId <= 0)
+        {
+            return;
+        }
+
+        var item = orderItemId is int itemId
+            ? order.Items.FirstOrDefault(x => x.ItemId == itemId)
+            : order.Items.FirstOrDefault(x => string.Equals(x.Status, "READY", StringComparison.OrdinalIgnoreCase));
+
+        await _customerNotificationsHub.Clients
+            .Group(CustomerNotificationsHub.TableGroup(tableId))
+            .SendAsync(
+                "orderReady",
+                new
+                {
+                    orderId,
+                    orderItemId,
+                    tableId,
+                    dishId = item?.DishId,
+                    dishName = item?.DishName,
+                    message = item is null
+                        ? "Bếp đã hoàn thành món ăn của bạn."
+                        : $"{item.DishName} đã sẵn sàng.",
+                },
+                cancellationToken);
     }
 
     private async Task<ChefDashboardDto> BuildDashboardAsync(StaffSessionUserDto staff, int historyTake, CancellationToken cancellationToken)
@@ -630,7 +659,7 @@ public sealed class StaffChefGatewayController : ControllerBase
         var exists = menu?.Categories.SelectMany(x => x.Dishes).Any(x => x.DishId == dishId) ?? false;
         if (!exists)
         {
-            throw new InvalidOperationException("Mon khong thuoc menu chi nhanh hom nay.");
+            throw new InvalidOperationException("Món không thuộc thực đơn chi nhánh hôm nay.");
         }
     }
 
@@ -638,7 +667,7 @@ public sealed class StaffChefGatewayController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(dishName))
         {
-            throw new InvalidOperationException("Ten mon an khong hop le de tao ten file anh.");
+            throw new InvalidOperationException("Tên món ăn không hợp lệ để tạo tên file ảnh.");
         }
 
         var extension = Path.GetExtension(imageFile.FileName)?.Trim().ToLowerInvariant();

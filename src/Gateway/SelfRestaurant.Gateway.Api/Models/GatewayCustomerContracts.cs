@@ -23,6 +23,7 @@ public sealed record CustomerTableContextDto(
 
 public sealed record SetCustomerTableContextRequest(int TableId, int BranchId);
 public sealed record CustomerLoginApiRequest(string Username, string Password);
+public sealed record CustomerGoogleLoginApiRequest(string IdToken);
 public sealed record CustomerRegisterApiRequest(
     string Name,
     string Username,

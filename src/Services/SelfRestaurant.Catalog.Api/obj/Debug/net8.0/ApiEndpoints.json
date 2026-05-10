@@ -1,6 +1,42 @@
 [
   {
     "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "GetChefActivityLogs",
+    "RelativePath": "api/admin/branches/{branchId}/chef/{chefId}/activity-logs",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "branchId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "chefId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "pageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "days",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
     "Method": "CreateChefDishForBranch",
     "RelativePath": "api/admin/branches/{branchId}/chef/dishes",
     "HttpMethod": "POST",
@@ -68,6 +104,42 @@
   },
   {
     "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "SetChefDishAvailability",
+    "RelativePath": "api/admin/branches/{branchId}/chef/dishes/{dishId}/availability",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "branchId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "dishId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BChefDishAvailabilityRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BChefDishAvailabilityResponse",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
     "Method": "GetDishes",
     "RelativePath": "api/admin/dishes",
     "HttpMethod": "GET",
@@ -96,6 +168,11 @@
       },
       {
         "Name": "includeInactive",
+        "Type": "System.Boolean",
+        "IsRequired": false
+      },
+      {
+        "Name": "vegetarianOnly",
         "Type": "System.Boolean",
         "IsRequired": false
       }
@@ -170,6 +247,22 @@
       {
         "Name": "request",
         "Type": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BAdminUpsertDishRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "DeleteDish",
+    "RelativePath": "api/admin/dishes/{dishId}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dishId",
+        "Type": "System.Int32",
         "IsRequired": true
       }
     ],
@@ -344,6 +437,116 @@
   },
   {
     "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "DeleteIngredient",
+    "RelativePath": "api/admin/ingredients/{ingredientId}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "ingredientId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "GetIngredientBatches",
+    "RelativePath": "api/admin/ingredients/{ingredientId}/batches",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "ingredientId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "System.Collections.Generic.IReadOnlyList\u00601[[SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BAdminIngredientBatchResponse, SelfRestaurant.Catalog.Api, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "CreateIngredientBatch",
+    "RelativePath": "api/admin/ingredients/{ingredientId}/batches",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "ingredientId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BCreateIngredientBatchRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "UpdateIngredientBatch",
+    "RelativePath": "api/admin/ingredients/{ingredientId}/batches/{batchId}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "ingredientId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "batchId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BUpdateIngredientBatchRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "DeactivateIngredientBatch",
+    "RelativePath": "api/admin/ingredients/{ingredientId}/batches/{batchId}/deactivate",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "ingredientId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "batchId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
     "Method": "DeactivateIngredient",
     "RelativePath": "api/admin/ingredients/{ingredientId}/deactivate",
     "HttpMethod": "POST",
@@ -357,6 +560,42 @@
       }
     ],
     "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "GetIngredientStockMovements",
+    "RelativePath": "api/admin/ingredients/{ingredientId}/stock-movements",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "ingredientId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "pageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BPagedResponse\u00601[[SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BIngredientStockMovementResponse, SelfRestaurant.Catalog.Api, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
   },
   {
     "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
@@ -395,6 +634,165 @@
     "ReturnTypes": [
       {
         "Type": "System.Collections.Generic.IReadOnlyList\u00601[[System.Object, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "GetInventoryBatches",
+    "RelativePath": "api/admin/inventory/batches",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "search",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "status",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "ingredientId",
+        "Type": "System.Nullable\u00601[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "pageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BPagedResponse\u00601[[SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BInventoryBatchResponse, SelfRestaurant.Catalog.Api, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "GetInventoryMovements",
+    "RelativePath": "api/admin/inventory/movements",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "ingredientId",
+        "Type": "System.Nullable\u00601[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "batchId",
+        "Type": "System.Nullable\u00601[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "movementType",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "dateFrom",
+        "Type": "System.Nullable\u00601[[System.DateOnly, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "dateTo",
+        "Type": "System.Nullable\u00601[[System.DateOnly, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "search",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "pageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BPagedResponse\u00601[[SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BInventoryMovementResponse, SelfRestaurant.Catalog.Api, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "StockIn",
+    "RelativePath": "api/admin/inventory/stock-in",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BInventoryStockInRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "StockOut",
+    "RelativePath": "api/admin/inventory/stock-out",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BInventoryStockOutRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "GetInventorySummary",
+    "RelativePath": "api/admin/inventory/summary",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": [
+      {
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BInventorySummaryResponse",
         "MediaTypes": [
           "text/plain",
           "application/json",
@@ -543,6 +941,126 @@
     "Parameters": [
       {
         "Name": "tableId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "GetUnits",
+    "RelativePath": "api/admin/units",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "search",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "pageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "includeInactive",
+        "Type": "System.Boolean",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BPagedResponse\u00601[[SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BAdminUnitResponse, SelfRestaurant.Catalog.Api, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "CreateUnit",
+    "RelativePath": "api/admin/units",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BAdminUpsertUnitRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "GetUnitById",
+    "RelativePath": "api/admin/units/{unitId}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "unitId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BAdminUnitResponse",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "UpdateUnit",
+    "RelativePath": "api/admin/units/{unitId}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "unitId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController\u002BAdminUpsertUnitRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.AdminCatalogController",
+    "Method": "DeleteUnit",
+    "RelativePath": "api/admin/units/{unitId}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "unitId",
         "Type": "System.Int32",
         "IsRequired": true
       }
@@ -934,6 +1452,16 @@
         "IsRequired": true
       }
     ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Catalog.Api.Controllers.CatalogController",
+    "Method": "ResetAllInternalTables",
+    "RelativePath": "api/internal/tables/reset-all",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
     "ReturnTypes": []
   },
   {

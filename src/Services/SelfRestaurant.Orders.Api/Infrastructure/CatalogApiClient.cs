@@ -95,6 +95,15 @@ public sealed class CatalogApiClient : ICatalogReadModel
         response.EnsureSuccessStatusCode();
     }
 
+    public async Task<int> ResetAllTablesAsync(CancellationToken cancellationToken)
+    {
+        var response = await _http.PostAsync("/api/internal/tables/reset-all", null, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<ResetAllTablesResponse>(cancellationToken);
+        return payload?.ResetTables ?? 0;
+    }
+
     public async Task<IngredientConsumptionResult> ConsumeIngredientsForOrderAsync(
         int orderId,
         IReadOnlyList<OrderIngredientConsumptionItem> items,
@@ -329,6 +338,7 @@ public sealed class CatalogApiClient : ICatalogReadModel
             }
 
             entity.BranchId = item.BranchId;
+            entity.TableNumber = item.TableNumber;
             entity.QrCode = item.QrCode;
             entity.IsActive = item.IsActive;
             entity.StatusId = item.StatusId;
@@ -407,7 +417,7 @@ public sealed class CatalogApiClient : ICatalogReadModel
         => refreshedAtUtc.HasValue && refreshedAtUtc.Value >= DateTime.UtcNow.Subtract(ttl);
 
     private static TableSnapshotResponse Map(CatalogTableSnapshots entity) =>
-        new(entity.TableId, entity.BranchId, entity.QrCode, entity.IsActive, entity.StatusId, entity.StatusCode, entity.StatusName);
+        new(entity.TableId, entity.BranchId, entity.TableNumber, entity.QrCode, entity.IsActive, entity.StatusId, entity.StatusCode, entity.StatusName);
 
     private static DishSnapshotResponse Map(CatalogDishSnapshots entity) =>
         new(entity.DishId, entity.Name, entity.CategoryId, entity.CategoryName, entity.Price, entity.Unit, entity.Image, entity.IsActive, entity.Available);
@@ -418,6 +428,7 @@ public sealed class CatalogApiClient : ICatalogReadModel
     public sealed record TableSnapshotResponse(
         int TableId,
         int BranchId,
+        int TableNumber,
         string? QrCode,
         bool IsActive,
         int StatusId,
@@ -442,7 +453,7 @@ public sealed class CatalogApiClient : ICatalogReadModel
         bool IsActive);
 
     public sealed record TableOccupancyRequest(int? CurrentOrderId);
-    public sealed record OrderIngredientConsumptionItem(int DishId, int Quantity);
+    public sealed record OrderIngredientConsumptionItem(int DishId, int Quantity, int? OrderItemId = null);
     public sealed record IngredientConsumptionIssue(
         int IngredientId,
         string IngredientName,
@@ -456,4 +467,6 @@ public sealed class CatalogApiClient : ICatalogReadModel
     private sealed record IngredientConsumptionRequest(
         int OrderId,
         IReadOnlyList<OrderIngredientConsumptionItem> Items);
+
+    private sealed record ResetAllTablesResponse(bool Success, int ResetTables);
 }

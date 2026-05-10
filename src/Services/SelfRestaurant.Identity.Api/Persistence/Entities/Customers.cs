@@ -17,7 +17,10 @@ public sealed class Customers
     public DateTime? UpdatedAt { get; set; }
     public bool? IsActive { get; set; }
     public string Username { get; set; } = null!;
-    public string Password { get; set; } = null!;
+    public string? Password { get; set; }
+    public string AuthProvider { get; set; } = "Password";
+    public string? ExternalProvider { get; set; }
+    public string? ExternalSubject { get; set; }
     public int CreditPoints { get; set; }
 
     public ICollection<PasswordResetTokens> PasswordResetTokens { get; set; } = new List<PasswordResetTokens>();

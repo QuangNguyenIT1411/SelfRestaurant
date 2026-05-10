@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { useAppDialog } from "../components/AppDialog";
 import { api } from "../lib/api";
 import type { ActiveOrderItemDto, CustomerSessionUserDto, LoyaltyScanResponse } from "../lib/types";
 
@@ -22,7 +23,7 @@ const text = {
   summaryTitle: "Tạm Tính",
   subtotalPrefix: (count: number) => `Tạm tính (${count} món)`,
   pointsEstimate: "Điểm thưởng (dự kiến)",
-  pointsSuffix: "điểm",
+  pointsSuffix: "im",
   total: "Tổng cộng",
   sendKitchen: "Gửi Yêu Cầu Bếp",
   sentKitchen: "Đã gửi bếp",
@@ -41,7 +42,7 @@ const text = {
 } as const;
 
 function formatCurrency(value: number) {
-  return `${value.toLocaleString("vi-VN")} đ`;
+  return `${value.toLocaleString("vi-VN")} `;
 }
 
 function getOrderSubmitStorageKey(tableId: number) {
@@ -164,6 +165,7 @@ function getActiveCustomer(
 export function OrderPage() {
   const queryClient = useQueryClient();
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const { confirm, prompt, Dialog } = useAppDialog();
 
   const order = useQuery({ queryKey: ["order"], queryFn: api.getOrder });
   const orderItems = useQuery({ queryKey: ["orderItems"], queryFn: api.getOrderItems });
@@ -312,8 +314,15 @@ export function OrderPage() {
                             <button
                               type="button"
                               className="btn-remove-item text-danger"
-                              onClick={() => {
-                                if (!window.confirm(text.removeConfirm)) return;
+                              onClick={async () => {
+                                const approved = await confirm({
+                                  title: "Xác nhận xóa",
+                                  message: text.removeConfirm,
+                                  confirmLabel: "Xóa",
+                                  cancelLabel: "Hủy",
+                                  variant: "danger",
+                                });
+                                if (!approved) return;
                                 removeItem.mutate(item.itemId);
                               }}
                             >
@@ -359,9 +368,15 @@ export function OrderPage() {
                   <button
                     className="btn btn-success btn-lg order-action-btn"
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
                       if (!canSubmit) return;
-                      if (!window.confirm(text.sendConfirm)) return;
+                      const approved = await confirm({
+                        title: "Xác nhận gửi bếp",
+                        message: text.sendConfirm,
+                        confirmLabel: "Đồng ý",
+                        cancelLabel: "Hủy",
+                      });
+                      if (!approved) return;
                       submitOrder.mutate(
                         {
                           idempotencyKey: getOrCreateOrderSubmitIntentKey(currentTableId),
@@ -385,8 +400,14 @@ export function OrderPage() {
                     className="btn btn-primary btn-lg order-action-btn"
                     type="button"
                     id="btn-scan-card"
-                    onClick={() => {
-                      const phoneNumber = window.prompt(text.promptPhone);
+                    onClick={async () => {
+                      const phoneNumber = await prompt({
+                        title: "Nhập số điện thoại",
+                        message: text.promptPhone,
+                        confirmLabel: "Đồng ý",
+                        cancelLabel: "Hủy",
+                        placeholder: "S in thoi",
+                      });
                       if (!phoneNumber || !phoneNumber.trim()) return;
                       scanLoyalty.mutate(phoneNumber.trim());
                     }}
@@ -418,6 +439,7 @@ export function OrderPage() {
           </div>
         </div>
       </main>
+      <Dialog />
     </div>
   );
 }

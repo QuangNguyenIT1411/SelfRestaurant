@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Mvc;
+using SelfRestaurant.Gateway.Api.Hubs;
 using SelfRestaurant.Gateway.Api.Infrastructure;
 using SelfRestaurant.Gateway.Api.Models;
 using SelfRestaurant.Gateway.Api.Services;
@@ -16,17 +18,20 @@ public sealed class StaffCashierGatewayController : ControllerBase
     private readonly BillingClient _billingClient;
     private readonly IdentityClient _identityClient;
     private readonly CatalogClient _catalogClient;
+    private readonly IHubContext<CustomerNotificationsHub> _customerNotificationsHub;
     private readonly ILogger<StaffCashierGatewayController> _logger;
 
     public StaffCashierGatewayController(
         BillingClient billingClient,
         IdentityClient identityClient,
         CatalogClient catalogClient,
+        IHubContext<CustomerNotificationsHub> customerNotificationsHub,
         ILogger<StaffCashierGatewayController> logger)
     {
         _billingClient = billingClient;
         _identityClient = identityClient;
         _catalogClient = catalogClient;
+        _customerNotificationsHub = customerNotificationsHub;
         _logger = logger;
     }
 
@@ -80,7 +85,7 @@ public sealed class StaffCashierGatewayController : ControllerBase
     public async Task<ActionResult<CashierDashboardDto>> GetDashboard(CancellationToken cancellationToken)
     {
         var staff = RequireCashier();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan thu ngan.", 401);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản thu ngân.", 401);
         return Ok(await BuildDashboardAsync(staff.BranchId, staff, includeBills: false, billsDate: null, cancellationToken));
     }
 
@@ -88,7 +93,7 @@ public sealed class StaffCashierGatewayController : ControllerBase
     public async Task<ActionResult<CashierHistoryDto>> GetHistory([FromQuery] int take = 100, CancellationToken cancellationToken = default)
     {
         var staff = RequireCashier();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan thu ngan.", 401);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản thu ngân.", 401);
 
         var bills = await _billingClient.GetBillsAsync(staff.EmployeeId, staff.BranchId, null, Math.Clamp(take, 1, 300), cancellationToken);
         return Ok(new CashierHistoryDto(staff, bills.Select(MapBill).ToArray(), BuildAccountDto(staff)));
@@ -98,7 +103,7 @@ public sealed class StaffCashierGatewayController : ControllerBase
     public async Task<ActionResult<CashierReportScreenDto>> GetReport([FromQuery] DateOnly? date, CancellationToken cancellationToken)
     {
         var staff = RequireCashier();
-        if (staff is null) return Error("unauthorized", "Ban can dang nhap bang tai khoan thu ngan.", 401);
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản thu ngân.", 401);
 
         var targetDate = date ?? DateOnly.FromDateTime(DateTime.Today);
         var report = await _billingClient.GetReportAsync(staff.EmployeeId, staff.BranchId, targetDate, cancellationToken);
@@ -137,6 +142,10 @@ public sealed class StaffCashierGatewayController : ControllerBase
             {
                 return Error("checkout_failed", "Không nhận được phản hồi thanh toán.", 502);
             }
+
+            await _customerNotificationsHub.Clients
+                .Group(CustomerNotificationsHub.BranchGroup(staff.BranchId))
+                .SendAsync("cashierDashboardChanged", new { orderId, branchId = staff.BranchId }, cancellationToken);
 
             return Ok(new CashierCheckoutResultDto(
                 response.BillCode,
@@ -254,7 +263,7 @@ public sealed class StaffCashierGatewayController : ControllerBase
                 var number = t.DisplayTableNumber > 0 ? t.DisplayTableNumber : t.TableId;
                 return new CashierTableDto(
                     t.TableId,
-                    $"Ban {number}",
+                    $"Bàn {number}",
                     t.NumberOfSeats,
                     order is not null ? "OCCUPIED" : MapTableStatusCode(t.StatusName, t.IsAvailable),
                     order?.OrderId);

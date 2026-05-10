@@ -84,20 +84,6 @@ export type ChefCategoryDto = {
   isActive: boolean;
 };
 
-export type ChefUpsertDishPayload = {
-  name: string;
-  price: number | "";
-  categoryId: number | "";
-  description?: string | null;
-  unit?: string | null;
-  image?: string | null;
-  imageFile?: File | null;
-  isVegetarian: boolean;
-  isDailySpecial: boolean;
-  available: boolean;
-  isActive?: boolean;
-};
-
 export type ChefMenuDto = {
   branchId: number;
   branchName: string;
@@ -120,11 +106,6 @@ export type ChefDishIngredientItemDto = {
   unit: string;
   currentStock: number;
   isActive: boolean;
-  quantityPerDish: number;
-};
-
-export type ChefSaveDishIngredientItemDto = {
-  ingredientId: number;
   quantityPerDish: number;
 };
 

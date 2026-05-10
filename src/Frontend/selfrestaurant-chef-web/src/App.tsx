@@ -69,7 +69,7 @@ export default function App() {
             : <LoginPage onLoggedIn={refreshSession} />}
       />
       <Route path="/Staff/Cashier/*" element={<CrossAppRedirect to="/Staff/Cashier/Index" message="Đang chuyển đến khu thu ngân..." />} />
-      <Route path="/Admin/*" element={<CrossAppRedirect to="/Admin/Dashboard/Index" message="Đang chuyển đến khu quản trị..." />} />
+          <Route path="/Admin/*" element={<CrossAppRedirect to="/Admin/Dashboard/Index" message="Đang chuyển đến khu quản trị..." />} />
       <Route element={<RequireChef session={session} loading={loading} />}>
         <Route path="/" element={<DashboardPage onLogout={logout} />} />
         <Route path="/Staff/Chef/Index" element={<DashboardPage onLogout={logout} />} />

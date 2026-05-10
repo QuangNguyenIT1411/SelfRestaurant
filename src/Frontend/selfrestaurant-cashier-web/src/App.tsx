@@ -6,7 +6,6 @@ import { CrossAppRedirect } from "./components/CrossAppRedirect";
 import { RequireCashier } from "./components/RequireCashier";
 import { DashboardPage } from "./pages/DashboardPage";
 import { HistoryPage } from "./pages/HistoryPage";
-import { LoginPage } from "./pages/LoginPage";
 import { ReportPage } from "./pages/ReportPage";
 
 function resolveRoleLanding(roleCode?: string | null) {
@@ -17,7 +16,7 @@ function resolveRoleLanding(roleCode?: string | null) {
 }
 
 function isCashierShellPath(path: string) {
-  return path === "/" || path.startsWith("/Staff/Cashier/") || path.startsWith("/Staff/Account/");
+  return path === "/" || path.startsWith("/Staff/Cashier/");
 }
 
 export default function App() {
@@ -41,7 +40,13 @@ export default function App() {
   async function logout() {
     const result = await cashierApi.logout();
     await refreshSession();
-    navigate(result.nextPath ?? "/Staff/Account/Login", { replace: true });
+    const nextPath = result.nextPath ?? "/Staff/Account/Login";
+    if (isCashierShellPath(nextPath)) {
+      navigate(nextPath, { replace: true });
+      return;
+    }
+
+    window.location.replace(nextPath);
   }
 
   return (
@@ -54,7 +59,7 @@ export default function App() {
             ? (isCashierShellPath(resolveRoleLanding(session.staff.roleCode))
                 ? <Navigate to={resolveRoleLanding(session.staff.roleCode)} replace />
                 : <CrossAppRedirect to={resolveRoleLanding(session.staff.roleCode)} message="Đang chuyển đến khu vực phù hợp..." />)
-            : <LoginPage onLoggedIn={refreshSession} />}
+            : <CrossAppRedirect to="/Staff/Account/Login" message="Đang chuyển đến trang đăng nhập nhân viên..." />}
       />
       <Route
         path="/Staff/Account/Login"
@@ -64,10 +69,10 @@ export default function App() {
             ? (isCashierShellPath(resolveRoleLanding(session.staff.roleCode))
                 ? <Navigate to={resolveRoleLanding(session.staff.roleCode)} replace />
                 : <CrossAppRedirect to={resolveRoleLanding(session.staff.roleCode)} message="Đang chuyển đến khu vực phù hợp..." />)
-            : <LoginPage onLoggedIn={refreshSession} />}
+            : <CrossAppRedirect to="/Staff/Account/Login" message="Đang chuyển đến trang đăng nhập nhân viên..." />}
       />
-      <Route path="/Staff/Chef/*" element={<CrossAppRedirect to="/Staff/Chef/Index" message="Đang chuyển đến khu bếp..." />} />
-      <Route path="/Admin/*" element={<CrossAppRedirect to="/Admin/Dashboard/Index" message="Đang chuyển đến khu quản trị..." />} />
+          <Route path="/Staff/Chef/*" element={<CrossAppRedirect to="/Staff/Chef/Index" message="Đang chuyển đến khu bếp..." />} />
+          <Route path="/Admin/*" element={<CrossAppRedirect to="/Admin/Dashboard/Index" message="Đang chuyển đến khu quản trị..." />} />
       <Route element={<RequireCashier session={session} loading={loading} />}>
         <Route path="/" element={<DashboardPage onLogout={logout} />} />
         <Route path="/Staff/Cashier/Index" element={<DashboardPage onLogout={logout} />} />

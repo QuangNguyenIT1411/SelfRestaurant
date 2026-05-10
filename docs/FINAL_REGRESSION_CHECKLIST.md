@@ -58,8 +58,9 @@ Base URL: `http://localhost:5100`
 ### Staff Chef
 
 - [x] Orders board
-- [x] Edit dish modal
-- [x] Dish ingredients flow
+- [x] Dish list/detail view
+- [x] Dish ingredients view-only flow
+- [x] Stop selling / continue selling flow
 - [x] History
 - [x] Chef/customer flow pass
 

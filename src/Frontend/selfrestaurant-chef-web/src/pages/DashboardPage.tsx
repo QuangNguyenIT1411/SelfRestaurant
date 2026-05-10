@@ -1,31 +1,21 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useAppDialog } from "../components/AppDialog";
 import { chefApi } from "../lib/api";
 import type {
-  ChefCategoryDto,
   ChefDashboardDto,
   ChefDishIngredientsDto,
   ChefMenuDishDto,
   ChefOrderDto,
-  ChefUpsertDishPayload,
 } from "../lib/types";
 
 type Props = {
   onLogout: () => Promise<void>;
 };
 
-type DishEditorState = {
-  mode: "create" | "edit";
-  dishId?: number;
-  originalImage?: string | null;
-  draft: ChefUpsertDishPayload;
-};
-
 type IngredientEditorState = ChefDishIngredientsDto & {
   customerNote?: string | null;
 };
-
-const DISH_UNIT_OPTIONS = ["Phần", "Tô", "Ly", "Đĩa", "Suất", "Kg", "Lít"] as const;
 
 const CHEF_TEXT_MAP: Record<string, string> = {
   "Ban can dang nhap bang tai khoan bep.": "Bạn cần đăng nhập bằng tài khoản bếp.",
@@ -38,7 +28,7 @@ const CHEF_TEXT_MAP: Record<string, string> = {
   "Bun cha dac san Ha Noi voi cha nuong than hong": "Bún chả đặc sản Hà Nội với chả nướng than hồng",
   "Com suon bi cha truyen thong Sai Gon": "Cơm sườn bì chả truyền thống Sài Gòn",
   "Bun bo Hue cay nong dam da": "Bún bò Huế cay nồng đậm đà",
-  "Hu tieu Nam Vang dac biet": "Hủ tiếu Nam Vang đặc biệt",
+  "Hu tieu Nam Vang dac biet": "H tiu Nam Vang c bit",
   "Dang ban": "Đang bán",
   "Tam ngung ban": "Tạm ngưng bán",
   "Tam dung ban": "Tạm dừng bán",
@@ -50,9 +40,6 @@ const CHEF_TEXT_MAP: Record<string, string> = {
   "Mon chay": "Món chay",
   "Mon dac biet": "Món đặc biệt",
   "Hien thi tren thuc don": "Hiển thị trên thực đơn",
-  "Da cap nhat thong tin mon an.": "Đã cập nhật thông tin món ăn.",
-  "Da them mon moi.": "Đã thêm món mới.",
-  "Da luu nguyen lieu mon.": "Đã lưu nguyên liệu món.",
   "Cho che bien": "Chờ chế biến",
   "Dang che bien": "Đang chế biến",
   "San sang": "Sẵn sàng",
@@ -149,14 +136,6 @@ function getItemStatusClass(statusCode?: string | null) {
   return "chef-history-status chef-history-status-muted";
 }
 
-function normalizeChefCategories(items: ChefCategoryDto[]): ChefCategoryDto[] {
-  return items.map((item) => ({
-    ...item,
-    name: normalizeChefText(item.name),
-    description: normalizeChefText(item.description),
-  }));
-}
-
 function normalizeIngredientEditorPayload(payload: ChefDishIngredientsDto): ChefDishIngredientsDto {
   return {
     ...payload,
@@ -171,12 +150,12 @@ function normalizeIngredientEditorPayload(payload: ChefDishIngredientsDto): Chef
 
 export function DashboardPage({ onLogout }: Props) {
   const location = useLocation();
+  const { prompt, Dialog } = useAppDialog();
   const [activeTab, setActiveTab] = useState<"orders" | "menu">("orders");
   const [dishSearch, setDishSearch] = useState("");
   const [dishStatusFilter, setDishStatusFilter] = useState<"ALL" | "AVAILABLE" | "PAUSED">("ALL");
   const [dishSpecialFilter, setDishSpecialFilter] = useState<"ALL" | "SPECIAL" | "NORMAL">("ALL");
   const [data, setData] = useState<ChefDashboardDto | null>(null);
-  const [categories, setCategories] = useState<ChefCategoryDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -187,7 +166,6 @@ export function DashboardPage({ onLogout }: Props) {
   const [ingredientStockSearch, setIngredientStockSearch] = useState("");
   const [onlyLowStock, setOnlyLowStock] = useState(false);
   const [cancelEditor, setCancelEditor] = useState<{ orderId: number; orderCode: string; reason: string } | null>(null);
-  const [dishEditor, setDishEditor] = useState<DishEditorState | null>(null);
 
   const filteredMenuDishes = useMemo(() => {
     if (!data) return [] as ChefMenuDishDto[];
@@ -207,22 +185,6 @@ export function DashboardPage({ onLogout }: Props) {
 
   const pageMode = location.pathname.toLowerCase().includes("/staff/chef/history") ? "history" : "index";
 
-  function createEmptyDishDraft(categoryId?: number): ChefUpsertDishPayload {
-    return {
-      name: "",
-      price: "",
-      categoryId: categoryId ?? "",
-      description: "",
-      unit: "Phần",
-      image: "",
-      imageFile: null,
-      isVegetarian: false,
-      isDailySpecial: false,
-      available: true,
-      isActive: true,
-    };
-  }
-
   async function load(options?: { silent?: boolean }) {
     const silent = options?.silent ?? false;
     if (!silent) {
@@ -230,12 +192,8 @@ export function DashboardPage({ onLogout }: Props) {
     }
     setError(null);
     try {
-      const [dashboard, categoryItems] = await Promise.all([
-        chefApi.getDashboard(),
-        chefApi.getCategories(),
-      ]);
+      const dashboard = await chefApi.getDashboard();
       setData(normalizeChefDashboard(dashboard));
-      setCategories(normalizeChefCategories(categoryItems).filter((item) => item.isActive));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tải dữ liệu bếp.");
     } finally {
@@ -317,109 +275,6 @@ export function DashboardPage({ onLogout }: Props) {
     }
   }
 
-  async function pickDishImage(): Promise<File | null> {
-    return await new Promise<File | null>((resolve) => {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*";
-      input.onchange = () => resolve(input.files?.[0] ?? null);
-      input.oncancel = () => resolve(null);
-      input.click();
-    });
-  }
-
-  async function saveIngredients() {
-    if (!ingredientEditor) return;
-    await act(async () => {
-      const result = await chefApi.saveDishIngredients(ingredientEditor.dishId, ingredientEditor.items);
-      setIngredientEditor((current) => ({
-        ...normalizeIngredientEditorPayload(result),
-        customerNote: current?.customerNote ?? null,
-      }));
-      return { message: "Đã lưu nguyên liệu món." };
-    });
-  }
-
-  function openCreateDishModal() {
-    setDishEditor({
-      mode: "create",
-      draft: createEmptyDishDraft(categories[0]?.categoryId),
-    });
-  }
-
-  function openEditDishModal(dish: ChefMenuDishDto) {
-    setDishEditor({
-      mode: "edit",
-      dishId: dish.dishId,
-      originalImage: dish.image,
-      draft: {
-        name: dish.name,
-        price: dish.price,
-        categoryId: dish.categoryId,
-        description: dish.description ?? "",
-        unit: dish.unit ?? "Phần",
-        image: dish.image ?? "",
-        imageFile: null,
-        isVegetarian: dish.isVegetarian,
-        isDailySpecial: dish.isDailySpecial,
-        available: dish.available,
-        isActive: true,
-      },
-    });
-  }
-
-  async function saveDishEditor() {
-    if (!dishEditor) return;
-    const payload = dishEditor.draft;
-    if (!payload.name.trim()) {
-      setError("Vui lòng nhập tên món ăn.");
-      return;
-    }
-    if (payload.price === "" || Number(payload.price) <= 0) {
-      setError("Vui lòng nhập giá bán hợp lệ.");
-      return;
-    }
-    if (payload.categoryId === "" || Number(payload.categoryId) <= 0) {
-      setError("Vui lòng chọn danh mục món.");
-      return;
-    }
-
-    await act(async () => {
-      const normalizedPayload: ChefUpsertDishPayload = {
-        ...payload,
-        name: payload.name.trim(),
-        price: Number(payload.price),
-        categoryId: Number(payload.categoryId),
-        unit: payload.unit?.trim() || DISH_UNIT_OPTIONS[0],
-        description: payload.description?.trim() || "",
-      };
-
-      if (dishEditor.mode === "create") {
-        const result = await chefApi.createDish(normalizedPayload);
-        setDishEditor(null);
-        return result;
-      }
-
-      const result = await chefApi.updateDish(dishEditor.dishId!, normalizedPayload);
-      setDishEditor(null);
-      return result;
-    });
-  }
-
-  function resetDishEditorDraft() {
-    setDishEditor((current) => {
-      if (!current) return current;
-      if (current.mode === "create") {
-        return {
-          ...current,
-          draft: createEmptyDishDraft(categories[0]?.categoryId),
-          originalImage: null,
-        };
-      }
-      return current;
-    });
-  }
-
   async function saveAccount() {
     setMessage(null);
     setError(null);
@@ -486,6 +341,20 @@ export function DashboardPage({ onLogout }: Props) {
 
   if (loading) return <div className="screen-message">Đang tải bảng bếp...</div>;
   if (error && !data) return <div className="screen-message error-box">{error}</div>;
+  async function promptCancelItem(orderId: number, itemId: number, dishName: string) {
+    const reason = await prompt({
+      title: "Nhập lý do hủy món",
+      message: `Nhập lý do hủy món "${dishName}":`,
+      confirmLabel: "Đồng ý",
+      cancelLabel: "Hủy",
+      placeholder: "Lý do hủy",
+      multiline: true,
+      variant: "danger",
+    });
+    if (!reason?.trim()) return;
+    await act(() => chefApi.cancelItem(orderId, itemId, reason.trim()));
+  }
+
   if (!data) return null;
 
   if (pageMode === "history") {
@@ -703,7 +572,7 @@ export function DashboardPage({ onLogout }: Props) {
             title="Chờ chế biến"
             tone="secondary"
             orders={data.pendingOrders}
-            actionLabel="Bắt đầu nấu"
+            actionLabel="Bt u nu"
             action={(orderId) => act(() => chefApi.startOrder(orderId))}
             secondaryLabel="Hủy"
             secondaryAction={(orderId, orderCode) => {
@@ -711,11 +580,7 @@ export function DashboardPage({ onLogout }: Props) {
             }}
             onOpenIngredients={(dishId, customerNote) => void openIngredients(dishId, customerNote)}
             onStartItem={(orderId, itemId) => act(() => chefApi.startItem(orderId, itemId))}
-            onCancelItem={async (orderId, itemId, dishName) => {
-              const reason = window.prompt(`Nhập lý do hủy món "${dishName}":`, "");
-              if (!reason?.trim()) return;
-              await act(() => chefApi.cancelItem(orderId, itemId, reason.trim()));
-            }}
+            onCancelItem={promptCancelItem}
           />
           <OrderColumn
             title="Đang chế biến"
@@ -723,32 +588,24 @@ export function DashboardPage({ onLogout }: Props) {
             orders={data.preparingOrders}
             actionLabel="Hoàn thành"
             action={(orderId) => act(() => chefApi.readyOrder(orderId))}
-            secondaryLabel="Hủy đơn"
+            secondaryLabel="Hy n"
             secondaryAction={(orderId, orderCode) => {
               setCancelEditor({ orderId, orderCode, reason: "" });
             }}
             onOpenIngredients={(dishId, customerNote) => void openIngredients(dishId, customerNote)}
             onReadyItem={(orderId, itemId) => act(() => chefApi.readyItem(orderId, itemId))}
-            onCancelItem={async (orderId, itemId, dishName) => {
-              const reason = window.prompt(`Nhập lý do hủy món "${dishName}":`, "");
-              if (!reason?.trim()) return;
-              await act(() => chefApi.cancelItem(orderId, itemId, reason.trim()));
-            }}
+            onCancelItem={promptCancelItem}
           />
           <OrderColumn
             title="Sẵn sàng"
             tone="success"
             orders={data.readyOrders}
-            secondaryLabel="Hủy đơn"
+            secondaryLabel="Hy n"
             secondaryAction={(orderId, orderCode) => {
               setCancelEditor({ orderId, orderCode, reason: "" });
             }}
             onOpenIngredients={(dishId, customerNote) => void openIngredients(dishId, customerNote)}
-            onCancelItem={async (orderId, itemId, dishName) => {
-              const reason = window.prompt(`Nhập lý do hủy món "${dishName}":`, "");
-              if (!reason?.trim()) return;
-              await act(() => chefApi.cancelItem(orderId, itemId, reason.trim()));
-            }}
+            onCancelItem={promptCancelItem}
           />
         </section>
       ) : null}
@@ -766,10 +623,6 @@ export function DashboardPage({ onLogout }: Props) {
               <span className="soft-badge info">{data.menu.branchName}</span>
               <span className="soft-badge primary">{data.menu.dishes.length} món</span>
               <span className="soft-badge success">{data.menu.dishes.filter((dish) => dish.available).length} đang bán</span>
-              <button className="chef-primary-button chef-menu-add-button" onClick={() => openCreateDishModal()}>
-                <i className="bi bi-plus-circle me-2" />
-                Thêm món
-              </button>
             </div>
           </div>
           <div className="chef-menu-filters">
@@ -827,18 +680,13 @@ export function DashboardPage({ onLogout }: Props) {
                         </button>
                       ) : (
                         <button className="btn btn-sm btn-outline-success" onClick={() => void act(() => chefApi.setDishAvailability(dish.dishId, true))}>
-                          <i className="bi bi-play-circle" /> Bán
+                          <i className="bi bi-play-circle" /> Tiếp tục bán
                         </button>
                       )}
                       <button className="btn btn-sm btn-outline-secondary" onClick={() => void openIngredients(dish.dishId)}>
                         <i className="bi bi-list-ul" /> Thành phần
                       </button>
                     </div>
-                  </div>
-                  <div className="mt-2 text-end">
-                    <button className="btn btn-sm btn-outline-primary" onClick={() => openEditDishModal(dish)}>
-                      <i className="bi bi-pencil-square" /> Sửa
-                    </button>
                   </div>
                 </div>
               </article>
@@ -853,182 +701,13 @@ export function DashboardPage({ onLogout }: Props) {
         </section>
       ) : null}
 
-      {dishEditor ? (
-        <section className="modal-backdrop" onClick={() => setDishEditor(null)}>
-          <div className="modal-card chef-modal-card chef-dish-editor-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="panel-head chef-modal-head">
-              <div>
-                <h2>{dishEditor.mode === "create" ? "Thêm Món Mới" : "Sửa Món"}</h2>
-              </div>
-              <button className="ghost" onClick={() => setDishEditor(null)}>Đóng</button>
-            </div>
-
-            <div className="chef-dish-editor-body">
-              <div className="chef-dish-editor-form">
-                <div className="chef-dish-editor-media">
-                  <label>
-                    <span>Hình ảnh món ăn</span>
-                    <input
-                      type="text"
-                      readOnly
-                      value={dishEditor.draft.imageFile?.name ?? dishEditor.draft.image ?? ""}
-                      placeholder="Chọn file hình trên máy"
-                      onClick={() => {
-                        void (async () => {
-                          const imageFile = await pickDishImage();
-                          if (!imageFile) return;
-                          setDishEditor((current) => (current
-                            ? { ...current, draft: { ...current.draft, imageFile } }
-                            : current));
-                        })();
-                      }}
-                    />
-                  </label>
-                  <div className="chef-form-text">Chọn file hình mới nếu muốn thay đổi.</div>
-                  <div className="chef-dish-editor-preview-wrap">
-                    {dishEditor.draft.imageFile ? (
-                      <img
-                        className="chef-dish-editor-preview"
-                        src={URL.createObjectURL(dishEditor.draft.imageFile)}
-                        alt={dishEditor.draft.name || "Ảnh xem trước món ăn"}
-                      />
-                    ) : dishEditor.draft.image ? (
-                      <img className="chef-dish-editor-preview" src={dishEditor.draft.image} alt={dishEditor.draft.name || "Ảnh món ăn"} />
-                    ) : (
-                      <div className="chef-dish-editor-placeholder">
-                        <i className="bi bi-image" />
-                        <span>Preview</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="chef-dish-editor-main">
-                  <label>
-                    <span>Tên món</span>
-                    <input
-                      value={dishEditor.draft.name}
-                      onChange={(e) => setDishEditor((current) => (current
-                        ? { ...current, draft: { ...current.draft, name: e.target.value } }
-                        : current))}
-                      placeholder="Nhập tên món ăn"
-                    />
-                  </label>
-
-                  <div className="chef-form-row">
-                    <label>
-                      <span>Giá</span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="1000"
-                        value={dishEditor.draft.price}
-                        onChange={(e) => setDishEditor((current) => (current
-                          ? { ...current, draft: { ...current.draft, price: e.target.value === "" ? "" : Number(e.target.value) } }
-                          : current))}
-                      />
-                    </label>
-                    <label>
-                      <span>Đơn vị</span>
-                      <select
-                        value={dishEditor.draft.unit ?? DISH_UNIT_OPTIONS[0]}
-                        onChange={(e) => setDishEditor((current) => (current
-                          ? { ...current, draft: { ...current.draft, unit: e.target.value } }
-                          : current))}
-                      >
-                        {DISH_UNIT_OPTIONS.map((unit) => (
-                          <option key={unit} value={unit}>
-                            {unit}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-
-                  <label>
-                    <span>Danh mục</span>
-                    <select
-                      value={dishEditor.draft.categoryId}
-                      onChange={(e) => setDishEditor((current) => (current
-                        ? { ...current, draft: { ...current.draft, categoryId: Number(e.target.value) } }
-                        : current))}
-                    >
-                      <option value="">-- Chọn danh mục --</option>
-                      {categories.map((category) => (
-                        <option key={category.categoryId} value={category.categoryId}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label>
-                    <span>Mô tả</span>
-                    <textarea
-                      rows={4}
-                      value={dishEditor.draft.description ?? ""}
-                      onChange={(e) => setDishEditor((current) => (current
-                        ? { ...current, draft: { ...current.draft, description: e.target.value } }
-                        : current))}
-                    />
-                  </label>
-
-                  <div className="chef-check-grid chef-check-grid-mvc">
-                    <label className="checkbox-inline">
-                      <input
-                        type="checkbox"
-                        checked={dishEditor.draft.available}
-                        onChange={(e) => setDishEditor((current) => (current
-                          ? { ...current, draft: { ...current.draft, available: e.target.checked } }
-                          : current))}
-                      />
-                      <span>Đang bán</span>
-                    </label>
-                    <label className="checkbox-inline">
-                      <input
-                        type="checkbox"
-                        checked={dishEditor.draft.isVegetarian}
-                        onChange={(e) => setDishEditor((current) => (current
-                          ? { ...current, draft: { ...current.draft, isVegetarian: e.target.checked } }
-                          : current))}
-                      />
-                      <span>Món chay</span>
-                    </label>
-                    <label className="checkbox-inline">
-                      <input
-                        type="checkbox"
-                        checked={dishEditor.draft.isDailySpecial}
-                        onChange={(e) => setDishEditor((current) => (current
-                          ? { ...current, draft: { ...current.draft, isDailySpecial: e.target.checked } }
-                          : current))}
-                      />
-                      <span>Món đặc biệt trong ngày</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="header-actions chef-modal-actions">
-              {dishEditor.mode === "create" ? (
-                <button className="ghost" onClick={resetDishEditorDraft}>Reset</button>
-              ) : null}
-              <button className="ghost" onClick={() => setDishEditor(null)}>Đóng</button>
-              <button onClick={() => void saveDishEditor()}>
-                {dishEditor.mode === "create" ? "Thêm Món" : "Lưu thay đổi"}
-              </button>
-            </div>
-          </div>
-        </section>
-      ) : null}
-
       {ingredientEditor ? (
         <section className="modal-backdrop" onClick={() => setIngredientEditor(null)}>
           <div className="modal-card chef-modal-card chef-compact-modal chef-ingredients-modal" onClick={(e) => e.stopPropagation()}>
             <div className="panel-head chef-modal-head">
               <div>
-                <h2>Sửa thành phần: {ingredientEditor.dishName}</h2>
-                <p className="muted">Quản lý định lượng nguyên liệu cho từng phần món.</p>
+                <h2>Thành phần: {ingredientEditor.dishName}</h2>
+                <p className="muted">Xem định lượng nguyên liệu cho từng phần món.</p>
               </div>
               <button className="ghost" onClick={() => setIngredientEditor(null)}>Đóng</button>
             </div>
@@ -1044,7 +723,7 @@ export function DashboardPage({ onLogout }: Props) {
             <div className="inline-filter-card chef-modal-section">
               <div>
                 <strong>Công thức món</strong>
-                <div className="muted">Cập nhật số lượng nguyên liệu cần dùng cho một phần món.</div>
+                <div className="muted">Thông tin công thức hiện có, chỉ Admin được chỉnh sửa.</div>
               </div>
               <div className="chef-chip-row">
                 <span className="soft-badge info">{ingredientEditor.items.length} nguyên liệu</span>
@@ -1052,29 +731,20 @@ export function DashboardPage({ onLogout }: Props) {
               </div>
             </div>
             <div className="ingredient-editor">
-              {ingredientEditor.items.map((item, index) => (
+              {ingredientEditor.items.map((item) => (
                 <label key={item.ingredientId} className="ingredient-line">
                   <div className="ingredient-meta">
                     <span>{item.name} ({item.unit})</span>
                     <small>Tồn kho: {item.currentStock.toLocaleString("vi-VN")} {item.unit}</small>
                   </div>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    value={item.quantityPerDish}
-                    onChange={(e) => {
-                      const next = [...ingredientEditor.items];
-                      next[index] = { ...item, quantityPerDish: Number(e.target.value) };
-                      setIngredientEditor({ ...ingredientEditor, items: next });
-                    }}
-                  />
+                  <span className="soft-badge info">
+                    {item.quantityPerDish.toLocaleString("vi-VN")} {item.unit}
+                  </span>
                 </label>
               ))}
             </div>
             <div className="header-actions chef-modal-actions">
               <button className="ghost" onClick={() => setIngredientEditor(null)}>Đóng</button>
-              <button onClick={() => void saveIngredients()}>Lưu thành phần</button>
             </div>
           </div>
         </section>
@@ -1181,6 +851,7 @@ export function DashboardPage({ onLogout }: Props) {
           </div>
         </section>
       ) : null}
+      <Dialog />
     </main>
   );
 }
@@ -1283,7 +954,7 @@ function OrderColumn({
                       className="ghost note-action-button"
                       onClick={() => onOpenIngredients(item.dishId, item.note || "")}
                     >
-                      Sửa thành phần
+                      Xem thành phần
                     </button>
                     <div className="d-flex flex-wrap justify-content-end gap-2">
                       {onStartItem && ["PENDING", "CONFIRMED"].includes(normalizeItemStatusCode(item.statusCode)) ? (

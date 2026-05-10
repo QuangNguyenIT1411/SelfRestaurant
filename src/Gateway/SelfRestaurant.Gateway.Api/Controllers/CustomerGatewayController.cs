@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using SelfRestaurant.Gateway.Api.Infrastructure;
+using SelfRestaurant.Gateway.Api.Hubs;
 using SelfRestaurant.Gateway.Api.Models;
 using SelfRestaurant.Gateway.Api.Services;
+using Microsoft.AspNetCore.SignalR;
 using System.Text.Json;
 
 namespace SelfRestaurant.Gateway.Api.Controllers;
@@ -17,6 +19,7 @@ public sealed class CustomerGatewayController : ControllerBase
     private readonly IdentityClient _identityClient;
     private readonly BillingClient _billingClient;
     private readonly CustomerDishRecommendationService _recommendationService;
+    private readonly IHubContext<CustomerNotificationsHub> _customerNotificationsHub;
     private readonly IHostEnvironment _environment;
     private readonly ILogger<CustomerGatewayController> _logger;
 
@@ -27,6 +30,7 @@ public sealed class CustomerGatewayController : ControllerBase
         IdentityClient identityClient,
         BillingClient billingClient,
         CustomerDishRecommendationService recommendationService,
+        IHubContext<CustomerNotificationsHub> customerNotificationsHub,
         IHostEnvironment environment,
         ILogger<CustomerGatewayController> logger)
     {
@@ -36,6 +40,7 @@ public sealed class CustomerGatewayController : ControllerBase
         _identityClient = identityClient;
         _billingClient = billingClient;
         _recommendationService = recommendationService;
+        _customerNotificationsHub = customerNotificationsHub;
         _environment = environment;
         _logger = logger;
     }
@@ -66,7 +71,7 @@ public sealed class CustomerGatewayController : ControllerBase
             var login = await _identityClient.LoginAsync(new LoginRequest(request.Username.Trim(), request.Password), cancellationToken);
             if (login is null)
             {
-                return Error("invalid_credentials", "Sai tai khoan hoac mat khau.", 401);
+                return Error("invalid_credentials", "Sai tài khoản hoặc mật khẩu.", 401);
             }
 
             ApplyLoginSession(login);
@@ -76,6 +81,32 @@ public sealed class CustomerGatewayController : ControllerBase
         {
             _logger.LogWarning(ex, "Customer login failed.");
             return Error("login_failed", ex.Message, 400);
+        }
+    }
+
+    [HttpPost("auth/google")]
+    public async Task<ActionResult<object>> GoogleLogin([FromBody] CustomerGoogleLoginApiRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.IdToken))
+        {
+            return Error("invalid_request", "Thiếu mã đăng nhập Google.", 400);
+        }
+
+        try
+        {
+            var login = await _identityClient.GoogleLoginAsync(new GoogleLoginRequest(request.IdToken.Trim()), cancellationToken);
+            if (login is null)
+            {
+                return Error("invalid_google_login", "Không thể đăng nhập bằng Google.", 401);
+            }
+
+            ApplyLoginSession(login);
+            return Ok(new { success = true, session = BuildSessionDto(), nextPath = BuildTableContextDto() is null ? "/Home/Index" : "/Menu/Index" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Customer Google login failed.");
+            return Error("google_login_failed", ex.Message, 400);
         }
     }
 
@@ -132,7 +163,7 @@ public sealed class CustomerGatewayController : ControllerBase
             var result = await _identityClient.ForgotPasswordAsync(new ForgotPasswordRequest(request.UsernameOrEmailOrPhone.Trim()), cancellationToken);
             if (result is null)
             {
-                return Error("forgot_password_failed", "Khong nhan duoc phan hoi tu dich vu xac thuc.", 502);
+                return Error("forgot_password_failed", "Không nhận được phản hồi từ dịch vụ xác thực.", 502);
             }
 
             var resetPath = string.IsNullOrWhiteSpace(result.ResetToken)
@@ -203,7 +234,7 @@ public sealed class CustomerGatewayController : ControllerBase
     public async Task<ActionResult<object>> ChangePassword([FromBody] CustomerChangePasswordApiRequest request, CancellationToken cancellationToken)
     {
         var customer = RequireCustomer();
-        if (customer is null) return Error("unauthorized", "Ban can dang nhap.", 401);
+        if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
         if (string.IsNullOrWhiteSpace(request.CurrentPassword) || string.IsNullOrWhiteSpace(request.NewPassword))
         {
             return Error("invalid_request", "Vui lòng điền đầy đủ thông tin mật khẩu.", 400);
@@ -236,29 +267,29 @@ public sealed class CustomerGatewayController : ControllerBase
     [HttpGet("branches/{branchId:int}/tables")]
     public async Task<ActionResult<object>> GetBranchTables(int branchId, CancellationToken cancellationToken)
     {
-        if (branchId <= 0) return Error("invalid_branch", "Chi nhanh khong hop le.", 400);
+        if (branchId <= 0) return Error("invalid_branch", "Chi nhánh không hợp lệ.", 400);
         var response = await _catalogClient.GetBranchTablesAsync(branchId, cancellationToken);
-        return response is null ? Error("branch_not_found", "Khong tim thay ban cho chi nhanh nay.", 404) : Ok(response);
+        return response is null ? Error("branch_not_found", "Không tìm thấy bàn cho chi nhánh này.", 404) : Ok(response);
     }
 
     [HttpGet("tables/qr/{code}")]
     public async Task<ActionResult<BranchTableDto>> GetTableByQr(string code, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(code)) return Error("invalid_qr", "Ma QR khong hop le.", 400);
+        if (string.IsNullOrWhiteSpace(code)) return Error("invalid_qr", "Mã QR không hợp lệ.", 400);
         var table = await _catalogClient.GetTableByQrAsync(code.Trim(), cancellationToken);
-        return table is null ? Error("table_not_found", "Khong tim thay ban tuong ung voi ma QR.", 404) : Ok(table);
+        return table is null ? Error("table_not_found", "Không tìm thấy bàn tương ứng với mã QR.", 404) : Ok(table);
     }
 
     [HttpPost("context/table")]
     public async Task<ActionResult<CustomerTableContextDto>> SetTableContext([FromBody] SetCustomerTableContextRequest request, CancellationToken cancellationToken)
     {
-        if (request.TableId <= 0 || request.BranchId <= 0) return Error("invalid_context", "Ban hoac chi nhanh khong hop le.", 400);
+        if (request.TableId <= 0 || request.BranchId <= 0) return Error("invalid_context", "Bàn hoặc chi nhánh không hợp lệ.", 400);
         try
         {
             var branch = await _catalogClient.GetBranchTablesAsync(request.BranchId, cancellationToken);
-            if (branch is null) return Error("branch_not_found", "Khong tim thay chi nhanh.", 404);
+            if (branch is null) return Error("branch_not_found", "Không tìm thấy chi nhánh.", 404);
             var table = branch.Tables.FirstOrDefault(t => t.TableId == request.TableId && t.BranchId == request.BranchId);
-            if (table is null) return Error("table_branch_mismatch", "Ban khong thuoc chi nhanh da chon.", 400);
+            if (table is null) return Error("table_branch_mismatch", "Bàn không thuộc chi nhánh đã chọn.", 400);
 
             await _ordersClient.OccupyTableAsync(request.TableId, cancellationToken);
             SetCurrentTableContext(table.TableId, table.BranchId, branch.BranchName, table.DisplayTableNumber);
@@ -283,12 +314,20 @@ public sealed class CustomerGatewayController : ControllerBase
     public async Task<ActionResult<object>> ResetCurrentTable(CancellationToken cancellationToken)
     {
         var tableContext = BuildTableContextDto();
-        if (tableContext is null) return Error("missing_table_context", "Ban chua chon ban.", 400);
+        if (tableContext is null) return Error("missing_table_context", "Bạn chưa chọn bàn.", 400);
+
+        if (RequireCustomer() is null)
+        {
+            await _ordersClient.ResetAllTablesAsync(cancellationToken);
+            ClearCurrentTableContextSession();
+            ClearSavedCustomerTableContext();
+            return Ok(new { success = true, message = "Đã đặt lại toàn bộ trạng thái bàn về sẵn sàng." });
+        }
 
         await _ordersClient.ResetTableAsync(tableContext.TableId, cancellationToken);
         ClearCurrentTableContextSession();
         ClearSavedCustomerTableContext();
-        return Ok(new { success = true, message = "Da reset ban hien tai." });
+        return Ok(new { success = true, message = "Đã đặt lại bàn hiện tại." });
     }
 
     [HttpGet("context")]
@@ -298,12 +337,12 @@ public sealed class CustomerGatewayController : ControllerBase
     public async Task<ActionResult<CustomerProfileDto>> GetProfile(CancellationToken cancellationToken)
     {
         var customer = RequireCustomer();
-        if (customer is null) return Error("unauthorized", "Ban can dang nhap.", 401);
+        if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
         var profile = await _identityClient.GetCustomerAsync(customer.CustomerId, cancellationToken);
         if (profile is null)
         {
             ClearCustomerSession(false);
-            return Error("session_expired", "Khong tim thay ho so khach hang.", 401);
+            return Error("session_expired", "Không tìm thấy hồ sơ khách hàng.", 401);
         }
 
         return Ok(MapProfile(profile));
@@ -313,7 +352,7 @@ public sealed class CustomerGatewayController : ControllerBase
     public async Task<ActionResult<CustomerProfileDto>> UpdateProfile([FromBody] UpdateCustomerProfileApiRequest request, CancellationToken cancellationToken)
     {
         var customer = RequireCustomer();
-        if (customer is null) return Error("unauthorized", "Ban can dang nhap.", 401);
+        if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
         if (string.IsNullOrWhiteSpace(request.Username)
             || string.IsNullOrWhiteSpace(request.Name)
             || string.IsNullOrWhiteSpace(request.PhoneNumber)
@@ -339,7 +378,7 @@ public sealed class CustomerGatewayController : ControllerBase
             else HttpContext.Session.Remove(SessionKeys.CustomerEmail);
 
             var profile = await _identityClient.GetCustomerAsync(customer.CustomerId, cancellationToken);
-            if (profile is null) return Error("profile_missing", "Khong the tai lai ho so sau khi cap nhat.", 500);
+            if (profile is null) return Error("profile_missing", "Không thể tải lại hồ sơ sau khi cập nhật.", 500);
             return Ok(MapProfile(profile));
         }
         catch (Exception ex)
@@ -354,10 +393,10 @@ public sealed class CustomerGatewayController : ControllerBase
     {
         var customer = RequireCustomer();
         var tableContext = BuildTableContextDto();
-        if (tableContext is null) return Error("missing_table_context", "Ban chua chon ban.", 400);
+        if (tableContext is null) return Error("missing_table_context", "Bạn chưa chọn bàn.", 400);
 
         var menu = await _catalogClient.GetMenuAsync(tableContext.BranchId, cancellationToken: cancellationToken);
-        if (menu is null) return Error("menu_not_found", "Khong tim thay thuc don.", 404);
+        if (menu is null) return Error("menu_not_found", "Không tìm thấy thực đơn.", 404);
 
         IReadOnlyList<int> topDishIds;
         try { topDishIds = await _ordersClient.GetTopDishIdsAsync(tableContext.BranchId, 5, cancellationToken) ?? Array.Empty<int>(); }
@@ -384,10 +423,10 @@ public sealed class CustomerGatewayController : ControllerBase
     {
         var customer = RequireCustomer();
         var tableContext = BuildTableContextDto();
-        if (tableContext is null) return Error("missing_table_context", "Ban chua chon ban.", 400);
+        if (tableContext is null) return Error("missing_table_context", "Bạn chưa chọn bàn.", 400);
 
         var menu = await _catalogClient.GetMenuAsync(tableContext.BranchId, cancellationToken: cancellationToken);
-        if (menu is null) return Error("menu_not_found", "Khong tim thay thuc don.", 404);
+        if (menu is null) return Error("menu_not_found", "Không tìm thấy thực đơn.", 404);
 
         IReadOnlyList<int> topDishIds;
         try { topDishIds = await _ordersClient.GetTopDishIdsAsync(tableContext.BranchId, 5, cancellationToken) ?? Array.Empty<int>(); }
@@ -439,7 +478,7 @@ public sealed class CustomerGatewayController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<CustomerOrderHistoryDto>>> GetOrderHistory([FromQuery] int take = 20, CancellationToken cancellationToken = default)
     {
         var customer = RequireCustomer();
-        if (customer is null) return Error("unauthorized", "Ban can dang nhap.", 401);
+        if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
         var items = await _customersClient.GetOrdersAsync(customer.CustomerId, Math.Clamp(take, 1, 100), cancellationToken);
         return Ok(items);
     }
@@ -448,7 +487,7 @@ public sealed class CustomerGatewayController : ControllerBase
     public async Task<ActionResult<CustomerReadyNotificationsDto>> GetReadyNotifications(CancellationToken cancellationToken)
     {
         var customer = RequireCustomer();
-        if (customer is null) return Error("unauthorized", "Ban can dang nhap.", 401);
+        if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
         var tableId = HttpContext.Session.GetInt32(SessionKeys.CurrentTableId);
         if (tableId is null || tableId <= 0)
         {
@@ -481,8 +520,8 @@ public sealed class CustomerGatewayController : ControllerBase
     public async Task<ActionResult<object>> ResolveReadyNotification(long notificationId, CancellationToken cancellationToken)
     {
         var customer = RequireCustomer();
-        if (customer is null) return Error("unauthorized", "Ban can dang nhap.", 401);
-        if (notificationId <= 0) return Error("invalid_notification", "Thong bao khong hop le.", 400);
+        if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
+        if (notificationId <= 0) return Error("invalid_notification", "Thông báo không hợp lệ.", 400);
         await _customersClient.ResolveReadyNotificationAsync(notificationId, customer.CustomerId, cancellationToken);
         return Ok(new { success = true });
     }
@@ -491,9 +530,9 @@ public sealed class CustomerGatewayController : ControllerBase
     public async Task<ActionResult<ActiveOrderResponse?>> GetActiveOrder(CancellationToken cancellationToken)
     {
         var customer = RequireCustomer();
-        if (customer is null) return Error("unauthorized", "Ban can dang nhap.", 401);
+        if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
         var tableContext = BuildTableContextDto();
-        if (tableContext is null) return Error("missing_table_context", "Ban chua chon ban.", 400);
+        if (tableContext is null) return Error("missing_table_context", "Bạn chưa chọn bàn.", 400);
         return Ok(await _ordersClient.GetActiveOrderAsync(tableContext.TableId, cancellationToken));
     }
 
@@ -501,9 +540,9 @@ public sealed class CustomerGatewayController : ControllerBase
     public async Task<ActionResult<object>> GetOrderItems(CancellationToken cancellationToken)
     {
         var customer = RequireCustomer();
-        if (customer is null) return Error("unauthorized", "Ban can dang nhap.", 401);
+        if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
         var tableContext = BuildTableContextDto();
-        if (tableContext is null) return Error("missing_table_context", "Ban chua chon ban.", 400);
+        if (tableContext is null) return Error("missing_table_context", "Bạn chưa chọn bàn.", 400);
         var order = await _ordersClient.GetActiveOrderAsync(tableContext.TableId, cancellationToken);
         return Ok(new { success = true, orderId = order?.OrderId, items = order?.Items ?? Array.Empty<ActiveOrderItemDto>(), subtotal = order?.Subtotal ?? 0m });
     }
@@ -512,10 +551,10 @@ public sealed class CustomerGatewayController : ControllerBase
     public async Task<ActionResult<ActiveOrderResponse?>> AddItem([FromBody] AddOrderItemApiRequest request, CancellationToken cancellationToken)
     {
         var customer = RequireCustomer();
-        if (customer is null) return Error("unauthorized", "Ban can dang nhap.", 401);
+        if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
         var tableContext = BuildTableContextDto();
-        if (tableContext is null) return Error("missing_table_context", "Ban chua chon ban.", 400);
-        if (request.DishId <= 0 || request.Quantity <= 0) return Error("invalid_item", "Mon an hoac so luong khong hop le.", 400);
+        if (tableContext is null) return Error("missing_table_context", "Bạn chưa chọn bàn.", 400);
+        if (request.DishId <= 0 || request.Quantity <= 0) return Error("invalid_item", "Món ăn hoặc số lượng không hợp lệ.", 400);
         try { return Ok(await _ordersClient.AddItemAsync(tableContext.TableId, request.DishId, request.Quantity, request.Note, request.ExpectedDiningSessionCode, cancellationToken)); }
         catch (Exception ex) { return Error("add_item_failed", ex.Message, 400); }
     }
@@ -524,10 +563,10 @@ public sealed class CustomerGatewayController : ControllerBase
     public async Task<ActionResult<object>> UpdateQuantity(int itemId, [FromBody] UpdateOrderItemQuantityApiRequest request, CancellationToken cancellationToken)
     {
         var customer = RequireCustomer();
-        if (customer is null) return Error("unauthorized", "Ban can dang nhap.", 401);
+        if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
         var tableContext = BuildTableContextDto();
-        if (tableContext is null) return Error("missing_table_context", "Ban chua chon ban.", 400);
-        if (itemId <= 0 || request.Quantity <= 0) return Error("invalid_item", "Dong mon hoac so luong khong hop le.", 400);
+        if (tableContext is null) return Error("missing_table_context", "Bạn chưa chọn bàn.", 400);
+        if (itemId <= 0 || request.Quantity <= 0) return Error("invalid_item", "Dòng món hoặc số lượng không hợp lệ.", 400);
         try
         {
             await _ordersClient.UpdateQuantityAsync(tableContext.TableId, itemId, request.Quantity, cancellationToken);
@@ -543,10 +582,10 @@ public sealed class CustomerGatewayController : ControllerBase
     public async Task<ActionResult<object>> UpdateItemNote(int itemId, [FromBody] UpdateOrderItemNoteApiRequest request, CancellationToken cancellationToken)
     {
         var customer = RequireCustomer();
-        if (customer is null) return Error("unauthorized", "Ban can dang nhap.", 401);
+        if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
         var tableContext = BuildTableContextDto();
-        if (tableContext is null) return Error("missing_table_context", "Ban chua chon ban.", 400);
-        if (itemId <= 0) return Error("invalid_item", "Dong mon khong hop le.", 400);
+        if (tableContext is null) return Error("missing_table_context", "Bạn chưa chọn bàn.", 400);
+        if (itemId <= 0) return Error("invalid_item", "Dòng món không hợp lệ.", 400);
         try
         {
             await _ordersClient.UpdateItemNoteAsync(tableContext.TableId, itemId, request.Note, cancellationToken);
@@ -562,10 +601,10 @@ public sealed class CustomerGatewayController : ControllerBase
     public async Task<ActionResult<object>> RemoveItem(int itemId, CancellationToken cancellationToken)
     {
         var customer = RequireCustomer();
-        if (customer is null) return Error("unauthorized", "Ban can dang nhap.", 401);
+        if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
         var tableContext = BuildTableContextDto();
-        if (tableContext is null) return Error("missing_table_context", "Ban chua chon ban.", 400);
-        if (itemId <= 0) return Error("invalid_item", "Dong mon khong hop le.", 400);
+        if (tableContext is null) return Error("missing_table_context", "Bạn chưa chọn bàn.", 400);
+        if (itemId <= 0) return Error("invalid_item", "Dòng món không hợp lệ.", 400);
         try
         {
             await _ordersClient.RemoveItemAsync(tableContext.TableId, itemId, cancellationToken);
@@ -581,9 +620,9 @@ public sealed class CustomerGatewayController : ControllerBase
     public async Task<ActionResult<object>> SubmitOrder([FromBody] SubmitOrderApiRequest? request, CancellationToken cancellationToken)
     {
         var customer = RequireCustomer();
-        if (customer is null) return Error("unauthorized", "Ban can dang nhap.", 401);
+        if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
         var tableContext = BuildTableContextDto();
-        if (tableContext is null) return Error("missing_table_context", "Ban chua chon ban.", 400);
+        if (tableContext is null) return Error("missing_table_context", "Bạn chưa chọn bàn.", 400);
         if (string.IsNullOrWhiteSpace(request?.IdempotencyKey)) return Error("invalid_submit", "Thiếu khóa xác nhận gửi món.", 400);
         try
         {
@@ -600,14 +639,14 @@ public sealed class CustomerGatewayController : ControllerBase
     public async Task<ActionResult<object>> SubmitMenuOrder([FromBody] SubmitMenuOrderApiRequest request, CancellationToken cancellationToken)
     {
         var customer = RequireCustomer();
-        if (customer is null) return Error("unauthorized", "Ban can dang nhap.", 401);
+        if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
 
         var tableContext = BuildTableContextDto();
-        if (tableContext is null) return Error("missing_table_context", "Ban chua chon ban.", 400);
-        if (request.TableId <= 0 || request.BranchId <= 0) return Error("invalid_context", "Ban hoac chi nhanh khong hop le.", 400);
+        if (tableContext is null) return Error("missing_table_context", "Bạn chưa chọn bàn.", 400);
+        if (request.TableId <= 0 || request.BranchId <= 0) return Error("invalid_context", "Bàn hoặc chi nhánh không hợp lệ.", 400);
         if (tableContext.TableId != request.TableId || tableContext.BranchId != request.BranchId)
         {
-            return Error("table_context_mismatch", "Ban hien tai khong khop voi phien dat mon.", 400);
+            return Error("table_context_mismatch", "Bàn hiện tại không khớp với phiên đặt món.", 400);
         }
 
         var items = (request.Items ?? Array.Empty<AddOrderItemApiRequest>())
@@ -617,7 +656,7 @@ public sealed class CustomerGatewayController : ControllerBase
 
         if (items.Length == 0)
         {
-            return Error("empty_order", "Đơn hàng trống", 400);
+            return Error("empty_order", "Đơn hàng trống.", 400);
         }
         if (string.IsNullOrWhiteSpace(request.IdempotencyKey))
         {
@@ -646,11 +685,18 @@ public sealed class CustomerGatewayController : ControllerBase
     public async Task<ActionResult<object>> ConfirmOrderReceived([FromQuery] int orderId, CancellationToken cancellationToken)
     {
         var customer = RequireCustomer();
-        if (customer is null) return Error("unauthorized", "Ban can dang nhap.", 401);
-        if (orderId <= 0) return Error("invalid_order", "Don hang khong hop le.", 400);
+        if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
+        if (orderId <= 0) return Error("invalid_order", "Đơn hàng không hợp lệ.", 400);
         try
         {
             await _ordersClient.ConfirmOrderReceivedAsync(orderId, cancellationToken);
+            var tableId = HttpContext.Session.GetInt32(SessionKeys.CurrentTableId);
+            if (tableId is > 0)
+            {
+                await _customerNotificationsHub.Clients
+                    .Group(CustomerNotificationsHub.TableGroup(tableId.Value))
+                    .SendAsync("orderReceived", new { orderId, tableId }, cancellationToken);
+            }
             return Ok(new { success = true, message = "Đã xác nhận nhận món. Chúc ngon miệng!" });
         }
         catch (Exception ex)
@@ -663,10 +709,10 @@ public sealed class CustomerGatewayController : ControllerBase
     public async Task<ActionResult<LoyaltyScanResponse?>> ScanLoyalty([FromBody] ScanLoyaltyApiRequest request, CancellationToken cancellationToken)
     {
         var customer = RequireCustomer();
-        if (customer is null) return Error("unauthorized", "Ban can dang nhap.", 401);
+        if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
         var tableContext = BuildTableContextDto();
-        if (tableContext is null) return Error("missing_table_context", "Ban chua chon ban.", 400);
-        if (string.IsNullOrWhiteSpace(request.PhoneNumber)) return Error("invalid_phone", "So dien thoai khong hop le.", 400);
+        if (tableContext is null) return Error("missing_table_context", "Bạn chưa chọn bàn.", 400);
+        if (string.IsNullOrWhiteSpace(request.PhoneNumber)) return Error("invalid_phone", "Số điện thoại không hợp lệ.", 400);
         try
         {
             return Ok(await _ordersClient.ScanLoyaltyCardAsync(tableContext.TableId, request.PhoneNumber.Trim(), cancellationToken));
@@ -682,12 +728,12 @@ public sealed class CustomerGatewayController : ControllerBase
     public async Task<ActionResult<CustomerDashboardDto>> GetDashboard(CancellationToken cancellationToken)
     {
         var customer = RequireCustomer();
-        if (customer is null) return Error("unauthorized", "Ban can dang nhap.", 401);
+        if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
         var profile = await _identityClient.GetCustomerAsync(customer.CustomerId, cancellationToken);
         if (profile is null)
         {
             ClearCustomerSession(false);
-            return Error("session_expired", "Khong tim thay ho so khach hang.", 401);
+            return Error("session_expired", "Không tìm thấy hồ sơ khách hàng.", 401);
         }
 
         var orders = await _customersClient.GetOrdersAsync(customer.CustomerId, 10, cancellationToken);
@@ -814,7 +860,6 @@ public sealed class CustomerGatewayController : ControllerBase
             var activeOrder = await _ordersClient.GetCustomerActiveOrderContextAsync(customerId, cancellationToken);
             if (activeOrder is null || activeOrder.TableId <= 0 || activeOrder.BranchId <= 0)
             {
-                ClearCurrentTableContextSession();
                 return;
             }
 

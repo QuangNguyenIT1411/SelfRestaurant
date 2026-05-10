@@ -2,6 +2,7 @@
 using System.Threading.RateLimiting;
 using SelfRestaurant.Identity.Api.Persistence;
 using SelfRestaurant.Identity.Api.Infrastructure;
+using SelfRestaurant.Identity.Api.Infrastructure.Auditing;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,6 +50,8 @@ builder.Services.PostConfigure<SmtpOptions>(options =>
     options.Password = Environment.GetEnvironmentVariable("SELFRESTAURANT_SMTP_PASSWORD") ?? "";
 });
 builder.Services.AddSingleton<PasswordResetEmailSender>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<BusinessAuditLogger>();
 builder.Services.AddHttpClient<OrdersApiClient>(http =>
 {
     http.BaseAddress = new Uri(builder.Configuration["Services:Orders"] ?? "http://localhost:5102");

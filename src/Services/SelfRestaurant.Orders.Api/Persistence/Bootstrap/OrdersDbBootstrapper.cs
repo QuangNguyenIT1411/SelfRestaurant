@@ -40,6 +40,7 @@ public static class OrdersDbBootstrapper
         await EnsureCatalogSnapshotTablesAsync(db, cancellationToken);
         await EnsureOrdersDiningSessionColumnsAsync(db, cancellationToken);
         await EnsureOrderItemStatusColumnAsync(db, cancellationToken);
+        await EnsureOrderItemChefIdColumnAsync(db, cancellationToken);
         await EnsureBusinessAuditTableAsync(db, cancellationToken);
         await EnsureSubmitCommandTableAsync(db, cancellationToken);
         await ValidateOwnedSchemaAsync(db, logger, cancellationToken);
@@ -409,6 +410,19 @@ public static class OrdersDbBootstrapper
             """, cancellationToken);
     }
 
+    private static async Task EnsureOrderItemChefIdColumnAsync(OrdersDbContext db, CancellationToken cancellationToken)
+    {
+        await db.Database.ExecuteSqlRawAsync("""
+            IF COL_LENGTH('dbo.OrderItems', 'ChefId') IS NULL
+                EXEC(N'ALTER TABLE dbo.OrderItems ADD ChefId INT NULL;');
+            """, cancellationToken);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.OrderItems') AND name = N'IX_OrderItems_ChefId')
+                CREATE INDEX IX_OrderItems_ChefId ON dbo.OrderItems(ChefId) WHERE ChefId IS NOT NULL;
+            """, cancellationToken);
+    }
+
     private static async Task EnsureSubmitCommandTableAsync(OrdersDbContext db, CancellationToken cancellationToken)
     {
         await db.Database.ExecuteSqlRawAsync("""
@@ -508,6 +522,7 @@ public static class OrdersDbBootstrapper
                                (
                                    TableId INT NOT NULL PRIMARY KEY,
                                    BranchId INT NOT NULL,
+                                   TableNumber INT NOT NULL CONSTRAINT DF_CatalogTableSnapshots_TableNumber DEFAULT 0,
                                    QrCode NVARCHAR(100) NULL,
                                    IsActive BIT NOT NULL,
                                    StatusId INT NOT NULL,
@@ -515,6 +530,12 @@ public static class OrdersDbBootstrapper
                                    StatusName NVARCHAR(100) NULL,
                                    RefreshedAtUtc DATETIME2 NOT NULL
                                );
+                           END
+
+                           IF COL_LENGTH(N'dbo.CatalogTableSnapshots', N'TableNumber') IS NULL
+                           BEGIN
+                               ALTER TABLE dbo.CatalogTableSnapshots
+                               ADD TableNumber INT NOT NULL CONSTRAINT DF_CatalogTableSnapshots_TableNumber DEFAULT 0;
                            END
 
                            IF OBJECT_ID(N'dbo.CatalogBranchSnapshots', N'U') IS NULL

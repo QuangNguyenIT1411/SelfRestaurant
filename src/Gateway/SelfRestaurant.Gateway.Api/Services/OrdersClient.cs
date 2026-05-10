@@ -14,6 +14,9 @@ public sealed class OrdersClient : ApiClientBase
     public Task ResetTableAsync(int tableId, CancellationToken cancellationToken) =>
         PostAsync<object>($"/api/tables/{tableId}/reset", new { }, cancellationToken);
 
+    public Task ResetAllTablesAsync(CancellationToken cancellationToken) =>
+        PostAsync<object>("/api/tables/reset-all", new { }, cancellationToken);
+
     public Task<ActiveOrderResponse?> GetActiveOrderAsync(int tableId, CancellationToken cancellationToken) =>
         GetAsync<ActiveOrderResponse>($"/api/tables/{tableId}/order", cancellationToken);
 
@@ -28,6 +31,9 @@ public sealed class OrdersClient : ApiClientBase
 
     public Task<CustomerActiveOrderContextDto?> GetCustomerActiveOrderContextAsync(int customerId, CancellationToken cancellationToken) =>
         GetAsync<CustomerActiveOrderContextDto>($"/api/internal/customers/{customerId}/active-order-context", cancellationToken);
+
+    public Task<DishReferenceStatusDto?> GetDishReferenceStatusAsync(int dishId, CancellationToken cancellationToken) =>
+        GetAsync<DishReferenceStatusDto>($"/api/internal/dishes/{dishId}/references", cancellationToken);
 
     public Task<ActiveOrderResponse?> AddItemAsync(int tableId, int dishId, int quantity, string? note, string? expectedDiningSessionCode, CancellationToken cancellationToken) =>
         PostForAsync<object, ActiveOrderResponse>(
@@ -85,18 +91,34 @@ public sealed class OrdersClient : ApiClientBase
     public Task<IReadOnlyList<int>?> GetTopDishIdsAsync(int branchId, int count, CancellationToken cancellationToken) =>
         GetAsync<IReadOnlyList<int>>($"/api/branches/{branchId}/top-dishes?count={count}", cancellationToken);
 
-    public Task<AdminOrderStatsResponse?> GetAdminStatsAsync(DateOnly? date, CancellationToken cancellationToken)
+    public Task<AdminOrderStatsResponse?> GetAdminStatsAsync(DateOnly? date, int? branchId, CancellationToken cancellationToken)
     {
-        var query = date is null ? "" : $"?date={date:yyyy-MM-dd}";
+        var queryParts = new List<string>();
+        if (date is not null)
+        {
+            queryParts.Add($"date={date:yyyy-MM-dd}");
+        }
+        if (branchId is > 0)
+        {
+            queryParts.Add($"branchId={branchId.Value}");
+        }
+        var query = queryParts.Count == 0 ? "" : $"?{string.Join("&", queryParts)}";
         return GetAsync<AdminOrderStatsResponse>($"/api/admin/stats{query}", cancellationToken);
     }
 
-    public Task<AdminRevenueReportDto?> GetAdminRevenueReportAsync(int days, CancellationToken cancellationToken) =>
-        GetAsync<AdminRevenueReportDto>($"/api/admin/reports/revenue?days={Math.Clamp(days, 1, 365)}", cancellationToken);
+    public Task<AdminRevenueReportDto?> GetAdminRevenueReportAsync(int days, int? branchId, CancellationToken cancellationToken)
+    {
+        var qs = $"days={Math.Clamp(days, 1, 365)}";
+        if (branchId is > 0)
+        {
+            qs += $"&branchId={branchId.Value}";
+        }
+        return GetAsync<AdminRevenueReportDto>($"/api/admin/reports/revenue?{qs}", cancellationToken);
+    }
 
-    public Task<AdminTopDishReportDto?> GetAdminTopDishesReportAsync(int days, int take, CancellationToken cancellationToken) =>
+    public Task<AdminTopDishReportDto?> GetAdminTopDishesReportAsync(int days, int take, int? branchId, CancellationToken cancellationToken) =>
         GetAsync<AdminTopDishReportDto>(
-            $"/api/admin/reports/top-dishes?days={Math.Clamp(days, 1, 365)}&take={Math.Clamp(take, 1, 50)}",
+            $"/api/admin/reports/top-dishes?days={Math.Clamp(days, 1, 365)}&take={Math.Clamp(take, 1, 50)}{(branchId is > 0 ? $"&branchId={branchId.Value}" : string.Empty)}",
             cancellationToken);
 
     public async Task<IReadOnlyList<ChefOrderDto>> GetChefOrdersAsync(int branchId, string? status, CancellationToken cancellationToken)
@@ -109,14 +131,14 @@ public sealed class OrdersClient : ApiClientBase
     public Task ChefStartAsync(int orderId, CancellationToken cancellationToken) =>
         PostAsync<object>($"/api/orders/{orderId}/chef/start", new { }, cancellationToken);
 
-    public Task ChefReadyAsync(int orderId, CancellationToken cancellationToken) =>
-        PostAsync<object>($"/api/orders/{orderId}/chef/ready", new { }, cancellationToken);
+    public Task ChefReadyAsync(int orderId, int chefId, CancellationToken cancellationToken) =>
+        PostAsync<object>($"/api/orders/{orderId}/chef/ready?chefId={chefId}", new { }, cancellationToken);
 
-    public Task ChefStartItemAsync(int orderId, int itemId, CancellationToken cancellationToken) =>
-        PostAsync<object>($"/api/orders/{orderId}/items/{itemId}/chef/start", new { }, cancellationToken);
+    public Task ChefStartItemAsync(int orderId, int itemId, int chefId, CancellationToken cancellationToken) =>
+        PostAsync<object>($"/api/orders/{orderId}/items/{itemId}/chef/start?chefId={chefId}", new { }, cancellationToken);
 
-    public Task ChefReadyItemAsync(int orderId, int itemId, CancellationToken cancellationToken) =>
-        PostAsync<object>($"/api/orders/{orderId}/items/{itemId}/chef/ready", new { }, cancellationToken);
+    public Task ChefReadyItemAsync(int orderId, int itemId, int chefId, CancellationToken cancellationToken) =>
+        PostAsync<object>($"/api/orders/{orderId}/items/{itemId}/chef/ready?chefId={chefId}", new { }, cancellationToken);
 
     public Task ChefCancelItemAsync(int orderId, int itemId, string? reason, CancellationToken cancellationToken) =>
         PostAsync<object>($"/api/orders/{orderId}/items/{itemId}/cancel", new { reason }, cancellationToken);
@@ -155,3 +177,8 @@ public sealed record AddOrderItemPayload(
     int DishId,
     int Quantity,
     string? Note);
+
+public sealed record DishReferenceStatusDto(
+    int DishId,
+    bool HasHistory,
+    int OrderItemCount);

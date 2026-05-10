@@ -253,6 +253,32 @@
   },
   {
     "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
+    "Method": "GetCustomerActivityLogs",
+    "RelativePath": "api/gateway/admin/customers/{customerId}/activity-logs",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "customerId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "pageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
     "Method": "DeactivateCustomer",
     "RelativePath": "api/gateway/admin/customers/{customerId}/deactivate",
     "HttpMethod": "POST",
@@ -263,6 +289,37 @@
         "Name": "customerId",
         "Type": "System.Int32",
         "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
+    "Method": "GetCustomerOrderHistory",
+    "RelativePath": "api/gateway/admin/customers/{customerId}/order-history",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "customerId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "pageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "days",
+        "Type": "System.Int32",
+        "IsRequired": false
       }
     ],
     "ReturnTypes": []
@@ -319,6 +376,11 @@
         "Name": "includeInactive",
         "Type": "System.Boolean",
         "IsRequired": false
+      },
+      {
+        "Name": "vegetarianOnly",
+        "Type": "System.Boolean",
+        "IsRequired": false
       }
     ],
     "ReturnTypes": [
@@ -365,6 +427,22 @@
       {
         "Name": "request",
         "Type": "SelfRestaurant.Gateway.Api.Models.AdminUpsertDishRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
+    "Method": "DeleteDish",
+    "RelativePath": "api/gateway/admin/dishes/{dishId}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dishId",
+        "Type": "System.Int32",
         "IsRequired": true
       }
     ],
@@ -730,6 +808,21 @@
         "IsRequired": true
       },
       {
+        "Name": "activityPage",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "cookingPage",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "pageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
         "Name": "days",
         "Type": "System.Int32",
         "IsRequired": false
@@ -769,6 +862,11 @@
         "Name": "pageSize",
         "Type": "System.Int32",
         "IsRequired": false
+      },
+      {
+        "Name": "includeInactive",
+        "Type": "System.Boolean",
+        "IsRequired": false
       }
     ],
     "ReturnTypes": [
@@ -801,6 +899,32 @@
   },
   {
     "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
+    "Method": "GetIngredientById",
+    "RelativePath": "api/gateway/admin/ingredients/{ingredientId}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "ingredientId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "SelfRestaurant.Gateway.Api.Models.AdminIngredientDto",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
     "Method": "UpdateIngredient",
     "RelativePath": "api/gateway/admin/ingredients/{ingredientId}",
     "HttpMethod": "PUT",
@@ -822,6 +946,116 @@
   },
   {
     "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
+    "Method": "DeleteIngredient",
+    "RelativePath": "api/gateway/admin/ingredients/{ingredientId}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "ingredientId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
+    "Method": "GetIngredientBatches",
+    "RelativePath": "api/gateway/admin/ingredients/{ingredientId}/batches",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "ingredientId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "System.Collections.Generic.IReadOnlyList\u00601[[SelfRestaurant.Gateway.Api.Models.AdminIngredientBatchDto, SelfRestaurant.Gateway.Api, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
+    "Method": "CreateIngredientBatch",
+    "RelativePath": "api/gateway/admin/ingredients/{ingredientId}/batches",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "ingredientId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Gateway.Api.Models.CreateIngredientBatchRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
+    "Method": "UpdateIngredientBatch",
+    "RelativePath": "api/gateway/admin/ingredients/{ingredientId}/batches/{batchId}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "ingredientId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "batchId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Gateway.Api.Models.UpdateIngredientBatchRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
+    "Method": "DeactivateIngredientBatch",
+    "RelativePath": "api/gateway/admin/ingredients/{ingredientId}/batches/{batchId}/deactivate",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "ingredientId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "batchId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
     "Method": "DeactivateIngredient",
     "RelativePath": "api/gateway/admin/ingredients/{ingredientId}/deactivate",
     "HttpMethod": "POST",
@@ -835,6 +1069,201 @@
       }
     ],
     "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
+    "Method": "GetIngredientStockMovements",
+    "RelativePath": "api/gateway/admin/ingredients/{ingredientId}/stock-movements",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "ingredientId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "pageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "SelfRestaurant.Gateway.Api.Models.PagedResponse\u00601[[SelfRestaurant.Gateway.Api.Models.IngredientStockMovementDto, SelfRestaurant.Gateway.Api, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
+    "Method": "GetInventoryBatches",
+    "RelativePath": "api/gateway/admin/inventory/batches",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "search",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "status",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "ingredientId",
+        "Type": "System.Nullable\u00601[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "pageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "SelfRestaurant.Gateway.Api.Models.PagedResponse\u00601[[SelfRestaurant.Gateway.Api.Models.InventoryBatchDto, SelfRestaurant.Gateway.Api, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
+    "Method": "GetInventoryMovements",
+    "RelativePath": "api/gateway/admin/inventory/movements",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "ingredientId",
+        "Type": "System.Nullable\u00601[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "batchId",
+        "Type": "System.Nullable\u00601[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "movementType",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "dateFrom",
+        "Type": "System.Nullable\u00601[[System.DateOnly, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "dateTo",
+        "Type": "System.Nullable\u00601[[System.DateOnly, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "search",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "pageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "SelfRestaurant.Gateway.Api.Models.PagedResponse\u00601[[SelfRestaurant.Gateway.Api.Models.InventoryMovementDto, SelfRestaurant.Gateway.Api, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
+    "Method": "StockIn",
+    "RelativePath": "api/gateway/admin/inventory/stock-in",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Gateway.Api.Models.InventoryStockInRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
+    "Method": "StockOut",
+    "RelativePath": "api/gateway/admin/inventory/stock-out",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Gateway.Api.Models.InventoryStockOutRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
+    "Method": "GetInventorySummary",
+    "RelativePath": "api/gateway/admin/inventory/summary",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": [
+      {
+        "Type": "SelfRestaurant.Gateway.Api.Models.InventorySummaryDto",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
   },
   {
     "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
@@ -1049,6 +1478,126 @@
     "ReturnTypes": []
   },
   {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
+    "Method": "GetUnits",
+    "RelativePath": "api/gateway/admin/units",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "search",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "pageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "includeInactive",
+        "Type": "System.Boolean",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "SelfRestaurant.Gateway.Api.Models.AdminUnitPagedResponse",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
+    "Method": "CreateUnit",
+    "RelativePath": "api/gateway/admin/units",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Gateway.Api.Models.AdminUpsertUnitRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
+    "Method": "GetUnitById",
+    "RelativePath": "api/gateway/admin/units/{unitId}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "unitId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "SelfRestaurant.Gateway.Api.Models.AdminUnitDto",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
+    "Method": "UpdateUnit",
+    "RelativePath": "api/gateway/admin/units/{unitId}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "unitId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Gateway.Api.Models.AdminUpsertUnitRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.AdminGatewayController",
+    "Method": "DeleteUnit",
+    "RelativePath": "api/gateway/admin/units/{unitId}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "unitId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
     "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.CustomerGatewayController",
     "Method": "ChangePassword",
     "RelativePath": "api/gateway/customer/auth/change-password",
@@ -1089,6 +1638,22 @@
         "StatusCode": 200
       }
     ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.CustomerGatewayController",
+    "Method": "GoogleLogin",
+    "RelativePath": "api/gateway/customer/auth/google",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Gateway.Api.Models.CustomerGoogleLoginApiRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
   },
   {
     "ContainingType": "SelfRestaurant.Gateway.Api.Controllers.CustomerGatewayController",

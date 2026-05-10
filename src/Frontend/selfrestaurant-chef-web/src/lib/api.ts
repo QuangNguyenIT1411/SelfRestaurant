@@ -3,8 +3,6 @@ import type {
   ChefCategoryDto,
   ChefDashboardDto,
   ChefDishIngredientsDto,
-  ChefSaveDishIngredientItemDto,
-  ChefUpsertDishPayload,
   StaffForgotPasswordResultDto,
   StaffSessionDto,
 } from "./types";
@@ -25,11 +23,11 @@ const API_TEXT_MAP: Record<string, string> = {
   "Da luu nguyen lieu mon.": "Đã lưu nguyên liệu món.",
   "Nguyen lieu": "Nguyên liệu",
   "Phan": "Phần",
-  "ÄÃ£ cÃ³ lá»—i xáº£y ra.": "Đã có lỗi xảy ra.",
-  "NguyÃªn liá»‡u": "Nguyên liệu",
-  "cáº§n": "cần",
-  "hiá»‡n cÃ²n": "hiện còn",
-  "Pháº§n": "Phần",
+  "Đã có lỗi xảy ra.": "Đã có lỗi xảy ra.",
+  "Nguyên liệu": "Nguyên liệu",
+  "cần": "cần",
+  "hiện còn": "hiện còn",
+  "Phần": "Phần",
 };
 
 function normalizeApiText(value?: string | null): string {
@@ -79,32 +77,6 @@ async function request<T>(input: string, init?: RequestInit): Promise<T> {
     credentials: "include",
     headers: init?.body ? { ...jsonHeaders, ...(init.headers ?? {}) } : init?.headers,
     ...init,
-  });
-
-  const text = await response.text();
-  let payload: unknown = null;
-  if (text) {
-    try {
-      payload = JSON.parse(text);
-    } catch {
-      payload = text;
-    }
-  }
-  if (!response.ok) {
-    if (payload && typeof payload === "object") {
-      const error = payload as ApiError | null;
-      throw new Error(formatApiError(error) || `Request failed: ${response.status}`);
-    }
-    throw new Error(normalizeApiText(String(payload)) || `Request failed: ${response.status}`);
-  }
-  return payload as T;
-}
-
-async function requestForm<T>(input: string, formData: FormData, method = "PUT"): Promise<T> {
-  const response = await fetch(input, {
-    method,
-    body: formData,
-    credentials: "include",
   });
 
   const text = await response.text();
@@ -199,69 +171,17 @@ export const chefApi = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  saveDishIngredients: (dishId: number, items: ChefDishIngredientsDto["items"]) => {
-    const payload: ChefSaveDishIngredientItemDto[] = items.map((item) => ({
-      ingredientId: item.ingredientId,
-      quantityPerDish: item.quantityPerDish,
-    }));
-    return request<ChefDishIngredientsDto>(`/api/gateway/staff/chef/dishes/${dishId}/ingredients`, {
-      method: "PUT",
-      body: JSON.stringify({ items: payload }),
-    });
-  },
-  setDishAvailability: (dishId: number, available: boolean) =>
-    request<{ success: boolean; message: string; available: boolean }>(
+  setDishAvailability: async (dishId: number, available: boolean) => {
+    const result = await request<{ success: boolean; message: string; available: boolean }>(
       `/api/gateway/staff/chef/dishes/${dishId}/availability`,
       {
         method: "POST",
         body: JSON.stringify({ available }),
       },
-    ),
-  updateDishImage: (dishId: number, imageFile: File) => {
-    const form = new FormData();
-    form.append("imageFile", imageFile);
-    return requestForm<{ success: boolean; message: string; image?: string | null }>(
-      `/api/gateway/staff/chef/dishes/${dishId}/image`,
-      form,
-      "PUT",
     );
-  },
-  createDish: (payload: ChefUpsertDishPayload) => {
-    const form = new FormData();
-    form.append("name", payload.name);
-    form.append("price", String(payload.price));
-    form.append("categoryId", String(payload.categoryId));
-    form.append("description", payload.description ?? "");
-    form.append("unit", payload.unit ?? "");
-    form.append("image", payload.image ?? "");
-    form.append("isVegetarian", String(payload.isVegetarian));
-    form.append("isDailySpecial", String(payload.isDailySpecial));
-    form.append("available", String(payload.available));
-    form.append("isActive", String(payload.isActive ?? true));
-    if (payload.imageFile) {
-      form.append("imageFile", payload.imageFile);
+    if (result.available !== available) {
+      throw new Error(result.message || "Không thể cập nhật trạng thái bán của món.");
     }
-    return requestForm<{ success: boolean; message: string }>("/api/gateway/staff/chef/dishes", form, "POST");
-  },
-  updateDish: (dishId: number, payload: ChefUpsertDishPayload) => {
-    const form = new FormData();
-    form.append("name", payload.name);
-    form.append("price", String(payload.price));
-    form.append("categoryId", String(payload.categoryId));
-    form.append("description", payload.description ?? "");
-    form.append("unit", payload.unit ?? "");
-    form.append("image", payload.image ?? "");
-    form.append("isVegetarian", String(payload.isVegetarian));
-    form.append("isDailySpecial", String(payload.isDailySpecial));
-    form.append("available", String(payload.available));
-    form.append("isActive", String(payload.isActive ?? true));
-    if (payload.imageFile) {
-      form.append("imageFile", payload.imageFile);
-    }
-    return requestForm<{ success: boolean; message: string }>(
-      `/api/gateway/staff/chef/dishes/${dishId}`,
-      form,
-      "PUT",
-    );
+    return result;
   },
 };

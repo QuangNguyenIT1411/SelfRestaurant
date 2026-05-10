@@ -1,14 +1,19 @@
 ﻿{
-    "timestamp":  "2026-04-10 00:58:40",
+    "timestamp":  "2026-04-22 23:18:57",
     "baseUrl":  "http://localhost:5100",
-    "total":  1,
-    "passed":  0,
+    "total":  2,
+    "passed":  null,
     "failed":  null,
     "results":  [
                     {
                         "feature":  "Health",
+                        "pass":  true,
+                        "detail":  "all service endpoints reachable"
+                    },
+                    {
+                        "feature":  "Admin Login",
                         "pass":  false,
-                        "detail":  "Unable to connect to the remote server"
+                        "detail":  "Missing anti-forgery token"
                     }
                 ]
 }

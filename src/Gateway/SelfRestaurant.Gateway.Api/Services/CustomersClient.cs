@@ -97,6 +97,12 @@ public sealed class CustomersClient : ApiClientBase
             () => PostAsync<object>($"/api/customers/admin/customers/{customerId}/deactivate", new { }, cancellationToken),
             () => PostAsync<object>($"/api/identity/admin/customers/{customerId}/deactivate", new { }, cancellationToken, _identityFallbackHttp));
 
+    public Task<object?> GetCustomerActivityLogsAsync(int customerId, int page, int pageSize, CancellationToken cancellationToken) =>
+        GetAsync<object>($"/api/identity/admin/customers/{customerId}/activity-logs?page={page}&pageSize={pageSize}", cancellationToken, _identityFallbackHttp);
+
+    public Task<object?> GetCustomerOrderHistoryAsync(int customerId, int page, int pageSize, int days, CancellationToken cancellationToken) =>
+        GetAsync<object>($"/api/internal/customers/{customerId}/order-history?page={page}&pageSize={pageSize}&days={days}", cancellationToken, _identityFallbackHttp);
+
     private static async Task<TResponse?> ExecuteWithFallbackAsync<TResponse>(Func<Task<TResponse?>> primaryCall, params Func<Task<TResponse?>>[] fallbackCalls)
     {
         try

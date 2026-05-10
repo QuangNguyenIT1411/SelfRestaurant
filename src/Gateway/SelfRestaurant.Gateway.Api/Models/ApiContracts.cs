@@ -111,6 +111,13 @@ public sealed record ReadyDishNotificationDto(
 
 public sealed record CategoryDto(int CategoryId, string Name, string? Description, int DisplayOrder, bool IsActive);
 
+public sealed record PagedResponse<T>(
+    int Page,
+    int PageSize,
+    int TotalItems,
+    int TotalPages,
+    IReadOnlyList<T> Items);
+
 public sealed record AdminIdentityStatsResponse(int TotalEmployees, int ActiveEmployees, int BranchCount);
 
 public sealed record AdminOrderStatsResponse(int TodayOrders, int PendingOrders, decimal TodayRevenue);
@@ -156,6 +163,7 @@ public sealed record StaffResetPasswordRequest(string Token, string NewPassword)
 public sealed record StaffUpdateProfileRequest(string Name, string Phone, string? Email = null);
 
 public sealed record LoginRequest(string Username, string Password);
+public sealed record GoogleLoginRequest(string IdToken);
 
 public sealed record LoginResponse(
     int CustomerId,
@@ -339,7 +347,22 @@ public sealed record AdminEmployeeHistoryMetaDto(
     int BranchId,
     string BranchName);
 
-public sealed record AdminChefHistoryItemDto(
+public sealed record AdminChefActivityLogItemDto(
+    long AuditId,
+    DateTime TimestampUtc,
+    string ActionType,
+    int? DishId,
+    string? ActorName,
+    string? AfterState);
+
+public sealed record AdminChefActivityLogsPageDto(
+    int Page,
+    int PageSize,
+    int TotalItems,
+    int TotalPages,
+    IReadOnlyList<AdminChefActivityLogItemDto> Logs);
+
+public sealed record AdminChefCookingHistoryItemDto(
     int OrderId,
     string? OrderCode,
     DateTime OrderTime,
@@ -348,7 +371,8 @@ public sealed record AdminChefHistoryItemDto(
     string? BranchName,
     string StatusCode,
     string StatusName,
-    string DishesSummary)
+    string DishesSummary,
+    string? Notes)
 {
     public string StatusBadgeClass => StatusCode?.ToUpperInvariant() switch
     {
@@ -359,6 +383,13 @@ public sealed record AdminChefHistoryItemDto(
         _ => "badge bg-secondary"
     };
 }
+
+public sealed record AdminChefCookingHistoryPageDto(
+    int Page,
+    int PageSize,
+    int TotalItems,
+    int TotalPages,
+    IReadOnlyList<AdminChefCookingHistoryItemDto> Items);
 
 public sealed record AdminCashierHistoryItemDto(
     int BillId,
@@ -376,10 +407,18 @@ public sealed record AdminCashierHistoryItemDto(
     decimal? PaymentAmount,
     decimal? ChangeAmount);
 
+public sealed record AdminCashierHistoryPageDto(
+    int Page,
+    int PageSize,
+    int TotalItems,
+    int TotalPages,
+    IReadOnlyList<AdminCashierHistoryItemDto> Items);
+
 public sealed record AdminEmployeeHistoryResponse(
     AdminEmployeeHistoryMetaDto Employee,
-    IReadOnlyList<AdminChefHistoryItemDto> ChefHistory,
-    IReadOnlyList<AdminCashierHistoryItemDto> CashierHistory);
+    AdminChefActivityLogsPageDto ChefActivityLogs,
+    AdminChefCookingHistoryPageDto ChefCookingHistory,
+    AdminCashierHistoryPageDto CashierHistory);
 
 public sealed record AdminCustomerDto(
     int CustomerId,
@@ -425,7 +464,8 @@ public sealed record AdminDishDto(
     bool IsVegetarian,
     bool IsDailySpecial,
     bool Available,
-    bool IsActive);
+    bool IsActive,
+    string IngredientsSummary);
 
 public sealed record AdminDishPagedResponse(
     int Page,
@@ -446,6 +486,13 @@ public sealed record AdminUpsertDishRequest(
     bool? Available,
     bool? IsActive);
 
+public sealed record ChefSetCatalogDishAvailabilityRequest(bool Available);
+
+public sealed record ChefSetCatalogDishAvailabilityResponse(
+    bool Success,
+    string Message,
+    bool Available);
+
 public sealed record AdminDishIngredientLineDto(
     int IngredientId,
     string Name,
@@ -464,7 +511,12 @@ public sealed record AdminIngredientDto(
     string Unit,
     decimal CurrentStock,
     decimal ReorderLevel,
-    bool IsActive);
+    bool IsActive,
+    decimal TotalBatchStock,
+    decimal UsableBatchStock,
+    DateOnly? NearestExpiryDate,
+    int ExpiredBatchCount,
+    int NearExpiryBatchCount);
 
 public sealed record AdminIngredientPagedResponse(
     int Page,
@@ -480,10 +532,137 @@ public sealed record AdminUpsertIngredientRequest(
     decimal? ReorderLevel,
     bool? IsActive);
 
+public sealed record AdminIngredientBatchDto(
+    int BatchId,
+    int IngredientId,
+    string? BatchCode,
+    decimal QuantityInitial,
+    decimal QuantityRemaining,
+    string Unit,
+    DateOnly ExpiryDate,
+    DateOnly ReceivedDate,
+    string? SupplierName,
+    bool IsActive,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt,
+    string Status);
+
+public sealed record CreateIngredientBatchRequest(
+    string? BatchCode,
+    decimal? QuantityInitial,
+    decimal? QuantityRemaining,
+    string? Unit,
+    DateOnly? ExpiryDate,
+    DateOnly? ReceivedDate,
+    string? SupplierName);
+
+public sealed record UpdateIngredientBatchRequest(
+    string? BatchCode,
+    DateOnly? ExpiryDate,
+    DateOnly? ReceivedDate,
+    string? SupplierName,
+    bool? IsActive);
+
+public sealed record IngredientStockMovementDto(
+    long MovementId,
+    int IngredientId,
+    int? BatchId,
+    decimal QuantityChange,
+    string MovementType,
+    string? ReferenceType,
+    int? ReferenceId,
+    int? OrderId,
+    int? OrderItemId,
+    int? DishId,
+    DateTime CreatedAt,
+    string? Note);
+
+public sealed record InventorySummaryDto(
+    int TotalActiveIngredients,
+    int ExpiredBatchCount,
+    int NearExpiryBatchCount,
+    int TotalBatchesWithStock,
+    decimal TotalUsableBatchStock,
+    int LowStockIngredientCount,
+    int NearExpiryDays);
+
+public sealed record InventoryBatchDto(
+    int BatchId,
+    int IngredientId,
+    string IngredientName,
+    string? BatchCode,
+    decimal QuantityInitial,
+    decimal QuantityRemaining,
+    string Unit,
+    DateOnly ReceivedDate,
+    DateOnly ExpiryDate,
+    string? SupplierName,
+    bool IsActive,
+    string Status,
+    int DaysUntilExpiry);
+
+public sealed record InventoryStockInRequest(
+    int IngredientId,
+    decimal? Quantity,
+    DateOnly? ReceivedDate,
+    DateOnly? ExpiryDate,
+    string? BatchCode,
+    string? SupplierName,
+    string? Note);
+
+public sealed record InventoryStockOutRequest(
+    int IngredientId,
+    decimal? Quantity,
+    int? BatchId,
+    string? Reason,
+    string? Note);
+
+public sealed record InventoryMovementDto(
+    long MovementId,
+    int IngredientId,
+    string IngredientName,
+    string Unit,
+    int? BatchId,
+    string? BatchCode,
+    DateOnly? ExpiryDate,
+    string? SupplierName,
+    decimal QuantityChange,
+    string MovementType,
+    string? ReferenceType,
+    int? ReferenceId,
+    int? OrderId,
+    int? OrderItemId,
+    int? DishId,
+    DateTime CreatedAt,
+    string? Note);
+
+public sealed record AdminUnitDto(
+    int UnitId,
+    string Name,
+    string? Description,
+    int DisplayOrder,
+    bool IsActive,
+    int DishCount,
+    int IngredientCount);
+
+public sealed record AdminUnitPagedResponse(
+    int Page,
+    int PageSize,
+    int TotalItems,
+    int TotalPages,
+    IReadOnlyList<AdminUnitDto> Items);
+
+public sealed record AdminUpsertUnitRequest(
+    string Name,
+    string? Description,
+    int DisplayOrder,
+    bool IsActive);
+
 public sealed record TableStatusDto(int StatusId, string StatusCode, string StatusName);
 
 public sealed record AdminTableDto(
     int TableId,
+    int TableNumber,
     int BranchId,
     string BranchName,
     int NumberOfSeats,

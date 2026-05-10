@@ -12,6 +12,9 @@ public sealed class IdentityClient : ApiClientBase
     public Task<LoginResponse?> LoginAsync(LoginRequest request, CancellationToken cancellationToken) =>
         PostForAsync<LoginRequest, LoginResponse>("/api/identity/login", request, cancellationToken);
 
+    public Task<LoginResponse?> GoogleLoginAsync(GoogleLoginRequest request, CancellationToken cancellationToken) =>
+        PostForAsync<GoogleLoginRequest, LoginResponse>("/api/identity/login/google", request, cancellationToken);
+
     public Task RegisterAsync(RegisterRequest request, CancellationToken cancellationToken) =>
         PostAsync("/api/identity/register", request, cancellationToken);
 
@@ -33,8 +36,11 @@ public sealed class IdentityClient : ApiClientBase
     public Task UpdateCustomerProfileAsync(int customerId, UpdateCustomerProfileRequest request, CancellationToken cancellationToken) =>
         PutAsync($"/api/customers/{customerId}/profile", request, cancellationToken);
 
-    public Task<AdminIdentityStatsResponse?> GetAdminStatsAsync(CancellationToken cancellationToken) =>
-        GetAsync<AdminIdentityStatsResponse>("/api/identity/admin/stats", cancellationToken);
+    public Task<AdminIdentityStatsResponse?> GetAdminStatsAsync(int? branchId, CancellationToken cancellationToken)
+    {
+        var query = branchId is > 0 ? $"?branchId={branchId.Value}" : string.Empty;
+        return GetAsync<AdminIdentityStatsResponse>($"/api/identity/admin/stats{query}", cancellationToken);
+    }
 
     public Task<StaffLoginResponse?> StaffLoginAsync(StaffLoginRequest request, CancellationToken cancellationToken) =>
         PostForAsync<StaffLoginRequest, StaffLoginResponse>("/api/identity/staff/login", request, cancellationToken);
@@ -164,10 +170,12 @@ public sealed class IdentityClient : ApiClientBase
 
     public Task<AdminEmployeeHistoryResponse?> GetAdminEmployeeHistoryAsync(
         int employeeId,
+        int activityPage,
+        int cookingPage,
+        int pageSize,
         int days,
-        int take,
         CancellationToken cancellationToken) =>
         GetAsync<AdminEmployeeHistoryResponse>(
-            $"/api/identity/admin/employees/{employeeId}/history?days={Math.Clamp(days, 1, 365)}&take={Math.Clamp(take, 1, 500)}",
+            $"/api/identity/admin/employees/{employeeId}/history?activityPage={Math.Max(1, activityPage)}&cookingPage={Math.Max(1, cookingPage)}&pageSize={Math.Clamp(pageSize, 1, 100)}&days={Math.Clamp(days, 1, 365)}",
             cancellationToken);
 }

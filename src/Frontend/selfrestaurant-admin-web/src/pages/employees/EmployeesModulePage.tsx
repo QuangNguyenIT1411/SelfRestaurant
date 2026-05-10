@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AdminLayout } from "../../components/AdminLayout";
+import { AdminPagination } from "../../components/AdminPagination";
+import { useAppDialog } from "../../components/AppDialog";
 import { adminApi } from "../../lib/api";
 import type { AdminEmployeeDto, AdminEmployeeHistoryResponse, AdminEmployeesScreenDto, StaffSessionUserDto } from "../../lib/types";
+import { useAutoDismissMessage } from "../../lib/useAutoDismissMessage";
 
 type Props = {
   mode: "index" | "create" | "edit" | "history";
@@ -27,6 +30,35 @@ function formatDateTime(value?: string | null) {
   return new Date(value).toLocaleString("vi-VN");
 }
 
+function normalizeRoleText(value?: string | null) {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+}
+
+function getEmployeeHistoryVisibility(employee?: AdminEmployeeHistoryResponse["employee"] | null) {
+  const roleCode = normalizeRoleText(employee?.roleCode);
+  const roleName = normalizeRoleText(employee?.roleName);
+  const roleText = `${roleCode} ${roleName}`;
+  const isChefRole = roleCode === "CHEF"
+    || roleCode === "KITCHEN_STAFF"
+    || roleText.includes("CHEF")
+    || roleText.includes("KITCHEN")
+    || roleText.includes("DAU BEP")
+    || roleText.includes("BEP");
+  const isCashierRole = roleCode === "CASHIER"
+    || roleText.includes("CASHIER")
+    || roleText.includes("THU NGAN");
+
+  // Unknown/admin/other roles keep the historical admin fallback: show both sections.
+  if (!isChefRole && !isCashierRole) {
+    return { showChefHistory: true, showCashierHistory: true };
+  }
+
+  return { showChefHistory: isChefRole, showCashierHistory: isCashierRole };
+}
+
 export function EmployeesModulePage({ mode, onLogout }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -35,16 +67,21 @@ export function EmployeesModulePage({ mode, onLogout }: Props) {
   const [staff, setStaff] = useState<StaffSessionUserDto | null>(null);
   const [screen, setScreen] = useState<AdminEmployeesScreenDto | null>(null);
   const [history, setHistory] = useState<AdminEmployeeHistoryResponse | null>(null);
+  const [activityPage, setActivityPage] = useState(1);
+  const [cookingPage, setCookingPage] = useState(1);
   const [form, setForm] = useState(emptyEmployeeForm);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useAutoDismissMessage(5000);
+  const { confirm, Dialog } = useAppDialog();
 
-  const search = searchParams.get("search") ?? "";
   const branchId = searchParams.get("branchId") ?? "ALL";
   const roleId = searchParams.get("roleId") ?? "ALL";
   const page = Math.max(1, Number.parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const employeeIdValue = employeeId ? Number.parseInt(employeeId, 10) : 0;
+  
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const flash = (location.state as { message?: string } | null)?.message;
@@ -57,24 +94,27 @@ export function EmployeesModulePage({ mode, onLogout }: Props) {
   async function loadPage() {
     setLoading(true);
     setError(null);
+    setHistory(null); // Reset history when loading new employee
     try {
       const session = await adminApi.getSession();
-      setStaff(session.staff ?? null);
+      const currentStaff = session.staff ?? null;
+      setStaff(currentStaff);
+      const scopedBranchId = currentStaff?.branchId;
 
       if (mode === "index") {
         setScreen(await adminApi.getEmployees(
-          search,
-          branchId !== "ALL" ? Number(branchId) : undefined,
+          searchQuery,
+          scopedBranchId,
           roleId !== "ALL" ? Number(roleId) : undefined,
           page,
           10,
         ));
       } else if (mode === "create") {
-        const next = await adminApi.getEmployees("", undefined, undefined, 1, 10);
+        const next = await adminApi.getEmployees("", scopedBranchId, undefined, 1, 10);
         setScreen(next);
         setForm((current) => ({
           ...current,
-          branchId: current.branchId || String(next.branches[0]?.branchId ?? ""),
+          branchId: String(scopedBranchId ?? next.branches[0]?.branchId ?? ""),
           roleId: current.roleId || String(next.roles[0]?.roleId ?? ""),
         }));
       } else if (mode === "edit") {
@@ -83,7 +123,7 @@ export function EmployeesModulePage({ mode, onLogout }: Props) {
           return;
         }
         const [next, employee] = await Promise.all([
-          adminApi.getEmployees("", undefined, undefined, 1, 10),
+          adminApi.getEmployees("", scopedBranchId, undefined, 1, 10),
           adminApi.getEmployeeById(employeeIdValue),
         ]);
         setScreen(next);
@@ -95,7 +135,7 @@ export function EmployeesModulePage({ mode, onLogout }: Props) {
           email: employee.email ?? "",
           salary: employee.salary != null ? String(employee.salary) : "",
           shift: employee.shift ?? "",
-          branchId: String(employee.branchId),
+          branchId: String(scopedBranchId ?? employee.branchId),
           roleId: String(employee.roleId),
           isActive: employee.isActive,
         });
@@ -104,7 +144,7 @@ export function EmployeesModulePage({ mode, onLogout }: Props) {
           navigate("/Admin/Employees/Index", { replace: true });
           return;
         }
-        setHistory(await adminApi.getEmployeeHistory(employeeIdValue));
+        setHistory(await adminApi.getEmployeeHistory(employeeIdValue, activityPage, cookingPage, 50, 90));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tải dữ liệu nhân viên.");
@@ -115,11 +155,21 @@ export function EmployeesModulePage({ mode, onLogout }: Props) {
 
   useEffect(() => {
     void loadPage();
-  }, [mode, search, branchId, roleId, page, employeeIdValue]);
+  }, [mode, searchQuery, branchId, roleId, page, employeeIdValue, activityPage, cookingPage]);
 
-  function buildIndexUrl(nextPage = page, nextSearch = search, nextBranchId = branchId, nextRoleId = roleId) {
+  // Reset pagination when employee changes
+  useEffect(() => {
+    setActivityPage(1);
+    setCookingPage(1);
+  }, [employeeIdValue]);
+
+  function handleSearchSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSearchQuery(searchInput);
+  }
+
+  function buildIndexUrl(nextPage = page, nextBranchId = branchId, nextRoleId = roleId) {
     const params = new URLSearchParams();
-    if (nextSearch.trim()) params.set("search", nextSearch.trim());
     if (nextBranchId !== "ALL") params.set("branchId", nextBranchId);
     if (nextRoleId !== "ALL") params.set("roleId", nextRoleId);
     if (nextPage > 1) params.set("page", String(nextPage));
@@ -127,13 +177,40 @@ export function EmployeesModulePage({ mode, onLogout }: Props) {
   }
 
   async function handleDeactivate(employee: AdminEmployeeDto) {
-    if (!window.confirm("Bạn có chắc muốn khóa nhân viên này?")) return;
+    const approved = await confirm({
+      title: "Xác nhận vô hiệu",
+      message: "Bạn có chắc muốn khóa nhân viên này không?",
+      confirmLabel: "Vô hiệu",
+      cancelLabel: "Hủy",
+      variant: "danger",
+    });
+    if (!approved) return;
     try {
       const response = await adminApi.deactivateEmployee(employee.employeeId);
       setMessage(response.message);
       await loadPage();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể khóa nhân viên.");
+    }
+  }
+  async function handleSetActive(employee: AdminEmployeeDto, isActive: boolean) {
+    try {
+      await adminApi.updateEmployee(employee.employeeId, {
+        name: employee.name,
+        username: employee.username,
+        password: null,
+        phone: employee.phone ?? null,
+        email: employee.email ?? null,
+        salary: employee.salary ?? null,
+        shift: employee.shift ?? null,
+        isActive,
+        branchId: Number(staff?.branchId ?? employee.branchId),
+        roleId: employee.roleId,
+      });
+      setMessage(isActive ? "Đã bật lại nhân viên." : "Đã khóa nhân viên.");
+      await loadPage();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể cập nhật trạng thái nhân viên.");
     }
   }
 
@@ -153,7 +230,7 @@ export function EmployeesModulePage({ mode, onLogout }: Props) {
         salary: form.salary ? Number(form.salary) : null,
         shift: form.shift.trim() || null,
         isActive: form.isActive,
-        branchId: Number(form.branchId),
+        branchId: Number(staff?.branchId ?? form.branchId),
         roleId: Number(form.roleId),
       });
       navigate("/Admin/Employees/Index", { replace: true, state: { message: response.message } });
@@ -179,7 +256,7 @@ export function EmployeesModulePage({ mode, onLogout }: Props) {
         salary: form.salary ? Number(form.salary) : null,
         shift: form.shift.trim() || null,
         isActive: form.isActive,
-        branchId: Number(form.branchId),
+        branchId: Number(staff?.branchId ?? form.branchId),
         roleId: Number(form.roleId),
       });
       navigate("/Admin/Employees/Index", { replace: true, state: { message: response.message } });
@@ -193,14 +270,14 @@ export function EmployeesModulePage({ mode, onLogout }: Props) {
     : mode === "edit"
       ? "Cập nhật nhân viên"
       : mode === "history"
-        ? "Lịch sử nhân viên"
+        ? "Nhật ký nhân viên"
         : "Quản lý nhân viên";
   const description = mode === "create"
     ? "Tạo mới tài khoản nhân viên."
     : mode === "edit"
       ? "Cập nhật thông tin nhân viên."
       : mode === "history"
-        ? "Xem lịch sử hoạt động của nhân viên."
+        ? "Xem nhật ký hoạt động của nhân viên."
         : "Quản lý nhân sự, vai trò và chi nhánh.";
 
   return (
@@ -212,7 +289,7 @@ export function EmployeesModulePage({ mode, onLogout }: Props) {
           <div className="toolbar-card">
             <div>
               <strong>Danh sách nhân viên</strong>
-              <div className="muted">Tìm kiếm, lọc, chỉnh sửa, xem lịch sử và khóa tài khoản.</div>
+              <div className="muted">Tìm kiếm, lọc, chỉnh sửa, xem nhật ký và khóa tài khoản.</div>
             </div>
             <button className="ghost" onClick={() => navigate("/Admin/Employees/Create")}>Thêm nhân viên</button>
           </div>
@@ -222,15 +299,18 @@ export function EmployeesModulePage({ mode, onLogout }: Props) {
               <strong>Bộ lọc tìm kiếm</strong>
               <div className="muted">Tìm theo tên, tên đăng nhập, số điện thoại, email, chi nhánh hoặc vai trò.</div>
             </div>
-            <div className="admin-filter-form">
+            <form className="admin-filter-form" onSubmit={handleSearchSubmit}>
               <label className="admin-filter-field admin-filter-field-wide">
                 <span>Từ khóa</span>
-                <input value={search} onChange={(e) => navigate(buildIndexUrl(1, e.target.value, branchId, roleId), { replace: true })} placeholder="Tên, tài khoản, số điện thoại..." />
+                <input 
+                  value={searchInput} 
+                  onChange={(e) => setSearchInput(e.target.value)} 
+                  placeholder="Tên, tài khoản, số điện thoại... (Enter để tìm)" 
+                />
               </label>
               <label className="admin-filter-field">
                 <span>Chi nhánh</span>
-                <select value={branchId} onChange={(e) => navigate(buildIndexUrl(1, search, e.target.value, roleId))}>
-                  <option value="ALL">Tất cả chi nhánh</option>
+                <select value={String(staff?.branchId ?? branchId)} onChange={(e) => navigate(buildIndexUrl(1, e.target.value, roleId))} disabled>
                   {screen.branches.map((branch) => (
                     <option key={branch.branchId} value={branch.branchId}>{branch.name}</option>
                   ))}
@@ -238,7 +318,7 @@ export function EmployeesModulePage({ mode, onLogout }: Props) {
               </label>
               <label className="admin-filter-field">
                 <span>Vai trò</span>
-                <select value={roleId} onChange={(e) => navigate(buildIndexUrl(1, search, branchId, e.target.value))}>
+                <select value={roleId} onChange={(e) => navigate(buildIndexUrl(1, branchId, e.target.value))}>
                   <option value="ALL">Tất cả vai trò</option>
                   {screen.roles.map((role) => (
                     <option key={role.roleId} value={role.roleId}>{role.roleName}</option>
@@ -246,9 +326,10 @@ export function EmployeesModulePage({ mode, onLogout }: Props) {
                 </select>
               </label>
               <div className="admin-filter-actions">
-                <button className="ghost" onClick={() => navigate("/Admin/Employees/Index")}>Xóa bộ lọc</button>
+                <button type="submit" className="ghost">Tìm kiếm</button>
+                <button type="button" className="ghost" onClick={() => { setSearchInput(""); setSearchQuery(""); navigate(buildIndexUrl(1, String(staff?.branchId ?? screen.branches[0]?.branchId ?? ""), "ALL")); }}>Xóa bộ lọc</button>
               </div>
-            </div>
+            </form>
           </div>
 
           <table className="data-table">
@@ -285,13 +366,17 @@ export function EmployeesModulePage({ mode, onLogout }: Props) {
                     </div>
                   </td>
                   <td>{employee.shift || "-"}</td>
-                  <td>{employee.salary != null ? `${employee.salary.toLocaleString("vi-VN")} đ` : "-"}</td>
+                  <td>{employee.salary != null ? `${employee.salary.toLocaleString("vi-VN")} ` : "-"}</td>
                   <td>{employee.isActive ? <span className="status-pill success">Hoạt động</span> : <span className="status-pill danger">Khóa</span>}</td>
                   <td>
                     <div className="button-row wrap">
                       <button className="ghost" onClick={() => navigate(`/Admin/Employees/Edit/${employee.employeeId}`)}>Sửa</button>
-                      <button className="ghost" onClick={() => navigate(`/Admin/Employees/History/${employee.employeeId}`)}>Lịch sử</button>
-                      <button className="danger" onClick={() => void handleDeactivate(employee)}>Khóa</button>
+                      <button className="ghost" onClick={() => navigate(`/Admin/Employees/History/${employee.employeeId}`)}>Nhật ký</button>
+                      {employee.isActive ? (
+                        <button className="danger" onClick={() => void handleDeactivate(employee)}>Khóa</button>
+                      ) : (
+                        <button className="ghost" onClick={() => void handleSetActive(employee, true)}>Bật lại</button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -300,13 +385,12 @@ export function EmployeesModulePage({ mode, onLogout }: Props) {
           </table>
 
           {screen.employees.totalPages > 1 ? (
-            <div className="button-row wrap admin-pagination">
-              {Array.from({ length: screen.employees.totalPages }, (_, index) => index + 1).map((pageNumber) => (
-                <button key={`employee-page-${pageNumber}`} className={pageNumber === screen.employees.page ? "active-toggle" : "ghost"} onClick={() => navigate(buildIndexUrl(pageNumber))}>
-                  {pageNumber}
-                </button>
-              ))}
-            </div>
+            <AdminPagination
+              currentPage={screen.employees.page}
+              totalPages={screen.employees.totalPages}
+              onPageChange={(pageNumber) => navigate(buildIndexUrl(pageNumber))}
+              keyPrefix="employee"
+            />
           ) : null}
         </section>
       ) : null}
@@ -343,7 +427,7 @@ export function EmployeesModulePage({ mode, onLogout }: Props) {
                 <input value={form.shift} onChange={(e) => setForm({ ...form, shift: e.target.value })} />
               </label>
               <label>Chi nhánh
-                <select value={form.branchId} onChange={(e) => setForm({ ...form, branchId: e.target.value })}>
+                <select value={form.branchId} onChange={(e) => setForm({ ...form, branchId: e.target.value })} disabled>
                   {screen.branches.map((branch) => (
                     <option key={branch.branchId} value={branch.branchId}>{branch.name}</option>
                   ))}
@@ -377,18 +461,23 @@ export function EmployeesModulePage({ mode, onLogout }: Props) {
           <article className="panel">
             <div className="panel-head">
               <div>
-                <h2>Lịch sử nhân viên</h2>
-                <p className="muted">Theo dõi lịch sử hoạt động của nhân viên trong 90 ngày gần nhất.</p>
+                <h2>Nhật ký nhân viên</h2>
+                <p className="muted">Theo dõi nhật ký hoạt động của nhân viên trong 90 ngày gần nhất.</p>
               </div>
               <button className="ghost" onClick={() => navigate("/Admin/Employees/Index")}>Quay lại</button>
             </div>
             {!history ? (
               <div className="empty-report history-empty-card">
-                <strong>Chưa có lịch sử nhân viên.</strong>
-                <div>Không thể tải dữ liệu lịch sử cho nhân viên này.</div>
+                <strong>Chưa có nhật ký nhân viên.</strong>
+                <div>Không thể tải dữ liệu nhật ký cho nhân viên này.</div>
               </div>
             ) : (
               <div className="stack">
+                {(() => {
+                  const { showChefHistory, showCashierHistory } = getEmployeeHistoryVisibility(history.employee);
+
+                  return (
+                    <>
                 <div className="inline-filter-card">
                   <div>
                     <strong>{history.employee.employeeName}</strong>
@@ -396,74 +485,281 @@ export function EmployeesModulePage({ mode, onLogout }: Props) {
                   </div>
                 </div>
 
-                <div className="history-block">
-                  <div className="history-block-title">Lịch sử bếp</div>
-                  {history.chefHistory.length === 0 ? (
-                    <div className="empty-report compact-empty">Chưa có lịch sử bếp.</div>
-                  ) : (
-                    <table className="data-table compact-table">
-                      <thead>
-                        <tr>
-                          <th>Mã đơn</th>
-                          <th>Thời gian tạo</th>
-                          <th>Hoàn tất</th>
-                          <th>Bàn</th>
-                          <th>Trạng thái</th>
-                          <th>Món</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {history.chefHistory.map((item) => (
-                          <tr key={`chef-${item.orderId}`}>
-                            <td>{item.orderCode || `ORDER-${item.orderId}`}</td>
-                            <td>{formatDateTime(item.orderTime)}</td>
-                            <td>{formatDateTime(item.completedTime)}</td>
-                            <td>{item.tableName || "-"}</td>
-                            <td>{item.statusName}</td>
-                            <td>{item.dishesSummary || "-"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
+                {showChefHistory ? (
+                  <>
+                    <div className="history-block">
+                      <div className="history-block-title">Nhật ký tạm ngưng/tiếp tục món</div>
+                      {history.chefActivityLogs.logs.length === 0 ? (
+                        <div className="empty-report compact-empty">Chưa có nhật ký tạm ngưng/tiếp tục món.</div>
+                      ) : (
+                        <>
+                          <table className="data-table compact-table">
+                            <thead>
+                              <tr>
+                                <th>Thời gian</th>
+                                <th>Hành động</th>
+                                <th>Món ăn</th>
+                                <th>Trạng thái sau</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {history.chefActivityLogs.logs.map((log) => {
+                                const actionLabel = log.actionType === "PAUSE_DISH" ? "Tạm ngưng" : 
+                                                   log.actionType === "RESUME_DISH" ? "Tiếp tục" : 
+                                                   log.actionType;
+                                const actionBadge = log.actionType === "PAUSE_DISH" ? "badge bg-warning text-dark" : 
+                                                   log.actionType === "RESUME_DISH" ? "badge bg-info" : 
+                                                   "badge bg-secondary";
+                                
+                                return (
+                                  <tr key={`chef-activity-${log.auditId}`}>
+                                    <td style={{ whiteSpace: "nowrap" }}>{formatDateTime(log.timestampUtc)}</td>
+                                    <td>
+                                      <span className={actionBadge}>{actionLabel}</span>
+                                    </td>
+                                    <td>
+                                      <strong>Món #{log.dishId}</strong>
+                                    </td>
+                                    <td>{log.afterState || "-"}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                          {history.chefActivityLogs.totalPages > 1 && (
+                            <div className="pagination-controls">
+                              <button 
+                                className="ghost" 
+                                disabled={activityPage <= 1}
+                                onClick={() => setActivityPage(p => Math.max(1, p - 1))}
+                              >
+                                ← Trang trước
+                              </button>
+                              <span>
+                                Trang {history.chefActivityLogs.page}/{history.chefActivityLogs.totalPages} 
+                                ({history.chefActivityLogs.totalItems} hành động)
+                              </span>
+                              <button 
+                                className="ghost"
+                                disabled={activityPage >= history.chefActivityLogs.totalPages}
+                                onClick={() => setActivityPage(p => p + 1)}
+                              >
+                                Trang sau →
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
 
-                <div className="history-block">
-                  <div className="history-block-title">Lịch sử thu ngân</div>
-                  {history.cashierHistory.length === 0 ? (
-                    <div className="empty-report compact-empty">Chưa có lịch sử thu ngân.</div>
-                  ) : (
-                    <table className="data-table compact-table">
-                      <thead>
-                        <tr>
-                          <th>Mã hóa đơn</th>
-                          <th>Thời gian</th>
-                          <th>Mã đơn</th>
-                          <th>Bàn</th>
-                          <th>Khách hàng</th>
-                          <th>Tổng tiền</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {history.cashierHistory.map((item) => (
-                          <tr key={`cash-${item.billId}`}>
-                            <td>{item.billCode}</td>
-                            <td>{formatDateTime(item.billTime)}</td>
-                            <td>{item.orderCode || "-"}</td>
-                            <td>{item.tableName || "-"}</td>
-                            <td>{item.customerName || "-"}</td>
-                            <td>{item.totalAmount.toLocaleString("vi-VN")} đ</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
+                    <div className="history-block">
+                      <div className="history-block-title">Nhật ký hoàn thành món ăn</div>
+                      {history.chefItemCompletions.logs.length === 0 ? (
+                        <div className="empty-report compact-empty">Chưa có nhật ký hoàn thành món ăn.</div>
+                      ) : (
+                        <>
+                          <table className="data-table compact-table">
+                            <thead>
+                              <tr>
+                                <th>Thời gian</th>
+                                <th>Món ăn</th>
+                                <th>Số lượng</th>
+                                <th>Đơn hàng</th>
+                                <th>Bàn</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {history.chefItemCompletions.logs.map((log) => {
+                                let details: any = null;
+                                try {
+                                  details = log.afterState ? JSON.parse(log.afterState) : null;
+                                } catch {}
+                                
+                                return (
+                                  <tr key={`chef-completion-${log.auditId}`}>
+                                    <td style={{ whiteSpace: "nowrap" }}>{formatDateTime(log.timestampUtc)}</td>
+                                    <td>
+                                      <strong>{details?.dishName || `Món #${log.dishId}`}</strong>
+                                    </td>
+                                    <td style={{ textAlign: "center" }}>
+                                      <span className="badge bg-success">{details?.quantity || 1}x</span>
+                                    </td>
+                                    <td>{details?.orderCode || "-"}</td>
+                                    <td>{details?.tableName || "-"}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                          {history.chefItemCompletions.totalPages > 1 && (
+                            <div className="pagination-controls">
+                              <button 
+                                className="ghost" 
+                                disabled={activityPage <= 1}
+                                onClick={() => setActivityPage(p => Math.max(1, p - 1))}
+                              >
+                                ← Trang trước
+                              </button>
+                              <span>
+                                Trang {history.chefItemCompletions.page}/{history.chefItemCompletions.totalPages} 
+                                ({history.chefItemCompletions.totalItems} món)
+                              </span>
+                              <button 
+                                className="ghost"
+                                disabled={activityPage >= history.chefItemCompletions.totalPages}
+                                onClick={() => setActivityPage(p => p + 1)}
+                              >
+                                Trang sau →
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    <div className="history-block">
+                      <div className="history-block-title">Nhật ký nấu ăn (Đơn hàng đã hoàn thành)</div>
+                      {history.chefCookingHistory.items.length === 0 ? (
+                        <div className="empty-report compact-empty">Chưa có nhật ký nấu ăn.</div>
+                      ) : (
+                        <>
+                          <table className="data-table compact-table">
+                            <thead>
+                              <tr>
+                                <th>Mã đơn</th>
+                                <th>Thời gian tạo</th>
+                                <th>Hoàn tất</th>
+                                <th>Bàn</th>
+                                <th>Trạng thái</th>
+                                <th>Món</th>
+                                <th>Ghi chú</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {history.chefCookingHistory.items.map((item) => (
+                                <tr key={`chef-cook-${item.orderId}`}>
+                                  <td>{item.orderCode || `ORDER-${item.orderId}`}</td>
+                                  <td>{formatDateTime(item.orderTime)}</td>
+                                  <td>{formatDateTime(item.completedTime)}</td>
+                                  <td>{item.tableName || "-"}</td>
+                                  <td>
+                                    <span className={
+                                      item.statusCode === "READY" ? "badge bg-success" :
+                                      item.statusCode === "PREPARING" ? "badge bg-warning text-dark" :
+                                      item.statusCode === "COMPLETED" ? "badge bg-primary" :
+                                      "badge bg-secondary"
+                                    }>
+                                      {item.statusName}
+                                    </span>
+                                  </td>
+                                  <td>{item.dishesSummary || "-"}</td>
+                                  <td>
+                                    {item.notes ? (
+                                      <span className="text-muted" style={{ fontSize: "0.9em" }}>
+                                        {item.notes}
+                                      </span>
+                                    ) : (
+                                      "-"
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {history.chefCookingHistory.totalPages > 1 && (
+                            <div className="pagination-controls">
+                              <button 
+                                className="ghost" 
+                                disabled={cookingPage <= 1}
+                                onClick={() => setCookingPage(p => Math.max(1, p - 1))}
+                              >
+                                ← Trang trước
+                              </button>
+                              <span>
+                                Trang {history.chefCookingHistory.page}/{history.chefCookingHistory.totalPages} 
+                                ({history.chefCookingHistory.totalItems} đơn hàng)
+                              </span>
+                              <button 
+                                className="ghost"
+                                disabled={cookingPage >= history.chefCookingHistory.totalPages}
+                                onClick={() => setCookingPage(p => p + 1)}
+                              >
+                                Trang sau →
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </>
+                ) : null}
+
+                {showCashierHistory ? (
+                  <div className="history-block">
+                    <div className="history-block-title">Nhật ký thu ngân</div>
+                    {history.cashierHistory.items.length === 0 ? (
+                      <div className="empty-report compact-empty">Chưa có nhật ký thu ngân.</div>
+                    ) : (
+                      <>
+                        <table className="data-table compact-table">
+                          <thead>
+                            <tr>
+                              <th>Mã hóa đơn</th>
+                              <th>Thời gian</th>
+                              <th>Mã đơn</th>
+                              <th>Bàn</th>
+                              <th>Khách hàng</th>
+                              <th>Tổng tiền</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {history.cashierHistory.items.map((item) => (
+                              <tr key={`cash-${item.billId}`}>
+                                <td>{item.billCode}</td>
+                                <td>{formatDateTime(item.billTime)}</td>
+                                <td>{item.orderCode || "-"}</td>
+                                <td>{item.tableName || "-"}</td>
+                                <td>{item.customerName || "-"}</td>
+                                <td>{item.totalAmount.toLocaleString("vi-VN")} đ</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {history.cashierHistory.totalPages > 1 && (
+                          <div className="pagination-controls">
+                            <button 
+                              className="ghost" 
+                              disabled={activityPage <= 1}
+                              onClick={() => setActivityPage(p => Math.max(1, p - 1))}
+                            >
+                              ← Trang trước
+                            </button>
+                            <span>
+                              Trang {history.cashierHistory.page}/{history.cashierHistory.totalPages} 
+                              ({history.cashierHistory.totalItems} hóa đơn)
+                            </span>
+                            <button 
+                              className="ghost"
+                              disabled={activityPage >= history.cashierHistory.totalPages}
+                              onClick={() => setActivityPage(p => p + 1)}
+                            >
+                              Trang sau →
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ) : null}
+                    </>
+                  );
+                })()}
               </div>
             )}
           </article>
         </section>
       ) : null}
+      <Dialog />
     </AdminLayout>
   );
 }

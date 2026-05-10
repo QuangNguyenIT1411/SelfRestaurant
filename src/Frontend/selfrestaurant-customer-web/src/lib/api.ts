@@ -99,6 +99,7 @@ export const api = {
   devResetTestState: () => request<DevResetResponse>("/api/gateway/customer/dev/reset-test-state", { method: "POST" }),
   validateResetPasswordToken: (token: string) => request<{ valid: true }>(`/api/gateway/customer/auth/reset-password/validate?token=${encodeURIComponent(token)}`),
   login: (payload: { username: string; password: string }) => request<{ success: true; session: CustomerSessionDto; nextPath: string }>("/api/gateway/customer/auth/login", { method: "POST", body: JSON.stringify(payload) }),
+  googleLogin: (payload: { idToken: string }) => request<{ success: true; session: CustomerSessionDto; nextPath: string }>("/api/gateway/customer/auth/google", { method: "POST", body: JSON.stringify(payload) }),
   register: (payload: { name: string; username: string; password: string; phoneNumber: string; email?: string; gender?: string; dateOfBirth?: string | null; address?: string }) => request<{ success: true; message: string; nextPath: string }>("/api/gateway/customer/auth/register", { method: "POST", body: JSON.stringify(payload) }),
   logout: () => request<{ success: true; nextPath: string }>("/api/gateway/customer/auth/logout", { method: "POST" }),
   forgotPassword: (payload: { usernameOrEmailOrPhone: string }) => request<CustomerForgotPasswordResultDto>("/api/gateway/customer/auth/forgot-password", { method: "POST", body: JSON.stringify(payload) }),

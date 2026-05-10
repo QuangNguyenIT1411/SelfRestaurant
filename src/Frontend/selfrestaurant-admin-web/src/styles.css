@@ -23,6 +23,12 @@ main { min-height: 100vh; }
 .sidebar-link:hover { background: #f8fbff; color: #2563eb; border-color: #dbe6f3; }
 .sidebar-link.active { background: #2563eb; color: #fff; }
 .sidebar-link:not(.active) { box-shadow: inset 0 0 0 1px transparent; }
+.sidebar-menu-group { display: grid; gap: .3rem; }
+.sidebar-parent { width: 100%; }
+.sidebar-chevron { margin-left: auto; font-size: .82rem; }
+.sidebar-submenu { display: grid; gap: .25rem; padding-left: 1rem; }
+.sidebar-sub-link { padding: .62rem .75rem; font-size: .94rem; }
+.sidebar-sub-link:not(.active) { background: #f8fbff; border-color: #e6e9f2; color: #334155; }
 .admin-header, .panel-head, .header-actions, .button-row, .tab-strip, .stats-grid, .panel-grid, .list-grid { display: flex; gap: 1rem; }
 .admin-header, .panel-head { justify-content: space-between; align-items: center; }
 .panel-head { flex-wrap: wrap; }
@@ -78,7 +84,17 @@ input, textarea, select { border-radius: 14px; border: 1px solid #d6deeb; paddin
 .ingredient-line.selected { border-color: #bfdbfe; background: #f8fbff; }
 .ingredient-toggle { display: flex; align-items: center; gap: .85rem; }
 .ingredient-toggle input { width: auto; }
-.success-box, .error-box { padding: 0.9rem 1rem; border-radius: 16px; }
+.category-helper { display: grid; gap: .65rem; margin-top: .75rem; }
+.category-helper-toggle { justify-self: start; }
+.category-helper-list { display: flex; flex-wrap: wrap; gap: .5rem; padding: .75rem; border: 1px solid #e6e9f2; border-radius: 8px; background: #f8fafc; }
+.dish-image-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; margin-top: 1rem; }
+.dish-image-preview { width: 128px; aspect-ratio: 4 / 3; display: grid; place-items: center; overflow: hidden; border: 1px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; color: #64748b; font-size: .86rem; text-align: center; }
+.dish-image-preview img { width: 100%; height: 100%; object-fit: cover; }
+.dish-image-meta { display: grid; gap: .45rem; min-width: min(220px, 100%); }
+.dish-image-button { width: fit-content; cursor: pointer; }
+.dish-image-button input { display: none; }
+.ingredient-summary-cell { max-width: 220px; color: #475569; line-height: 1.35; }
+.success-box, .error-box { padding: 0.9rem 1rem; border-radius: 16px; white-space: pre-line; }
 .success-box { background: #dcfce7; color: #166534; }
 .error-box { background: #fee2e2; color: #991b1b; }
 .eyebrow { text-transform: uppercase; letter-spacing: 0.15em; font-size: 0.75rem; color: #64748b; }
@@ -99,6 +115,78 @@ input, textarea, select { border-radius: 14px; border: 1px solid #d6deeb; paddin
 .status-pill.warning { background: #fff7e6; color: #f59e0b; }
 .status-pill.danger { background: #fff1f1; color: #d93025; }
 .status-pill.info { background: #e7f3ff; color: #2563eb; }
+.inventory-stock-card { gap: 1rem; }
+.inventory-stockin-form { display: grid; gap: 1rem; }
+.inventory-stockin-grid { display: grid; gap: .9rem; }
+.stockin-row-card { border: 1px solid #e6e9f2; border-radius: 16px; background: #f8fbff; padding: 1rem; display: grid; gap: .9rem; }
+.stockin-row-head { display: flex; justify-content: space-between; align-items: flex-start; gap: .85rem; flex-wrap: wrap; }
+.stockin-row-head strong { display: block; }
+.stockin-row-head span { color: #64748b; font-size: .88rem; }
+.stockin-container { padding: 16px; border-radius: 8px; background: #fff; border: 1px solid #e6e9f2; }
+.stockin-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1.2fr 1.2fr 1.5fr 1.5fr;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #475569;
+}
+.stockin-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1.2fr 1.2fr 1.5fr 1.5fr;
+  gap: 12px;
+  margin-bottom: 12px;
+  align-items: center;
+}
+.stockin-row input,
+.stockin-row select,
+.stockin-row .ant-picker {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.stockin-row .ingredient-combobox { width: 100%; min-width: 0; }
+.ingredient-combobox { position: relative; width: 100%; }
+.ingredient-combobox input { width: 100%; box-sizing: border-box; }
+.ingredient-combobox-menu { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; right: 0; max-height: 260px; overflow-y: auto; border: 1px solid #dbe6f3; border-radius: 14px; background: #fff; box-shadow: 0 18px 40px rgba(15, 23, 42, .16); padding: .35rem; display: grid; gap: .25rem; }
+.ingredient-combobox-menu button { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .65rem; border-radius: 10px; padding: .65rem .75rem; background: #fff; color: #0f172a; text-align: left; border: 0; }
+.ingredient-combobox-menu button:hover,
+.ingredient-combobox-menu button.selected { background: #eff6ff; color: #1d4ed8; }
+.ingredient-combobox-menu button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ingredient-combobox-menu button span { color: #64748b; font-size: .86rem; }
+.ingredient-combobox-empty,
+.ingredient-combobox-hint { padding: .7rem .75rem; color: #64748b; font-size: .9rem; }
+.stockin-note-row { display: grid; gap: .35rem; }
+.inventory-list-card { overflow: hidden; }
+.inventory-filter-row { align-items: stretch; }
+.inventory-filter-row input { min-width: min(320px, 100%); flex: 1 1 360px; }
+.inventory-filter-row select { min-width: 170px; }
+.inventory-table-wrap { width: 100%; overflow-x: auto; border: 1px solid #e6e9f2; border-radius: 14px; background: #fff; }
+.inventory-table { min-width: 920px; table-layout: fixed; border-collapse: separate; border-spacing: 0; }
+.inventory-table th, .inventory-table td { padding: .85rem .9rem; vertical-align: top; }
+.inventory-table th { white-space: nowrap; }
+.inventory-table tbody tr:last-child td { border-bottom: 0; }
+.inventory-col-ingredient { width: 22%; }
+.inventory-col-ingredient-wide { width: 25%; }
+.inventory-col-batch { width: 17%; }
+.inventory-col-quantity, .inventory-col-change { width: 13%; }
+.inventory-col-date, .inventory-col-time { width: 13%; }
+.inventory-col-status, .inventory-col-type { width: 13%; }
+.inventory-col-supplier { width: 17%; }
+.inventory-col-note { width: 24%; }
+.inventory-col-reference { width: 15%; }
+.inventory-primary-cell { display: grid; gap: .18rem; min-width: 0; }
+.inventory-primary-cell strong { color: #0f172a; overflow-wrap: anywhere; line-height: 1.35; }
+.inventory-primary-cell span { color: #64748b; font-size: .84rem; line-height: 1.35; overflow-wrap: anywhere; }
+.inventory-code { display: inline-block; max-width: 100%; padding: .28rem .45rem; border-radius: 8px; background: #f1f5f9; color: #334155; font-size: .82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.inventory-quantity, .inventory-change { white-space: nowrap; font-weight: 800; color: #0f172a; }
+.inventory-change.positive { color: #15803d; }
+.inventory-change.negative { color: #b91c1c; }
+.inventory-date { white-space: nowrap; color: #334155; }
+.inventory-secondary-text { display: inline-block; max-width: 100%; overflow-wrap: anywhere; color: #475569; }
+.inventory-note { display: block; max-width: 100%; color: #475569; line-height: 1.45; overflow-wrap: anywhere; }
+.inventory-reference { display: grid; gap: .15rem; color: #64748b; font-size: .86rem; line-height: 1.35; }
+.inventory-reference strong { color: #334155; font-size: .9rem; }
 .dish-inline-badges { display: flex; gap: .45rem; flex-wrap: wrap; margin-top: .45rem; }
 .summary-chip-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .85rem; }
 .summary-chip { background: #fff; border: 1px solid #e6e9f2; border-radius: 14px; padding: .9rem 1rem; }
@@ -180,7 +268,9 @@ input, textarea, select { border-radius: 14px; border: 1px solid #d6deeb; paddin
 .history-activity-meta { display: flex; flex-wrap: wrap; gap: .5rem .8rem; color: #64748b; font-size: .88rem; font-weight: 600; }
 .history-empty-card { text-align: left; display: grid; gap: .35rem; }
 .history-empty-card strong { color: #0f172a; }
-.admin-pagination { justify-content: flex-end; margin-top: .25rem; }
+.admin-pagination { justify-content: flex-end; margin-top: .25rem; gap: .45rem; }
+.admin-pagination-page,
+.admin-pagination-nav { min-width: 2.5rem; padding: .58rem .8rem; border-radius: 10px; }
 .login-shell { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
 .login-card { width: 100%; max-width: 450px; border: none; border-radius: 16px; box-shadow: 0 8px 25px rgba(0,0,0,.1); background: #fff; padding: 2.5rem; }
 .login-header { text-align: center; margin-bottom: 2rem; }
@@ -208,4 +298,62 @@ input, textarea, select { border-radius: 14px; border: 1px solid #d6deeb; paddin
   .admin-layout { grid-template-columns: 1fr; }
   .admin-header { align-items: flex-start; flex-direction: column; }
   .entry-form-actions { align-items: flex-start; }
+}
+@media (max-width: 768px) {
+  .stockin-row,
+  .stockin-header {
+    grid-template-columns: 1fr;
+  }
+
+  .stockin-header {
+    display: none;
+  }
+}
+.app-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.46);
+  backdrop-filter: blur(3px);
+}
+
+.app-dialog {
+  width: min(440px, 100%);
+  border-radius: 12px;
+  background: #fff;
+  padding: 22px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+}
+
+.app-dialog h2 {
+  margin: 0 0 10px;
+  font-size: 1.2rem;
+}
+
+.app-dialog p {
+  margin: 0;
+  color: #475569;
+}
+
+.app-dialog-field {
+  margin-top: 14px;
+}
+
+.app-dialog-field input,
+.app-dialog-field textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.app-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
 }

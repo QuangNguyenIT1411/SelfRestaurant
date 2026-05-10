@@ -16,10 +16,10 @@ export function RequireCashier({ session, loading }: Props) {
   }
   if (normalizedRole !== "CASHIER") {
     if (normalizedRole === "CHEF" || normalizedRole === "KITCHEN_STAFF") {
-      return <CrossAppRedirect to="/Staff/Chef/Index" message="Đang chuyển đến khu bếp..." />;
+    return <CrossAppRedirect to="/Staff/Chef/Index" message="Đang chuyển đến khu bếp..." />;
     }
     if (normalizedRole === "ADMIN" || normalizedRole === "MANAGER") {
-      return <CrossAppRedirect to="/Admin/Dashboard/Index" message="Đang chuyển đến khu quản trị..." />;
+    return <CrossAppRedirect to="/Admin/Dashboard/Index" message="Đang chuyển đến khu quản trị..." />;
     }
     return <Navigate to="/Staff/Account/Login" replace />;
   }

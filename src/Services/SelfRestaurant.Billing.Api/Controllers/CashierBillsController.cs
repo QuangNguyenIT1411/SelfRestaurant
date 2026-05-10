@@ -29,12 +29,12 @@ public sealed class CashierBillsController : ControllerBase
     {
         if (employeeId <= 0)
         {
-            return BadRequest(new { message = "EmployeeId is required." });
+            return BadRequest(new { message = "Thiếu mã nhân viên thu ngân." });
         }
 
         if (branchId <= 0)
         {
-            return BadRequest(new { message = "BranchId is required." });
+            return BadRequest(new { message = "Thiếu mã chi nhánh." });
         }
 
         take = Math.Clamp(take, 1, 200);
@@ -93,26 +93,34 @@ public sealed class CashierBillsController : ControllerBase
     }
 
     [HttpGet("api/internal/employees/{employeeId:int}/cashier/history")]
-    public async Task<ActionResult<IReadOnlyList<BillSummaryResponse>>> GetInternalCashierHistory(
+    public async Task<ActionResult<object>> GetInternalCashierHistory(
         int employeeId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
         [FromQuery] int days = 90,
-        [FromQuery] int take = 200,
         CancellationToken cancellationToken = default)
     {
         if (employeeId <= 0)
         {
-            return BadRequest(new { message = "EmployeeId is required." });
+            return BadRequest(new { message = "Thiếu mã nhân viên thu ngân." });
         }
 
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
         days = Math.Clamp(days, 1, 365);
-        take = Math.Clamp(take, 1, 500);
         var fromDate = DateTime.Today.AddDays(-days);
 
-        var bills = await _db.Bills
+        var query = _db.Bills
             .AsNoTracking()
-            .Where(b => b.IsActive && b.EmployeeID == employeeId && b.BillTime >= fromDate)
+            .Where(b => b.IsActive && b.EmployeeID == employeeId && b.BillTime >= fromDate);
+
+        var totalItems = await query.CountAsync(cancellationToken);
+        var totalPages = totalItems <= 0 ? 0 : (int)Math.Ceiling(totalItems / (double)pageSize);
+
+        var bills = await query
             .OrderByDescending(b => b.BillTime)
-            .Take(take)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync(cancellationToken);
 
         var orderLookup = await GetFallbackOrderContextLookupAsync(bills, cancellationToken);
@@ -121,7 +129,7 @@ public sealed class CashierBillsController : ControllerBase
                 cancellationToken))
             .ToDictionary(x => x.CustomerId);
 
-        var payload = bills.Select(b =>
+        var items = bills.Select(b =>
         {
             orderLookup.TryGetValue(b.OrderID, out var orderContext);
             customerLookup.TryGetValue(b.CustomerID ?? 0, out var customer);
@@ -144,7 +152,7 @@ public sealed class CashierBillsController : ControllerBase
                 b.ChangeAmount);
         }).ToList();
 
-        return Ok(payload);
+        return Ok(new { page, pageSize, totalItems, totalPages, items });
     }
 
     [HttpGet("api/employees/{employeeId:int}/cashier/report")]
@@ -184,7 +192,7 @@ public sealed class CashierBillsController : ControllerBase
     {
         if (branchId <= 0)
         {
-            return BadRequest(new { message = "BranchId is required." });
+            return BadRequest(new { message = "Thiếu mã chi nhánh." });
         }
 
         var target = date ?? DateOnly.FromDateTime(DateTime.Today);

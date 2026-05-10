@@ -180,8 +180,8 @@ public sealed class CashierController : ControllerBase
             customerSnapshot = await _customersApi.GetCustomerAsync(customerId, cancellationToken);
             if (customerSnapshot is null)
             {
-                await MarkCheckoutCommandFailedAsync(command, "Khong the dong bo du lieu khach hang tu Customers API.", cancellationToken);
-                return Problem("Khong the dong bo du lieu khach hang tu Customers API.", statusCode: StatusCodes.Status502BadGateway);
+                await MarkCheckoutCommandFailedAsync(command, "Không thể đồng bộ dữ liệu khách hàng từ Customers API.", cancellationToken);
+                return Problem("Không thể đồng bộ dữ liệu khách hàng từ Customers API.", statusCode: StatusCodes.Status502BadGateway);
             }
         }
 
@@ -316,7 +316,7 @@ public sealed class CashierController : ControllerBase
 
             if (settlement is null)
             {
-                return Problem("Khong the dong bo diem tich luy voi Customers API.", statusCode: StatusCodes.Status502BadGateway);
+                return Problem("Không thể đồng bộ điểm tích lũy với Customers API.", statusCode: StatusCodes.Status502BadGateway);
             }
 
             usedPoints = settlement.PointsUsed;

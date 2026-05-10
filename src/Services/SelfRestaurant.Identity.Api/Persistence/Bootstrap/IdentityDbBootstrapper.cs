@@ -8,6 +8,7 @@ public static class IdentityDbBootstrapper
 {
     private static readonly string[] OwnedTables =
     [
+        "BusinessAuditLogs",
         "CatalogBranchSnapshots",
         "Customers",
         "EmployeeRoles",
@@ -25,7 +26,9 @@ public static class IdentityDbBootstrapper
         var db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
 
         await WaitForDatabaseAsync(db, logger, cancellationToken);
+        await EnsureBusinessAuditLogsTableAsync(db, logger, cancellationToken);
         await ValidateOwnedSchemaAsync(db, logger, cancellationToken);
+        await EnsureCustomerExternalLoginColumnsAsync(db, logger, cancellationToken);
         await SeedReferenceDataAsync(db, logger, cancellationToken);
     }
 
@@ -98,6 +101,127 @@ public static class IdentityDbBootstrapper
         }
 
         logger.LogInformation("Identity schema validated without transitional Branches dependency.");
+    }
+
+    private static async Task EnsureBusinessAuditLogsTableAsync(IdentityDbContext db, ILogger logger, CancellationToken cancellationToken)
+    {
+        await db.Database.OpenConnectionAsync(cancellationToken);
+        try
+        {
+            const string createSql = """
+                IF OBJECT_ID(N'dbo.BusinessAuditLogs', N'U') IS NULL
+                BEGIN
+                    CREATE TABLE dbo.BusinessAuditLogs
+                    (
+                        BusinessAuditLogId BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                        CreatedAtUtc DATETIME2 NOT NULL CONSTRAINT DF_IdentityBusinessAuditLogs_CreatedAtUtc DEFAULT (SYSUTCDATETIME()),
+                        ActionType VARCHAR(100) NOT NULL,
+                        EntityType VARCHAR(50) NOT NULL,
+                        EntityId VARCHAR(100) NOT NULL,
+                        ActorType VARCHAR(30) NULL,
+                        ActorId INT NULL,
+                        ActorCode VARCHAR(50) NULL,
+                        ActorName NVARCHAR(100) NULL,
+                        ActorRoleCode VARCHAR(50) NULL,
+                        CustomerId INT NULL,
+                        EmployeeId INT NULL,
+                        IpAddress VARCHAR(50) NULL,
+                        UserAgent VARCHAR(500) NULL,
+                        CorrelationId VARCHAR(100) NULL,
+                        Notes NVARCHAR(1000) NULL,
+                        BeforeState NVARCHAR(MAX) NULL,
+                        AfterState NVARCHAR(MAX) NULL
+                    );
+                END
+                """;
+
+            await ExecuteNonQueryAsync(db, createSql, cancellationToken);
+
+            const string indexesSql = """
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.BusinessAuditLogs') AND name = N'IX_BusinessAuditLogs_CreatedAtUtc')
+                    CREATE INDEX IX_BusinessAuditLogs_CreatedAtUtc ON dbo.BusinessAuditLogs(CreatedAtUtc);
+
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.BusinessAuditLogs') AND name = N'IX_BusinessAuditLogs_Entity')
+                    CREATE INDEX IX_BusinessAuditLogs_Entity ON dbo.BusinessAuditLogs(EntityType, EntityId);
+
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.BusinessAuditLogs') AND name = N'IX_BusinessAuditLogs_CustomerId')
+                    CREATE INDEX IX_BusinessAuditLogs_CustomerId ON dbo.BusinessAuditLogs(CustomerId);
+
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.BusinessAuditLogs') AND name = N'IX_BusinessAuditLogs_EmployeeId')
+                    CREATE INDEX IX_BusinessAuditLogs_EmployeeId ON dbo.BusinessAuditLogs(EmployeeId);
+                """;
+
+            await ExecuteNonQueryAsync(db, indexesSql, cancellationToken);
+
+            logger.LogInformation("Identity BusinessAuditLogs table is ready.");
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+    }
+
+    private static async Task EnsureCustomerExternalLoginColumnsAsync(IdentityDbContext db, ILogger logger, CancellationToken cancellationToken)
+    {
+        await db.Database.OpenConnectionAsync(cancellationToken);
+        try
+        {
+            await ExecuteNonQueryAsync(db, """
+                IF COL_LENGTH('dbo.Customers', 'AuthProvider') IS NULL
+                    ALTER TABLE dbo.Customers ADD AuthProvider varchar(30) NOT NULL CONSTRAINT DF_Customers_AuthProvider DEFAULT ('Password');
+                """, cancellationToken);
+
+            await ExecuteNonQueryAsync(db, """
+                IF COL_LENGTH('dbo.Customers', 'ExternalProvider') IS NULL
+                    ALTER TABLE dbo.Customers ADD ExternalProvider varchar(30) NULL;
+                """, cancellationToken);
+
+            await ExecuteNonQueryAsync(db, """
+                IF COL_LENGTH('dbo.Customers', 'ExternalSubject') IS NULL
+                    ALTER TABLE dbo.Customers ADD ExternalSubject varchar(120) NULL;
+                """, cancellationToken);
+
+            await ExecuteNonQueryAsync(db, """
+                IF EXISTS (
+                    SELECT 1
+                    FROM sys.columns
+                    WHERE object_id = OBJECT_ID('dbo.Customers')
+                      AND name = 'Password'
+                      AND is_nullable = 0
+                )
+                    ALTER TABLE dbo.Customers ALTER COLUMN Password varchar(255) NULL;
+                """, cancellationToken);
+
+            await ExecuteNonQueryAsync(db, """
+                UPDATE dbo.Customers
+                SET AuthProvider = 'Password'
+                WHERE AuthProvider IS NULL OR LTRIM(RTRIM(AuthProvider)) = '';
+                """, cancellationToken);
+
+            await ExecuteNonQueryAsync(db, """
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM sys.indexes
+                    WHERE object_id = OBJECT_ID('dbo.Customers')
+                      AND name = 'idx_customers_external_login'
+                )
+                    CREATE INDEX idx_customers_external_login ON dbo.Customers(ExternalProvider, ExternalSubject);
+                """, cancellationToken);
+
+            logger.LogInformation("Identity customer external login columns are ready.");
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+    }
+
+    private static async Task ExecuteNonQueryAsync(IdentityDbContext db, string sql, CancellationToken cancellationToken)
+    {
+        await using var command = db.Database.GetDbConnection().CreateCommand();
+        command.CommandText = sql;
+        command.CommandType = CommandType.Text;
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private static async Task<bool> ObjectExistsAsync(

@@ -183,6 +183,32 @@
   },
   {
     "ContainingType": "SelfRestaurant.Identity.Api.Controllers.IdentityController",
+    "Method": "GetCustomerActivityLogs",
+    "RelativePath": "api/identity/admin/customers/{customerId}/activity-logs",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "customerId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "pageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "SelfRestaurant.Identity.Api.Controllers.IdentityController",
     "Method": "DeactivateAdminCustomer",
     "RelativePath": "api/identity/admin/customers/{customerId}/deactivate",
     "HttpMethod": "POST",
@@ -361,12 +387,22 @@
         "IsRequired": true
       },
       {
-        "Name": "days",
+        "Name": "activityPage",
         "Type": "System.Int32",
         "IsRequired": false
       },
       {
-        "Name": "take",
+        "Name": "cookingPage",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "pageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "days",
         "Type": "System.Int32",
         "IsRequired": false
       }
@@ -410,7 +446,13 @@
     "HttpMethod": "GET",
     "IsController": true,
     "Order": 0,
-    "Parameters": [],
+    "Parameters": [
+      {
+        "Name": "branchId",
+        "Type": "System.Nullable\u00601[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      }
+    ],
     "ReturnTypes": [
       {
         "Type": "SelfRestaurant.Identity.Api.Controllers.IdentityController\u002BAdminStatsResponse",
@@ -434,6 +476,32 @@
       {
         "Name": "request",
         "Type": "SelfRestaurant.Identity.Api.Controllers.IdentityController\u002BLoginRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "SelfRestaurant.Identity.Api.Controllers.IdentityController\u002BLoginResponse",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Identity.Api.Controllers.IdentityController",
+    "Method": "GoogleLogin",
+    "RelativePath": "api/identity/login/google",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "SelfRestaurant.Identity.Api.Controllers.IdentityController\u002BGoogleLoginRequest",
         "IsRequired": true
       }
     ],
@@ -697,6 +765,47 @@
     "ReturnTypes": [
       {
         "Type": "System.Collections.Generic.IReadOnlyList\u00601[[System.Object, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "MediaTypes": [
+          "text/plain",
+          "application/json",
+          "text/json"
+        ],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "SelfRestaurant.Identity.Api.Controllers.IdentityController",
+    "Method": "GetCustomerOrderHistory",
+    "RelativePath": "api/internal/customers/{customerId}/order-history",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "customerId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "pageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "days",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "SelfRestaurant.Identity.Api.Infrastructure.CustomerOrderHistoryPagedResponse",
         "MediaTypes": [
           "text/plain",
           "application/json",

@@ -88,7 +88,7 @@ public sealed class CustomersController : ControllerBase
 
         if (entity is null)
         {
-            return NotFound(new { message = "Notification not found." });
+            return NotFound(new { message = "Không tìm thấy thông báo." });
         }
 
         var resolvedAtUtc = DateTime.UtcNow;

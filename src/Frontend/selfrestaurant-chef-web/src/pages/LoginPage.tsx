@@ -6,7 +6,7 @@ type Props = {
   onLoggedIn: () => Promise<void>;
 };
 
-function resolveChefNextPath(from: string | undefined, nextPath: string | undefined) {
+function resolveStaffNextPath(from: string | undefined, nextPath: string | undefined) {
   const normalizedFrom = from?.trim();
   const normalizedNext = nextPath?.trim();
   const isChefLanding = normalizedNext?.startsWith("/Staff/Chef/") ?? false;
@@ -44,7 +44,7 @@ export function LoginPage({ onLoggedIn }: Props) {
       const result = await chefApi.login(username, password);
       await onLoggedIn();
       setSuccess("Đăng nhập thành công!");
-      const nextPath = resolveChefNextPath((location.state as { from?: string } | null)?.from, result.nextPath);
+      const nextPath = resolveStaffNextPath((location.state as { from?: string } | null)?.from, result.nextPath);
       window.setTimeout(() => {
         // The shared staff login page is hosted in the chef shell, but a valid
         // login may belong to another staff area. Cross-app destinations must
@@ -68,7 +68,7 @@ export function LoginPage({ onLoggedIn }: Props) {
       <section className="login-card">
         <div className="login-header">
           <h1 className="login-brand">Self Restaurant</h1>
-          <p className="login-title">{"\u0110\u0103ng nh\u1eadp t\u00e0i kho\u1ea3n qu\u1ea3n l\u00fd"}</p>
+          <p className="login-title">Đăng nhập tài khoản nhân viên</p>
         </div>
 
         {success ? <div className="success-box">{success}</div> : null}
@@ -119,9 +119,13 @@ export function LoginPage({ onLoggedIn }: Props) {
         </form>
 
         <div className="login-help">
-          <strong>{"T\u00e0i kho\u1ea3n m\u1eabu b\u1ebfp:"}</strong>
+          <strong>Tài khoản mẫu:</strong>
           <br />
-          <code>chef_hung</code> / <code>123456</code>
+          Bếp: <code>chef_hung</code> / <code>123456</code>
+          <br />
+          Thu ngân: <code>cashier_lan</code> / <code>123456</code>
+          <br />
+          Quản trị: <code>admin</code> / <code>123456</code>
         </div>
       </section>
     </main>

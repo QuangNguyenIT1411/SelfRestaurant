@@ -1,20 +1,30 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SelfRestaurant.Catalog.Api.Infrastructure.Inventory;
 using SelfRestaurant.Catalog.Api.Persistence;
 using SelfRestaurant.Catalog.Api.Persistence.Entities;
+using System.Data;
 
 namespace SelfRestaurant.Catalog.Api.Controllers;
 
 [ApiController]
 public sealed class CatalogController : ControllerBase
 {
+    private const string MovementTypeConsume = "CONSUME";
+    private const string MovementReferenceOrder = "ORDER";
     private readonly CatalogDbContext _db;
+    private readonly IngredientStockAvailabilityService _stockAvailability;
     private readonly ILogger<CatalogController> _logger;
     private readonly IHostEnvironment _environment;
 
-    public CatalogController(CatalogDbContext db, ILogger<CatalogController> logger, IHostEnvironment environment)
+    public CatalogController(
+        CatalogDbContext db,
+        IngredientStockAvailabilityService stockAvailability,
+        ILogger<CatalogController> logger,
+        IHostEnvironment environment)
     {
         _db = db;
+        _stockAvailability = stockAvailability;
         _logger = logger;
         _environment = environment;
     }
@@ -52,12 +62,13 @@ public sealed class CatalogController : ControllerBase
             .AsNoTracking()
             .Where(x => x.BranchID == branchId && (x.IsActive ?? true))
             .Include(x => x.Status)
-            .OrderBy(x => x.TableID)
+            .OrderBy(x => x.TableNumber)
+            .ThenBy(x => x.TableID)
             .Select(x => new
             {
                 tableId = x.TableID,
                 branchId = x.BranchID,
-                displayTableNumber = x.TableID,
+                displayTableNumber = x.TableNumber,
                 numberOfSeats = x.NumberOfSeats,
                 statusName = x.Status.StatusName,
                 isAvailable = x.Status.StatusCode == "AVAILABLE",
@@ -123,7 +134,7 @@ public sealed class CatalogController : ControllerBase
         {
             var rawDishes = await _db.CategoryDish
                 .AsNoTracking()
-                .Where(x => x.MenuCategoryID == mc.MenuCategoryID && (x.IsAvailable ?? true))
+                .Where(x => x.MenuCategoryID == mc.MenuCategoryID)
                 .Include(x => x.Dish)
                 .OrderBy(x => x.DisplayOrder)
                 .ThenBy(x => x.Dish.Name)
@@ -137,7 +148,8 @@ public sealed class CatalogController : ControllerBase
                     unit = x.Dish.Unit,
                     isVegetarian = x.Dish.IsVegetarian ?? false,
                     isDailySpecial = x.Dish.IsDailySpecial ?? false,
-                    available = x.Dish.Available ?? true,
+                    categoryAvailable = x.IsAvailable ?? true,
+                    dishAvailable = x.Dish.Available ?? true,
                     ingredients = x.Dish.DishIngredients
                         .Select(i => new
                         {
@@ -150,8 +162,9 @@ public sealed class CatalogController : ControllerBase
                 .ToListAsync(cancellationToken);
 
             var orderableDishIds = await FilterOrderableDishIdsAsync(rawDishes.Select(x => x.dishId), cancellationToken);
-            // Keep dishes visible in the menu even when they are temporarily not orderable,
-            // so the MVC-like customer flow can show "Tạm hết" instead of silently hiding them.
+            // Keep dishes visible in the menu even when they are temporarily not orderable
+            // or have been paused/disabled, so the MVC-like customer flow can show
+            // "Tạm ngừng bán" instead of silently hiding them like a deletion.
             var dishes = rawDishes
                 .Select(x => new
                 {
@@ -163,7 +176,7 @@ public sealed class CatalogController : ControllerBase
                     x.unit,
                     x.isVegetarian,
                     x.isDailySpecial,
-                    available = x.available && orderableDishIds.Contains(x.dishId),
+                    available = x.categoryAvailable && x.dishAvailable && orderableDishIds.Contains(x.dishId),
                     x.ingredients,
                 })
                 .ToList();
@@ -205,7 +218,7 @@ public sealed class CatalogController : ControllerBase
             {
                 tableId = x.TableID,
                 branchId = x.BranchID,
-                displayTableNumber = x.TableID,
+                displayTableNumber = x.TableNumber,
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -223,6 +236,7 @@ public sealed class CatalogController : ControllerBase
             {
                 tableId = x.TableID,
                 branchId = x.BranchID,
+                tableNumber = x.TableNumber,
                 qrCode = x.QRCode,
                 isActive = x.IsActive ?? true,
                 statusId = x.StatusID,
@@ -251,6 +265,7 @@ public sealed class CatalogController : ControllerBase
             {
                 tableId = x.TableID,
                 branchId = x.BranchID,
+                tableNumber = x.TableNumber,
                 qrCode = x.QRCode,
                 isActive = x.IsActive ?? true,
                 statusId = x.StatusID,
@@ -277,7 +292,7 @@ public sealed class CatalogController : ControllerBase
 
         if (!availableStatusId.HasValue)
         {
-            return Problem("Missing AVAILABLE table status.", statusCode: StatusCodes.Status500InternalServerError);
+            return Problem("Hệ thống chưa cấu hình trạng thái AVAILABLE cho bàn.", statusCode: StatusCodes.Status500InternalServerError);
         }
 
         var tables = await _db.DiningTables
@@ -436,7 +451,7 @@ public sealed class CatalogController : ControllerBase
 
         if (occupiedId is null)
         {
-            return BadRequest("Status 'OCCUPIED' is missing.");
+            return BadRequest("Hệ thống chưa cấu hình trạng thái OCCUPIED cho bàn.");
         }
 
         table.StatusID = occupiedId.Value;
@@ -462,7 +477,7 @@ public sealed class CatalogController : ControllerBase
 
         if (availableId is null)
         {
-            return BadRequest("Status 'AVAILABLE' is missing.");
+            return BadRequest("Hệ thống chưa cấu hình trạng thái AVAILABLE cho bàn.");
         }
 
         table.StatusID = availableId.Value;
@@ -472,22 +487,91 @@ public sealed class CatalogController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("api/internal/tables/reset-all")]
+    public async Task<ActionResult<object>> ResetAllInternalTables(CancellationToken cancellationToken)
+    {
+        var availableId = await _db.TableStatus
+            .Where(x => x.StatusCode == "AVAILABLE")
+            .Select(x => (int?)x.StatusID)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (availableId is null)
+        {
+            return BadRequest("Hệ thống chưa cấu hình trạng thái AVAILABLE cho bàn.");
+        }
+
+        var tables = await _db.DiningTables
+            .Where(x => x.IsActive ?? true)
+            .ToListAsync(cancellationToken);
+
+        var now = DateTime.Now;
+        foreach (var table in tables)
+        {
+            table.StatusID = availableId.Value;
+            table.CurrentOrderID = null;
+            table.UpdatedAt = now;
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return Ok(new { success = true, resetTables = tables.Count });
+    }
+
     [HttpPost("api/internal/inventory/consume")]
     public async Task<ActionResult<IngredientConsumptionResponse>> ConsumeInventoryForOrder(
         [FromBody] IngredientConsumptionRequest request,
         CancellationToken cancellationToken)
     {
-        var items = (request.Items ?? Array.Empty<IngredientConsumptionItem>())
+        var requestedItems = (request.Items ?? Array.Empty<IngredientConsumptionItem>())
             .Where(x => x.DishId > 0 && x.Quantity > 0)
-            .GroupBy(x => x.DishId)
-            .Select(g => new { DishId = g.Key, Quantity = g.Sum(x => x.Quantity) })
+            .GroupBy(x => new { x.DishId, OrderItemId = x.OrderItemId is > 0 ? x.OrderItemId : null })
+            .Select(g => new ConsumptionOrderItem(g.Key.DishId, g.Sum(x => x.Quantity), g.Key.OrderItemId))
             .ToList();
 
-        if (items.Count == 0)
+        if (requestedItems.Count == 0)
         {
             return BadRequest(new IngredientConsumptionResponse(
                 false,
                 "Đơn hàng không có món hợp lệ để trừ kho.",
+                Array.Empty<IngredientConsumptionIssue>()));
+        }
+
+        await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+
+        var requestedOrderItemIds = requestedItems
+            .Where(x => x.OrderItemId is > 0)
+            .Select(x => x.OrderItemId!.Value)
+            .Distinct()
+            .ToArray();
+        var requestedDishIds = requestedItems.Select(x => x.DishId).Distinct().ToArray();
+        var existingMovements = await _db.IngredientStockMovements
+            .AsNoTracking()
+            .Where(m => m.MovementType == MovementTypeConsume
+                && m.OrderID == request.OrderId
+                && ((m.OrderItemID != null && requestedOrderItemIds.Contains(m.OrderItemID.Value))
+                    || (m.OrderItemID == null && m.DishID != null && requestedDishIds.Contains(m.DishID.Value))))
+            .Select(m => new { m.OrderItemID, m.DishID })
+            .ToListAsync(cancellationToken);
+        var consumedOrderItemIds = existingMovements
+            .Where(m => m.OrderItemID is > 0)
+            .Select(m => m.OrderItemID!.Value)
+            .ToHashSet();
+        var consumedLegacyDishIds = existingMovements
+            .Where(m => m.OrderItemID is null && m.DishID is > 0)
+            .Select(m => m.DishID!.Value)
+            .ToHashSet();
+
+        var items = requestedItems
+            .Where(item => item.OrderItemId is > 0
+                ? !consumedOrderItemIds.Contains(item.OrderItemId.Value)
+                : !consumedLegacyDishIds.Contains(item.DishId))
+            .ToList();
+
+        if (items.Count == 0)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return Ok(new IngredientConsumptionResponse(
+                true,
+                "Đơn hàng đã được trừ kho nguyên liệu trước đó.",
                 Array.Empty<IngredientConsumptionIssue>()));
         }
 
@@ -499,52 +583,168 @@ public sealed class CatalogController : ControllerBase
 
         if (recipes.Count == 0)
         {
+            await transaction.CommitAsync(cancellationToken);
             return Ok(new IngredientConsumptionResponse(
                 true,
                 "Không có công thức nguyên liệu cần trừ cho đơn hàng này.",
                 Array.Empty<IngredientConsumptionIssue>()));
         }
 
-        var itemLookup = items.ToDictionary(x => x.DishId, x => x.Quantity);
-        var requirements = recipes
-            .GroupBy(x => x.IngredientID)
+        var recipeLines = items
+            .Join(
+                recipes,
+                item => item.DishId,
+                recipe => recipe.DishID,
+                (item, recipe) => new ConsumptionRecipeLine(
+                    item.DishId,
+                    item.OrderItemId,
+                    recipe.Ingredient,
+                    recipe.QuantityPerDish * item.Quantity))
+            .Where(x => x.RequiredQuantity > 0)
+            .ToList();
+        var requirements = recipeLines
+            .GroupBy(x => x.Ingredient.IngredientID)
             .Select(g =>
             {
                 var first = g.First();
-                var requiredQuantity = g.Sum(recipe => recipe.QuantityPerDish * itemLookup.GetValueOrDefault(recipe.DishID, 0));
                 return new
                 {
                     Ingredient = first.Ingredient,
-                    RequiredQuantity = requiredQuantity
+                    RequiredQuantity = g.Sum(x => x.RequiredQuantity)
                 };
             })
             .Where(x => x.RequiredQuantity > 0)
             .ToList();
 
-        var insufficient = requirements
-            .Where(x => x.Ingredient.CurrentStock < x.RequiredQuantity)
-            .Select(x => new IngredientConsumptionIssue(
-                x.Ingredient.IngredientID,
-                x.Ingredient.Name,
-                x.RequiredQuantity,
-                x.Ingredient.CurrentStock,
-                x.Ingredient.Unit))
-            .ToList();
+        var ingredientIds = requirements.Select(x => x.Ingredient.IngredientID).Distinct().ToArray();
+        var activeBatches = await _db.IngredientBatches
+            .Where(b => ingredientIds.Contains(b.IngredientID) && b.IsActive)
+            .OrderBy(b => b.ExpiryDate)
+            .ThenBy(b => b.ReceivedDate)
+            .ThenBy(b => b.BatchID)
+            .ToListAsync(cancellationToken);
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var batchLookup = activeBatches
+            .GroupBy(b => b.IngredientID)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var insufficient = new List<IngredientConsumptionIssue>();
+        foreach (var requirement in requirements)
+        {
+            batchLookup.TryGetValue(requirement.Ingredient.IngredientID, out var batches);
+            batches ??= [];
+            var availableQuantity = batches.Count > 0
+                ? batches.Where(b => b.QuantityRemaining > 0 && b.ExpiryDate >= today).Sum(b => b.QuantityRemaining)
+                : requirement.Ingredient.CurrentStock;
+            if (availableQuantity < requirement.RequiredQuantity)
+            {
+                insufficient.Add(new IngredientConsumptionIssue(
+                    requirement.Ingredient.IngredientID,
+                    requirement.Ingredient.Name,
+                    requirement.RequiredQuantity,
+                    availableQuantity,
+                    requirement.Ingredient.Unit));
+            }
+        }
 
         if (insufficient.Count > 0)
         {
+            await transaction.RollbackAsync(cancellationToken);
             return Conflict(new IngredientConsumptionResponse(
                 false,
                 "Không đủ nguyên liệu để bắt đầu chế biến đơn này.",
                 insufficient));
         }
 
+        var consumedAt = DateTime.UtcNow;
         foreach (var requirement in requirements)
         {
-            requirement.Ingredient.CurrentStock -= requirement.RequiredQuantity;
+            var ingredientLines = recipeLines
+                .Where(x => x.Ingredient.IngredientID == requirement.Ingredient.IngredientID)
+                .ToList();
+            batchLookup.TryGetValue(requirement.Ingredient.IngredientID, out var batches);
+            batches ??= [];
+
+            if (batches.Count > 0)
+            {
+                var usableBatches = batches
+                    .Where(b => b.QuantityRemaining > 0 && b.ExpiryDate >= today)
+                    .ToList();
+
+                foreach (var line in ingredientLines)
+                {
+                    var remainingLineQuantity = line.RequiredQuantity;
+                    foreach (var batch in usableBatches)
+                    {
+                        if (remainingLineQuantity <= 0)
+                        {
+                            break;
+                        }
+
+                        if (batch.QuantityRemaining <= 0)
+                        {
+                            continue;
+                        }
+
+                        var deducted = Math.Min(batch.QuantityRemaining, remainingLineQuantity);
+                        batch.QuantityRemaining -= deducted;
+                        batch.UpdatedAt = consumedAt;
+                        remainingLineQuantity -= deducted;
+                        AddConsumptionMovement(requirement.Ingredient.IngredientID, batch.BatchID, deducted, line, request.OrderId, consumedAt);
+                    }
+
+                    if (remainingLineQuantity > 0)
+                    {
+                        await transaction.RollbackAsync(cancellationToken);
+                        return Conflict(new IngredientConsumptionResponse(
+                            false,
+                            "Không đủ nguyên liệu để bắt đầu chế biến đơn này.",
+                            [
+                                new IngredientConsumptionIssue(
+                                    requirement.Ingredient.IngredientID,
+                                    requirement.Ingredient.Name,
+                                    requirement.RequiredQuantity,
+                                    requirement.RequiredQuantity - remainingLineQuantity,
+                                    requirement.Ingredient.Unit)
+                            ]));
+                    }
+                }
+
+                requirement.Ingredient.CurrentStock = batches
+                    .Where(b => b.IsActive && b.QuantityRemaining > 0)
+                    .Sum(b => b.QuantityRemaining);
+            }
+            else
+            {
+                var updatedRows = await TryDecreaseIngredientCurrentStockAsync(
+                    requirement.Ingredient.IngredientID,
+                    requirement.RequiredQuantity,
+                    cancellationToken);
+                if (updatedRows == 0)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return Conflict(new IngredientConsumptionResponse(
+                        false,
+                        "Không đủ nguyên liệu để bắt đầu chế biến đơn này.",
+                        [
+                            new IngredientConsumptionIssue(
+                                requirement.Ingredient.IngredientID,
+                                requirement.Ingredient.Name,
+                                requirement.RequiredQuantity,
+                                requirement.Ingredient.CurrentStock,
+                                requirement.Ingredient.Unit)
+                        ]));
+                }
+
+                foreach (var line in ingredientLines)
+                {
+                    AddConsumptionMovement(requirement.Ingredient.IngredientID, null, line.RequiredQuantity, line, request.OrderId, consumedAt);
+                }
+            }
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         return Ok(new IngredientConsumptionResponse(
             true,
@@ -601,13 +801,29 @@ public sealed class CatalogController : ControllerBase
             .Where(x => x.RequiredQuantity > 0)
             .ToList();
 
+        var availabilityMap = await _stockAvailability.BuildIngredientStockAvailabilityMapAsync(
+            requirements.Select(x => x.Ingredient.IngredientID),
+            cancellationToken);
+
         var insufficient = requirements
-            .Where(x => x.Ingredient.CurrentStock < x.RequiredQuantity)
+            .Select(x =>
+            {
+                var availableQuantity = availabilityMap.TryGetValue(x.Ingredient.IngredientID, out var stock)
+                    ? stock.AvailabilityStock
+                    : 0;
+                return new
+                {
+                    x.Ingredient,
+                    x.RequiredQuantity,
+                    AvailableQuantity = availableQuantity
+                };
+            })
+            .Where(x => x.AvailableQuantity < x.RequiredQuantity)
             .Select(x => new IngredientConsumptionIssue(
                 x.Ingredient.IngredientID,
                 x.Ingredient.Name,
                 x.RequiredQuantity,
-                x.Ingredient.CurrentStock,
+                x.AvailableQuantity,
                 x.Ingredient.Unit))
             .ToList();
 
@@ -655,7 +871,7 @@ public sealed class CatalogController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.Name))
         {
-            return BadRequest("Name is required.");
+            return BadRequest("Vui lòng nhập tên danh mục.");
         }
 
         var entity = new Categories
@@ -682,7 +898,7 @@ public sealed class CatalogController : ControllerBase
 
         if (string.IsNullOrWhiteSpace(request.Name))
         {
-            return BadRequest("Name is required.");
+            return BadRequest("Vui lòng nhập tên danh mục.");
         }
 
         entity.Name = request.Name.Trim();
@@ -704,15 +920,26 @@ public sealed class CatalogController : ControllerBase
             return NotFound();
         }
 
-        entity.IsActive = false;
-        entity.UpdatedAt = DateTime.Now;
+        if ((entity.IsActive ?? false) == true)
+        {
+            return Conflict(new { message = "Vui lòng vô hiệu hóa trước khi xóa." });
+        }
+
+        var hasDishes = await _db.Dishes.AnyAsync(x => x.CategoryID == categoryId, cancellationToken);
+        var hasMenus = await _db.MenuCategory.AnyAsync(x => x.CategoryID == categoryId, cancellationToken);
+        if (hasDishes || hasMenus)
+        {
+            return Conflict(new { message = "Không thể xóa danh mục đang được dùng bởi món ăn hoặc thực đơn." });
+        }
+
+        _db.Categories.Remove(entity);
         await _db.SaveChangesAsync(cancellationToken);
         return NoContent();
     }
 
     public sealed record CategoryUpsertRequest(string Name, string? Description, int DisplayOrder, bool IsActive = true);
     public sealed record TableOccupancyRequest(int? CurrentOrderId);
-    public sealed record IngredientConsumptionItem(int DishId, int Quantity);
+    public sealed record IngredientConsumptionItem(int DishId, int Quantity, int? OrderItemId = null);
     public sealed record IngredientConsumptionIssue(
         int IngredientId,
         string IngredientName,
@@ -724,6 +951,40 @@ public sealed class CatalogController : ControllerBase
         bool Success,
         string? Message,
         IReadOnlyList<IngredientConsumptionIssue> Issues);
+
+    private void AddConsumptionMovement(
+        int ingredientId,
+        int? batchId,
+        decimal quantity,
+        ConsumptionRecipeLine line,
+        int orderId,
+        DateTime consumedAt)
+    {
+        _db.IngredientStockMovements.Add(new IngredientStockMovements
+        {
+            IngredientID = ingredientId,
+            BatchID = batchId,
+            QuantityChange = -quantity,
+            MovementType = MovementTypeConsume,
+            ReferenceType = MovementReferenceOrder,
+            ReferenceID = orderId,
+            OrderID = orderId,
+            OrderItemID = line.OrderItemId,
+            DishID = line.DishId,
+            CreatedAt = consumedAt,
+            Note = batchId is null ? "Trừ kho nguyên liệu từ tồn hiện tại" : "Trừ kho nguyên liệu theo FEFO"
+        });
+    }
+
+    private async Task<int> TryDecreaseIngredientCurrentStockAsync(int ingredientId, decimal quantity, CancellationToken cancellationToken)
+    {
+        return await _db.Database.ExecuteSqlInterpolatedAsync(
+            $"UPDATE dbo.Ingredients SET CurrentStock = CurrentStock - {quantity} WHERE IngredientID = {ingredientId} AND CurrentStock >= {quantity}",
+            cancellationToken);
+    }
+
+    private sealed record ConsumptionOrderItem(int DishId, int Quantity, int? OrderItemId);
+    private sealed record ConsumptionRecipeLine(int DishId, int? OrderItemId, Ingredients Ingredient, decimal RequiredQuantity);
 
     private async Task<HashSet<int>> FilterOrderableDishIdsAsync(IEnumerable<int> candidateDishIds, CancellationToken cancellationToken)
     {
@@ -737,20 +998,53 @@ public sealed class CatalogController : ControllerBase
             return new HashSet<int>();
         }
 
-        // Availability has to come from the Catalog service's current owned data.
-        // The older hard-coded shared-database query could drift from local runtime
-        // state and falsely advertise sold-out dishes as orderable.
-        var orderableDishIds = await _db.Dishes
+        var activeDishIds = await _db.Dishes
             .AsNoTracking()
             .Where(x => dishIds.Contains(x.DishID)
                 && (x.IsActive ?? true)
-                && (x.Available ?? true)
-                && !x.DishIngredients.Any(di =>
-                    !di.Ingredient.IsActive
-                    || di.Ingredient.CurrentStock < di.QuantityPerDish))
+                && (x.Available ?? true))
             .Select(x => x.DishID)
             .ToListAsync(cancellationToken);
 
-        return orderableDishIds.ToHashSet();
+        if (activeDishIds.Count == 0)
+        {
+            return new HashSet<int>();
+        }
+
+        var recipeRows = await _db.DishIngredients
+            .AsNoTracking()
+            .Include(di => di.Ingredient)
+            .Where(di => activeDishIds.Contains(di.DishID))
+            .Select(di => new
+            {
+                di.DishID,
+                di.IngredientID,
+                di.QuantityPerDish,
+                IngredientIsActive = di.Ingredient.IsActive
+            })
+            .ToListAsync(cancellationToken);
+
+        var availabilityMap = await _stockAvailability.BuildIngredientStockAvailabilityMapAsync(
+            recipeRows.Select(r => r.IngredientID),
+            cancellationToken);
+        var blockers = recipeRows
+            .GroupBy(r => new { r.DishID, r.IngredientID })
+            .Where(g =>
+            {
+                var first = g.First();
+                if (!first.IngredientIsActive)
+                {
+                    return true;
+                }
+
+                var availableQuantity = availabilityMap.TryGetValue(g.Key.IngredientID, out var stock)
+                    ? stock.AvailabilityStock
+                    : 0;
+                return availableQuantity < g.Sum(x => x.QuantityPerDish);
+            })
+            .Select(g => g.Key.DishID)
+            .ToHashSet();
+
+        return activeDishIds.Where(id => !blockers.Contains(id)).ToHashSet();
     }
 }

@@ -229,27 +229,22 @@
         "IsRequired": true
       },
       {
-        "Name": "days",
+        "Name": "page",
         "Type": "System.Int32",
         "IsRequired": false
       },
       {
-        "Name": "take",
+        "Name": "pageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "days",
         "Type": "System.Int32",
         "IsRequired": false
       }
     ],
-    "ReturnTypes": [
-      {
-        "Type": "System.Collections.Generic.IReadOnlyList\u00601[[SelfRestaurant.Billing.Api.Controllers.CashierBillsController\u002BBillSummaryResponse, SelfRestaurant.Billing.Api, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
-        "MediaTypes": [
-          "text/plain",
-          "application/json",
-          "text/json"
-        ],
-        "StatusCode": 200
-      }
-    ]
+    "ReturnTypes": []
   },
   {
     "ContainingType": "SelfRestaurant.Billing.Api.Controllers.InternalOutboxController",

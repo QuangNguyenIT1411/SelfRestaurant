@@ -6,6 +6,7 @@ import { clearGuestMenuCart } from "../lib/guestCart";
 import { clearPersistentTableContext, savePersistentTableContext } from "../lib/persistentTable";
 import { PublicNavbar } from "../components/PublicNavbar";
 import { SiteFooter } from "../components/SiteFooter";
+import { useAppDialog } from "../components/AppDialog";
 
 const copy = {
   heroTitle: "Trải Nghiệm Ẩm Thực Tinh Tế",
@@ -22,7 +23,7 @@ const copy = {
   step1: "Bước 1: Chọn Chi Nhánh",
   step2: "Bước 2: Chọn Bàn",
   searchPlaceholder: "Tìm kiếm chi nhánh theo tên hoặc địa chỉ...",
-  missingAddress: "Chưa cập nhật địa chỉ",
+  missingAddress: "Cha cp nht a ch",
   noBranchMatch: "Không tìm thấy chi nhánh phù hợp",
   tryAnotherKeyword: "Vui lòng thử từ khóa khác",
   branchLoadFailed: "Không thể tải danh sách chi nhánh lúc này.",
@@ -47,6 +48,7 @@ export function HomePage() {
   const queryClient = useQueryClient();
   const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null);
   const [branchSearch, setBranchSearch] = useState("");
+  const { confirm, Dialog } = useAppDialog();
   const forceNewOrderFlow = searchParams.get("flow") === "new-order";
 
   const { data: session } = useQuery({ queryKey: ["session"], queryFn: api.getSession });
@@ -112,11 +114,16 @@ export function HomePage() {
   const currentStep = showPendingTable ? 3 : selectedBranchId ? 2 : 1;
 
   useEffect(() => {
-    if (forceNewOrderFlow || !session?.authenticated || syncSessionFromActiveOrder.isPending) return;
+    if (
+      forceNewOrderFlow
+      || !session?.authenticated
+      || Boolean(session?.tableContext)
+      || syncSessionFromActiveOrder.isPending
+    ) return;
     syncSessionFromActiveOrder.mutate();
   // Intentionally run when authenticated state flips or page remounts on Home/Index.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [forceNewOrderFlow, session?.authenticated]);
+  }, [forceNewOrderFlow, session?.authenticated, session?.tableContext]);
 
   useEffect(() => {
     if (!session?.authenticated || !session.customer) return;
@@ -165,8 +172,14 @@ export function HomePage() {
               <button
                 type="button"
                 className="btn btn-outline-light"
-                onClick={() => {
-                  if (window.confirm(copy.resetBody)) {
+                onClick={async () => {
+                  const approved = await confirm({
+                    title: "Xác nhận",
+                    message: copy.resetBody,
+                    confirmLabel: "Đồng ý",
+                    cancelLabel: "Không",
+                  });
+                  if (approved) {
                     resetCurrentTable.mutate();
                   }
                 }}
@@ -353,8 +366,8 @@ export function HomePage() {
         </div>
         <p className="mt-3 text-muted">{copy.loadingData}</p>
       </div>
-
       <SiteFooter />
+      <Dialog />
     </div>
   );
 }

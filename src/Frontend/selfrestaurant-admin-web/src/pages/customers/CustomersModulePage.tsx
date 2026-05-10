@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AdminLayout } from "../../components/AdminLayout";
+import { AdminPagination } from "../../components/AdminPagination";
+import { useAppDialog } from "../../components/AppDialog";
 import { adminApi } from "../../lib/api";
-import type { AdminCustomersScreenDto, StaffSessionUserDto } from "../../lib/types";
+import type { AdminCustomerDto, AdminCustomersScreenDto, StaffSessionUserDto } from "../../lib/types";
+import { useAutoDismissMessage } from "../../lib/useAutoDismissMessage";
 
 type Props = {
   mode: "index" | "create" | "edit";
@@ -32,11 +35,14 @@ export function CustomersModulePage({ mode, onLogout }: Props) {
   const [form, setForm] = useState(emptyCustomerForm);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useAutoDismissMessage(5000);
+  const { confirm, Dialog } = useAppDialog();
 
-  const search = searchParams.get("search") ?? "";
   const page = Math.max(1, Number.parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const customerIdValue = customerId ? Number.parseInt(customerId, 10) : 0;
+  
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const flash = (location.state as { message?: string } | null)?.message;
@@ -54,7 +60,7 @@ export function CustomersModulePage({ mode, onLogout }: Props) {
       setStaff(session.staff ?? null);
 
       if (mode === "index") {
-        setScreen(await adminApi.getCustomers(search, page, 10));
+        setScreen(await adminApi.getCustomers(searchQuery, page, 10));
       } else if (mode === "create") {
         setScreen(await adminApi.getCustomers("", 1, 10));
       } else {
@@ -89,11 +95,15 @@ export function CustomersModulePage({ mode, onLogout }: Props) {
 
   useEffect(() => {
     void loadPage();
-  }, [mode, search, page, customerIdValue]);
+  }, [mode, searchQuery, page, customerIdValue]);
 
-  function buildIndexUrl(nextPage = page, nextSearch = search) {
+  function handleSearchSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSearchQuery(searchInput);
+  }
+
+  function buildIndexUrl(nextPage = page) {
     const params = new URLSearchParams();
-    if (nextSearch.trim()) params.set("search", nextSearch.trim());
     if (nextPage > 1) params.set("page", String(nextPage));
     return `/Admin/Customers/Index${params.toString() ? `?${params.toString()}` : ""}`;
   }
@@ -150,13 +160,40 @@ export function CustomersModulePage({ mode, onLogout }: Props) {
   }
 
   async function handleDeactivate(customerIdToDeactivate: number) {
-    if (!window.confirm("Bạn có chắc muốn khóa khách hàng này?")) return;
+    const approved = await confirm({
+      title: "Xác nhận vô hiệu",
+      message: "Bạn có chắc muốn khóa khách hàng này không?",
+      confirmLabel: "Vô hiệu",
+      cancelLabel: "Hủy",
+      variant: "danger",
+    });
+    if (!approved) return;
     try {
       const response = await adminApi.deactivateCustomer(customerIdToDeactivate);
       setMessage(response.message);
       await loadPage();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể khóa khách hàng.");
+    }
+  }
+  async function handleSetActive(customer: AdminCustomerDto, isActive: boolean) {
+    try {
+      await adminApi.updateCustomer(customer.customerId, {
+        name: customer.name,
+        username: customer.username,
+        password: null,
+        phoneNumber: customer.phoneNumber ?? null,
+        email: customer.email ?? null,
+        gender: customer.gender ?? null,
+        dateOfBirth: customer.dateOfBirth ?? null,
+        address: customer.address ?? null,
+        loyaltyPoints: customer.loyaltyPoints,
+        isActive,
+      });
+      setMessage(isActive ? "Đã bật lại khách hàng." : "Đã khóa khách hàng.");
+      await loadPage();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể cập nhật trạng thái khách hàng.");
     }
   }
 
@@ -182,15 +219,20 @@ export function CustomersModulePage({ mode, onLogout }: Props) {
               <strong>Bộ lọc tìm kiếm</strong>
               <div className="muted">Tìm theo tên, tên đăng nhập, số điện thoại hoặc email.</div>
             </div>
-            <div className="admin-filter-form">
+            <form className="admin-filter-form" onSubmit={handleSearchSubmit}>
               <label className="admin-filter-field admin-filter-field-wide">
                 <span>Từ khóa</span>
-                <input value={search} onChange={(e) => navigate(buildIndexUrl(1, e.target.value), { replace: true })} placeholder="Tên, tài khoản, số điện thoại..." />
+                <input 
+                  value={searchInput} 
+                  onChange={(e) => setSearchInput(e.target.value)} 
+                  placeholder="Tên, tài khoản, số điện thoại... (Enter để tìm)" 
+                />
               </label>
               <div className="admin-filter-actions">
-                <button className="ghost" onClick={() => navigate("/Admin/Customers/Index")}>Xóa bộ lọc</button>
+                <button type="submit" className="ghost">Tìm kiếm</button>
+                <button type="button" className="ghost" onClick={() => { setSearchInput(""); setSearchQuery(""); }}>Xóa bộ lọc</button>
               </div>
-            </div>
+            </form>
           </div>
 
           <table className="data-table">
@@ -226,7 +268,12 @@ export function CustomersModulePage({ mode, onLogout }: Props) {
                   <td>
                     <div className="button-row wrap">
                       <button className="ghost" onClick={() => navigate(`/Admin/Customers/Edit/${customer.customerId}`)}>Sửa</button>
-                      <button className="danger" onClick={() => void handleDeactivate(customer.customerId)}>Khóa</button>
+                      <button className="ghost" onClick={() => navigate(`/Admin/Customers/${customer.customerId}/ActivityLogs`)}>Nhật ký</button>
+                      {customer.isActive ? (
+                        <button className="danger" onClick={() => void handleDeactivate(customer.customerId)}>Khóa</button>
+                      ) : (
+                        <button className="ghost" onClick={() => void handleSetActive(customer, true)}>Bật lại</button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -235,13 +282,12 @@ export function CustomersModulePage({ mode, onLogout }: Props) {
           </table>
 
           {screen.customers.totalPages > 1 ? (
-            <div className="button-row wrap admin-pagination">
-              {Array.from({ length: screen.customers.totalPages }, (_, index) => index + 1).map((pageNumber) => (
-                <button key={`customer-page-${pageNumber}`} className={pageNumber === screen.customers.page ? "active-toggle" : "ghost"} onClick={() => navigate(buildIndexUrl(pageNumber))}>
-                  {pageNumber}
-                </button>
-              ))}
-            </div>
+            <AdminPagination
+              currentPage={screen.customers.page}
+              totalPages={screen.customers.totalPages}
+              onPageChange={(pageNumber) => navigate(buildIndexUrl(pageNumber))}
+              keyPrefix="customer"
+            />
           ) : null}
         </section>
       ) : null}
@@ -303,6 +349,7 @@ export function CustomersModulePage({ mode, onLogout }: Props) {
           </article>
         </section>
       ) : null}
+      <Dialog />
     </AdminLayout>
   );
 }

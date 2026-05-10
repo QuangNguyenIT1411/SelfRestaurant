@@ -418,56 +418,80 @@ label { display: grid; gap: 0.35rem; font-size: 0.95rem; }
 .checkout-quick-button { padding: .72rem .8rem; }
 .qr-payment-panel {
   display: grid;
-  grid-template-columns: minmax(190px, 220px) minmax(0, 1fr);
+  grid-template-columns: minmax(210px, 240px) minmax(0, 1fr);
   gap: 1rem;
-  align-items: start;
+  align-items: stretch;
   padding: 1rem;
   border: 1px solid #dce7f7;
   border-radius: 16px;
   background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  min-width: 0;
 }
 .qr-payment-preview {
   display: grid;
   place-items: center;
+  min-height: 100%;
   padding: .9rem;
   border-radius: 16px;
   background: #fff;
   border: 1px solid #d7e2ea;
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+  min-width: 0;
 }
 .qr-payment-preview img {
   display: block;
-  width: min(100%, 190px);
+  width: min(100%, 220px);
   height: auto;
 }
 .qr-payment-details {
   display: grid;
-  gap: .75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .65rem;
+  min-width: 0;
 }
 .qr-payment-summary {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: center;
-  padding: .8rem .95rem;
+  display: grid;
+  gap: .25rem;
+  align-content: center;
+  padding: .72rem .85rem;
   border-radius: 12px;
   background: #fff;
   border: 1px solid #e2e8f0;
+  min-width: 0;
+  min-height: 72px;
 }
 .qr-payment-summary span {
   color: #64748b;
+  font-size: .88rem;
 }
 .qr-payment-summary strong {
-  text-align: right;
+  text-align: left;
   color: #0f172a;
+  min-width: 0;
+  line-height: 1.35;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+.qr-payment-reference {
+  grid-column: 1 / -1;
+}
+.qr-payment-reference strong {
+  font-size: .95rem;
+  letter-spacing: .02em;
 }
 .qr-payment-actions {
   display: flex;
   flex-wrap: wrap;
   gap: .65rem;
+  grid-column: 1 / -1;
+}
+.qr-payment-actions .cashier-button-outline {
+  flex: 1 1 150px;
 }
 .qr-payment-note {
   margin: 0;
+  grid-column: 1 / -1;
+  overflow-wrap: break-word;
 }
 .login-shell { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
 .login-card { width: 100%; max-width: 450px; border: none; border-radius: 16px; box-shadow: 0 8px 25px rgba(0,0,0,.1); background: #fff; padding: 2.5rem; }
@@ -522,4 +546,52 @@ label { display: grid; gap: 0.35rem; font-size: 0.95rem; }
   .checkout-quick-grid,
   .payment-method-grid { grid-template-columns: 1fr; }
   .qr-payment-panel { grid-template-columns: 1fr; }
+}
+.app-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(3px);
+}
+
+.app-dialog {
+  width: min(440px, 100%);
+  border-radius: 12px;
+  background: #fff;
+  padding: 22px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.3);
+}
+
+.app-dialog h2 {
+  margin: 0 0 10px;
+  font-size: 1.2rem;
+}
+
+.app-dialog p {
+  margin: 0;
+  color: #475569;
+}
+
+.app-dialog-field {
+  margin-top: 14px;
+}
+
+.app-dialog-field input,
+.app-dialog-field textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.app-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
 }

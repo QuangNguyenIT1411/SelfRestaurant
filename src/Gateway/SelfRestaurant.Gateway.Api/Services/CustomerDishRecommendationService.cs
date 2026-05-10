@@ -425,11 +425,11 @@ public sealed class CustomerDishRecommendationService
         var rankedLookup = rankedCandidates.ToDictionary(x => x.Dish.DishId);
         var selectedDishIds = new HashSet<int>();
         var selectedCategoryIds = new HashSet<int>();
-        var selected = new List<CustomerDishRecommendationDto>(5);
+        var selected = new List<CustomerDishRecommendationDto>(6);
 
         void TryAdd(int dishId, string? reason, bool preferNewCategory)
         {
-            if (selected.Count >= 5 || !rankedLookup.TryGetValue(dishId, out var candidate) || selectedDishIds.Contains(dishId))
+            if (selected.Count >= 6 || !rankedLookup.TryGetValue(dishId, out var candidate) || selectedDishIds.Contains(dishId))
             {
                 return;
             }

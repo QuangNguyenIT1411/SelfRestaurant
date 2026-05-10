@@ -49,7 +49,7 @@ const text = {
 } as const;
 
 function formatCurrency(value: number) {
-  return `${value.toLocaleString("vi-VN")} đ`;
+  return `${value.toLocaleString("vi-VN")} `;
 }
 
 function formatDateTime(value?: string | null) {
@@ -570,7 +570,7 @@ export function DashboardPage({ initialTab = "profile" }: { initialTab?: "profil
                 disabled={logout.isPending}
               >
                 <i className="fas fa-sign-out-alt me-2" />
-                {logout.isPending ? "Đang đăng xuất..." : text.logout}
+                {logout.isPending ? "ang ng xut..." : text.logout}
               </button>
             </div>
 
@@ -586,7 +586,7 @@ export function DashboardPage({ initialTab = "profile" }: { initialTab?: "profil
                   <strong>{text.points}</strong>
                 </p>
                 <p className="info-box-value">
-                  {data.customer.loyaltyPoints} <span className="info-box-unit">điểm</span>
+                  {data.customer.loyaltyPoints} <span className="info-box-unit">im</span>
                 </p>
               </div>
 

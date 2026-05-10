@@ -1,6 +1,7 @@
 using Microsoft.Extensions.FileProviders;
 using Microsoft.AspNetCore.StaticFiles;
 using SelfRestaurant.Gateway.Api.Infrastructure;
+using SelfRestaurant.Gateway.Api.Hubs;
 using SelfRestaurant.Gateway.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,6 +14,7 @@ builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
     options.JsonSerializerOptions.DictionaryKeyPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
 });
+builder.Services.AddSignalR();
 
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddMemoryCache();
@@ -153,6 +155,7 @@ UseRootSpaFiles(app, customerAppRoot);
 app.UseRouting();
 app.UseSession();
 app.MapControllers();
+app.MapHub<CustomerNotificationsHub>("/hubs/customer-notifications");
 app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
 app.MapGet("/readyz", () => Results.Ok(new { status = "ready" }));
 app.MapGet("/Staff/Account/Login", (HttpContext context) => Results.Redirect($"/app/chef/Staff/Account/Login{context.Request.QueryString}"));

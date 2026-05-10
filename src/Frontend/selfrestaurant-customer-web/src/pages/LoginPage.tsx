@@ -22,6 +22,28 @@ const text = {
   success: "Đăng nhập thành công!",
 } as const;
 
+const googleText = {
+  button: "Đăng nhập với Google",
+  loading: "Đang mở Google...",
+  configMissing: "Chưa cấu hình Google Client ID.",
+  scriptFailed: "Không tải được Google Sign-In.",
+  notReady: "Google Sign-In chưa sẵn sàng, vui lòng thử lại.",
+  missingCredential: "Không nhận được mã đăng nhập Google.",
+} as const;
+
+declare global {
+  interface Window {
+    google?: {
+      accounts?: {
+        id?: {
+          initialize: (options: { client_id: string; callback: (response: { credential?: string }) => void }) => void;
+          prompt: () => void;
+        };
+      };
+    };
+  }
+}
+
 function resolveLoginNextPath(from: string | undefined, nextPath: string | undefined) {
   const normalizedFrom = from?.trim();
   const blockedRedirects = new Set([
@@ -63,33 +85,44 @@ export function LoginPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [dismissedFlash, setDismissedFlash] = useState(false);
   const [dismissedError, setDismissedError] = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+
+  const completeLogin = async (result: { session: Awaited<ReturnType<typeof api.getSession>>; nextPath: string }) => {
+    await queryClient.invalidateQueries();
+    await queryClient.refetchQueries({ queryKey: ["session"], type: "active" });
+    const customerId = result.session.customer?.customerId;
+    const savedTable = customerId ? getPersistentTableContext(customerId) : null;
+    let nextResult = result;
+    if (!result.session.tableContext && savedTable) {
+      try {
+        await api.setContextTable({ tableId: savedTable.tableId, branchId: savedTable.branchId });
+        await queryClient.invalidateQueries({ queryKey: ["session"] });
+        await queryClient.refetchQueries({ queryKey: ["session"], type: "active" });
+        nextResult = {
+          ...result,
+          nextPath: "/Menu/Index",
+        };
+      } catch {
+        // Keep normal login flow if the saved table can no longer be restored.
+      }
+    }
+    setSuccessMessage(text.success);
+    const nextPath = resolveLoginNextPath((location.state as { from?: string } | null)?.from, returnUrl ?? nextResult.nextPath);
+    window.setTimeout(() => {
+      window.location.assign(toMvcPath(nextPath));
+    }, 1000);
+  };
 
   const login = useMutation({
     mutationFn: api.login,
-    onSuccess: async (result) => {
-      await queryClient.invalidateQueries();
-      await queryClient.refetchQueries({ queryKey: ["session"], type: "active" });
-      const customerId = result.session.customer?.customerId;
-      const savedTable = customerId ? getPersistentTableContext(customerId) : null;
-      if (!result.session.tableContext && savedTable) {
-        try {
-          await api.setContextTable({ tableId: savedTable.tableId, branchId: savedTable.branchId });
-          await queryClient.invalidateQueries({ queryKey: ["session"] });
-          await queryClient.refetchQueries({ queryKey: ["session"], type: "active" });
-          result = {
-            ...result,
-            nextPath: "/Menu/Index",
-          };
-        } catch {
-          // Keep normal login flow if the saved table can no longer be restored.
-        }
-      }
-      setSuccessMessage(text.success);
-      const nextPath = resolveLoginNextPath((location.state as { from?: string } | null)?.from, returnUrl ?? result.nextPath);
-      window.setTimeout(() => {
-        window.location.assign(toMvcPath(nextPath));
-      }, 1000);
-    },
+    onSuccess: completeLogin,
+  });
+
+  const googleLogin = useMutation({
+    mutationFn: api.googleLogin,
+    onSuccess: completeLogin,
   });
 
   useEffect(() => {
@@ -98,9 +131,58 @@ export function LoginPage() {
     navigate(toMvcPath(nextPath), { replace: true });
   }, [navigate, returnUrl, session.data]);
 
+  useEffect(() => {
+    if (!googleClientId) return;
+    if (window.google?.accounts?.id) {
+      setGoogleReady(true);
+      return;
+    }
+
+    const existing = document.querySelector<HTMLScriptElement>('script[src="https://accounts.google.com/gsi/client"]');
+    if (existing) {
+      existing.addEventListener("load", () => setGoogleReady(true), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => setGoogleReady(true);
+    script.onerror = () => setGoogleError(googleText.scriptFailed);
+    document.head.appendChild(script);
+  }, [googleClientId]);
+
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
     login.mutate({ username, password });
+  };
+
+  const onGoogleLogin = () => {
+    setDismissedError(false);
+    setGoogleError(null);
+    if (!googleClientId) {
+      setGoogleError(googleText.configMissing);
+      return;
+    }
+
+    const google = window.google?.accounts?.id;
+    if (!googleReady || !google) {
+      setGoogleError(googleText.notReady);
+      return;
+    }
+
+    google.initialize({
+      client_id: googleClientId,
+      callback: (response) => {
+        if (!response.credential) {
+          setGoogleError(googleText.missingCredential);
+          return;
+        }
+        googleLogin.mutate({ idToken: response.credential });
+      },
+    });
+    google.prompt();
   };
 
   return (
@@ -179,6 +261,18 @@ export function LoginPage() {
             <span>{login.isPending ? text.submitting : text.submit}</span>
           </button>
 
+          <div className="auth-divider"><span>hoặc</span></div>
+
+          <button
+            className="btn btn-google-login"
+            type="button"
+            onClick={onGoogleLogin}
+            disabled={googleLogin.isPending || Boolean(successMessage)}
+          >
+            <i className={`fab fa-google${googleLogin.isPending ? " fa-spin" : ""} me-2`} />
+            <span>{googleLogin.isPending ? googleText.loading : googleText.button}</span>
+          </button>
+
           <div className="register-link auth-links">
             {text.registerPrefix} <Link to="/Customer/Register">{text.registerLink}</Link>
           </div>
@@ -202,6 +296,13 @@ export function LoginPage() {
                 <i className="fas fa-exclamation-circle me-2" />
                 {(login.error as Error).message}
                 <button type="button" className="btn-close" aria-label="Close" onClick={() => setDismissedError(true)} />
+              </div>
+            ) : null}
+            {(googleError || googleLogin.error) && !dismissedError ? (
+              <div className="alert alert-danger alert-dismissible fade show auth-alert" role="alert">
+                <i className="fas fa-exclamation-circle me-2" />
+                {googleError || (googleLogin.error as Error).message}
+                <button type="button" className="btn-close" aria-label="Close" onClick={() => { setDismissedError(true); setGoogleError(null); }} />
               </div>
             ) : null}
           </div>

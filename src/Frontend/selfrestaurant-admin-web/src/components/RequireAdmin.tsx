@@ -19,7 +19,7 @@ export function RequireAdmin({ session, loading }: Props) {
       return <CrossAppRedirect to="/Staff/Cashier/Index" message="Đang chuyển đến khu thu ngân..." />;
     }
     if (normalizedRole === "CHEF" || normalizedRole === "KITCHEN_STAFF") {
-      return <CrossAppRedirect to="/Staff/Chef/Index" message="Đang chuyển đến khu bếp..." />;
+    return <CrossAppRedirect to="/Staff/Chef/Index" message="Đang chuyển đến khu bếp..." />;
     }
     return <Navigate to="/Staff/Account/Login" replace />;
   }

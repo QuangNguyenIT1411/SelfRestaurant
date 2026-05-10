@@ -1,5 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SelfRestaurant.Catalog.Api.Infrastructure.Auditing;
+using SelfRestaurant.Catalog.Api.Infrastructure.Inventory;
+using SelfRestaurant.Catalog.Api.Infrastructure.Tables;
 using SelfRestaurant.Catalog.Api.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,6 +24,9 @@ builder.Services.AddDbContext<CatalogDbContext>(options =>
     options.UseSqlServer(catalogConnectionString));
 builder.Services.AddScoped<RequestActorContextAccessor>();
 builder.Services.AddScoped<BusinessAuditLogger>();
+builder.Services.AddScoped<IngredientStockAvailabilityService>();
+builder.Services.Configure<TableAutoReleaseOptions>(builder.Configuration.GetSection("TableAutoRelease"));
+builder.Services.AddHostedService<TableAutoReleaseService>();
 
 var app = builder.Build();
 
