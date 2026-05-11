@@ -1,6 +1,0 @@
-catalog=200
-orders=200
-customers=200
-identity=200
-billing=200
-gateway=200

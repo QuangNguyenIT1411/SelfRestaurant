@@ -1,6 +1,0 @@
-catalog=000
-orders=000
-customers=000
-identity=000
-billing=000
-gateway=000

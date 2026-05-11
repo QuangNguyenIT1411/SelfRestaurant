@@ -1,1 +1,0 @@
-{"eventName":"payment.completed.v1","occurredAtUtc":"2026-04-24T09:08:01.3641826Z","source":"Billing.Api","correlationId":"4f8830377c8a44ce91dd980446fd5dd3","payload":{"orderId":1312,"billCode":"BILL-20260424-5785","tableId":6,"customerId":9,"employeeId":3,"subtotal":100000.00,"discount":0,"pointsUsed":1000,"pointsEarned":990,"totalAmount":99000.00,"paymentMethod":"CASH"}}

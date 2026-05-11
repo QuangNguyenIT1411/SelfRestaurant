@@ -1,1 +1,0 @@
-{"eventName":"payment.completed.v1","occurredAtUtc":"2026-05-08T06:53:12.3300883Z","source":"Billing.Api","correlationId":"19ff0362955743e28c87acd9e40f50ea","payload":{"orderId":2320,"billCode":"BILL-20260508-2408","tableId":12,"customerId":null,"employeeId":3,"subtotal":50000.00,"discount":0,"pointsUsed":0,"pointsEarned":0,"totalAmount":50000.00,"paymentMethod":"QR"}}

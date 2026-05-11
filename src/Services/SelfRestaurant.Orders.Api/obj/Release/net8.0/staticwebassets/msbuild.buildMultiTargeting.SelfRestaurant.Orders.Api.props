@@ -1,3 +1,0 @@
-﻿<Project>
-  <Import Project="../build/SelfRestaurant.Orders.Api.props" />
-</Project>

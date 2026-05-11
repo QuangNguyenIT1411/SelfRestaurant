@@ -1,3 +1,0 @@
-﻿<Project>
-  <Import Project="../buildMultiTargeting/SelfRestaurant.Catalog.Api.props" />
-</Project>
