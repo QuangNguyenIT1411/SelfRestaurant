@@ -669,7 +669,7 @@ export function MenuPage() {
         ) : null}
       </div>
 
-      <div className="header">
+      <div className="header menu-hero">
         <div className="container">
           <div className="row align-items-center">
             <div className="col-6">
@@ -697,16 +697,16 @@ export function MenuPage() {
       <div className="container menu-main-container">
         <div className="row">
           <div className="col-lg-8 mb-4">
-            <div id="topDishesWrapper" className="mb-4">
-              <div className="bg-white rounded-3 shadow-sm p-3">
-                <div className="d-flex justify-content-between align-items-center mb-2">
+            <div id="topDishesWrapper" className="mb-4 premium-menu-section">
+              <div className="menu-section-card menu-section-card-featured">
+                <div className="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
                   <h5 className="mb-0">
                     <i className="bi bi-star-fill text-warning me-1" />
                     {t.top}
                   </h5>
                   <small className="text-muted">{t.topSub}</small>
                 </div>
-                <div className="row g-3" id="topDishesSection">
+                <div className="row g-3 menu-dish-grid" id="topDishesSection">
                   {recommendedDishes.length > 0 ? recommendedDishes.map(({ dish, reason }) => (
                     <div key={`top-${dish.dishId}`} className="col-xl-4 col-lg-4 col-md-6">
                       <article className={`card dish-card ${dish.available ? "" : "dish-card-unavailable"}`}>
@@ -745,9 +745,9 @@ export function MenuPage() {
               </div>
             </div>
 
-            <div className="bg-white rounded-3 shadow-sm p-3 mb-4">
-                <div className="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                  <div className="d-flex flex-wrap flex-grow-1 gap-2">
+            <div className="menu-filter-panel mb-4">
+                <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                  <div className="d-flex flex-wrap flex-grow-1 gap-3 align-items-center">
                     <div className="d-flex flex-wrap category-tabs" id="categoryTabs">
                     {visibleCategories.map((category) => (
                       <button
@@ -761,25 +761,26 @@ export function MenuPage() {
                       </button>
                     ))}
                   </div>
-                  <div className="flex-grow-1">
+                  <div className="flex-grow-1 menu-search-wrap">
+                    <i className="bi bi-search" />
                     <input
                       type="text"
                       id="dishSearchInput"
-                      className="form-control form-control-sm"
+                      className="form-control form-control-sm menu-search-input"
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       placeholder={t.search}
                     />
                   </div>
                 </div>
-                <button type="button" id="vegFilterBtn" className={`btn btn-sm veg-toggle-btn ${vegOnly ? "btn-success text-white" : "btn-outline-success"}`} onClick={() => setVegOnly((value) => !value)}>
+                <button type="button" id="vegFilterBtn" className={`btn btn-sm veg-toggle-btn ${vegOnly ? "active" : ""}`} onClick={() => setVegOnly((value) => !value)}>
                   <i className="bi bi-leaf me-1" />
                   {t.veg}
                 </button>
               </div>
             </div>
 
-            <div className="row g-3" id="dishesGrid">
+            <div className="row g-3 menu-dish-grid" id="dishesGrid">
               {categories.flatMap((category) => category.dishes.map((dish) => (
                 <div key={dish.dishId} className="col-xl-4 col-md-6">
                   <article className={`card dish-card ai-recommendation-card ${dish.available ? "" : "dish-card-unavailable"}`}>
@@ -829,7 +830,7 @@ export function MenuPage() {
 
           <div className="col-lg-4">
             <div className="cart-sidebar">
-              <div className="d-flex justify-content-between align-items-center mb-4">
+              <div className="cart-sidebar-header d-flex justify-content-between align-items-center mb-4">
                 <h4 className="mb-0"><i className="bi bi-cart3" style={{ color: "var(--primary-color)" }} /> {t.cart}</h4>
                 <span className="cart-badge" id="cartBadge">{totalCartCount}</span>
               </div>
@@ -1251,18 +1252,18 @@ export function MenuPage() {
       ) : null}
 
       {selectedDish ? (
-        <div className="modal fade show d-block menu-static-modal" tabIndex={-1} aria-modal="true" role="dialog" onClick={() => setSelectedDish(null)}>
-          <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
+        <div className="modal fade show d-block menu-static-modal dish-detail-overlay" tabIndex={-1} aria-modal="true" role="dialog" onClick={() => setSelectedDish(null)}>
+          <div className="modal-dialog modal-dialog-centered menu-dish-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-content">
-              <div className="modal-header">
+              <div className="modal-header dish-detail-header">
                 <h5 className="modal-title">
                   {normalizeDishText(selectedDish.name)}
                   {selectedDish.isVegetarian ? <span className="badge bg-success ms-2">{t.vegBadge}</span> : null}
                 </h5>
                 <button type="button" className="btn-close" aria-label={t.close} onClick={() => setSelectedDish(null)} />
               </div>
-              <div className="modal-body">
-                <div className="mb-3 text-center">
+              <div className="modal-body dish-detail-body">
+                <div className="mb-3 text-center dish-detail-media">
                   <img
                     className="img-fluid rounded menu-dish-modal-image"
                     src={resolveDishImage(selectedDish.image, selectedDish.name)}
