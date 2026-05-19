@@ -186,8 +186,8 @@ export function LoginPage() {
   };
 
   return (
-    <div className="auth-wrapper">
-      <div className="login-container">
+    <div className="auth-wrapper customer-auth-shell">
+      <div className="login-container customer-auth-card">
         <div className="login-header">
           <div className="logo">
             <i className="fas fa-utensils" />

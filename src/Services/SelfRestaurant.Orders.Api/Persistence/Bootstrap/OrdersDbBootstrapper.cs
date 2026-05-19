@@ -12,6 +12,7 @@ public static class OrdersDbBootstrapper
     [
         "Orders",
         "OrderItems",
+        "OrderItemIngredients",
         "OrderStatus",
         "BusinessAuditLogs",
         "SubmitCommands",
@@ -41,12 +42,169 @@ public static class OrdersDbBootstrapper
         await EnsureOrdersDiningSessionColumnsAsync(db, cancellationToken);
         await EnsureOrderItemStatusColumnAsync(db, cancellationToken);
         await EnsureOrderItemChefIdColumnAsync(db, cancellationToken);
+        await EnsureOrderItemIngredientsTableAsync(db, logger, cancellationToken);
         await EnsureBusinessAuditTableAsync(db, cancellationToken);
         await EnsureSubmitCommandTableAsync(db, cancellationToken);
         await ValidateOwnedSchemaAsync(db, logger, cancellationToken);
         await SeedReferenceDataAsync(db, logger, cancellationToken);
     }
 
+    private enum OrderItemIngredientsStorageState
+    {
+        Missing,
+        PhysicalTable,
+        SynonymOrOtherObject
+    }
+
+    private static async Task EnsureOrderItemIngredientsTableAsync(OrdersDbContext db, ILogger logger, CancellationToken cancellationToken)
+    {
+        var state = await EnsureOrderItemIngredientsTableAsync(db, logger, cancellationToken, logScalarResult: true);
+
+        if (state != OrderItemIngredientsStorageState.PhysicalTable)
+        {
+            logger.LogWarning(
+                "OrderItemIngredients is not a physical table in the Orders database; skipping local column/index/constraint DDL. Existing object will remain intact.");
+            return;
+        }
+
+        await EnsureOrderItemIngredientsColumnsAsync(db, logger, cancellationToken);
+        await EnsureOrderItemIngredientsIndexesAsync(db, logger, cancellationToken);
+        await EnsureOrderItemIngredientsConstraintsAsync(db, logger, cancellationToken);
+    }
+
+    private static async Task<OrderItemIngredientsStorageState> EnsureOrderItemIngredientsTableAsync(
+        OrdersDbContext db,
+        ILogger logger,
+        CancellationToken cancellationToken,
+        bool logScalarResult)
+    {
+        var physicalTableExists = await OrderItemIngredientsPhysicalTableExistsAsync(db, logger, cancellationToken, logScalarResult);
+        if (physicalTableExists)
+        {
+            logger.LogInformation("OrderItemIngredients table already exists, skipping create.");
+            return OrderItemIngredientsStorageState.PhysicalTable;
+        }
+
+        if (await OrderItemIngredientsSynonymExistsAsync(db, cancellationToken))
+        {
+            logger.LogWarning("Dropping dbo.OrderItemIngredients synonym so Orders can own per-order ingredient overrides locally.");
+            await db.Database.ExecuteSqlRawAsync("DROP SYNONYM dbo.OrderItemIngredients;", cancellationToken);
+            await CreateOrderItemIngredientsTableAsync(db, cancellationToken);
+            return OrderItemIngredientsStorageState.PhysicalTable;
+        }
+
+        if (await OrderItemIngredientsAnyObjectExistsAsync(db, cancellationToken))
+        {
+            logger.LogInformation("OrderItemIngredients object already exists but is not a physical table or synonym, skipping create.");
+            return OrderItemIngredientsStorageState.SynonymOrOtherObject;
+        }
+
+        logger.LogInformation("OrderItemIngredients table missing, creating.");
+        await CreateOrderItemIngredientsTableAsync(db, cancellationToken);
+
+        return OrderItemIngredientsStorageState.PhysicalTable;
+    }
+
+    private static async Task CreateOrderItemIngredientsTableAsync(OrdersDbContext db, CancellationToken cancellationToken)
+    {
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE dbo.OrderItemIngredients
+            (
+                OrderItemIngredientID INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_OrderItemIngredients PRIMARY KEY,
+                OrderItemID INT NOT NULL,
+                IngredientID INT NOT NULL,
+                IngredientName NVARCHAR(200) NULL,
+                Unit NVARCHAR(50) NULL,
+                Quantity DECIMAL(18,3) NOT NULL,
+                Note NVARCHAR(500) NULL,
+                IsRemoved BIT NOT NULL CONSTRAINT DF_OrderItemIngredients_IsRemoved DEFAULT(0),
+                CreatedAt DATETIME NULL CONSTRAINT DF_OrderItemIngredients_CreatedAt DEFAULT(GETDATE()),
+                UpdatedAt DATETIME NULL
+            );
+            """, cancellationToken);
+    }
+
+    private static async Task EnsureOrderItemIngredientsColumnsAsync(OrdersDbContext db, ILogger logger, CancellationToken cancellationToken)
+    {
+        await AddColumnIfMissingAsync(db, logger, "OrderItemIngredientID", "ALTER TABLE dbo.OrderItemIngredients ADD OrderItemIngredientID INT IDENTITY(1,1) NOT NULL;", cancellationToken);
+        await AddColumnIfMissingAsync(db, logger, "OrderItemID", "ALTER TABLE dbo.OrderItemIngredients ADD OrderItemID INT NOT NULL CONSTRAINT DF_OrderItemIngredients_OrderItemID DEFAULT(0);", cancellationToken);
+        await AddColumnIfMissingAsync(db, logger, "IngredientID", "ALTER TABLE dbo.OrderItemIngredients ADD IngredientID INT NOT NULL CONSTRAINT DF_OrderItemIngredients_IngredientID DEFAULT(0);", cancellationToken);
+        await AddColumnIfMissingAsync(db, logger, "IngredientName", "ALTER TABLE dbo.OrderItemIngredients ADD IngredientName NVARCHAR(200) NULL;", cancellationToken);
+        await AddColumnIfMissingAsync(db, logger, "Unit", "ALTER TABLE dbo.OrderItemIngredients ADD Unit NVARCHAR(50) NULL;", cancellationToken);
+        await AddColumnIfMissingAsync(db, logger, "Quantity", "ALTER TABLE dbo.OrderItemIngredients ADD Quantity DECIMAL(18,3) NOT NULL CONSTRAINT DF_OrderItemIngredients_Quantity DEFAULT(0);", cancellationToken);
+        await AddColumnIfMissingAsync(db, logger, "Note", "ALTER TABLE dbo.OrderItemIngredients ADD Note NVARCHAR(500) NULL;", cancellationToken);
+        await AddColumnIfMissingAsync(db, logger, "IsRemoved", "ALTER TABLE dbo.OrderItemIngredients ADD IsRemoved BIT NOT NULL CONSTRAINT DF_OrderItemIngredients_IsRemoved DEFAULT(0);", cancellationToken);
+        await AddColumnIfMissingAsync(db, logger, "CreatedAt", "ALTER TABLE dbo.OrderItemIngredients ADD CreatedAt DATETIME NULL CONSTRAINT DF_OrderItemIngredients_CreatedAt DEFAULT(GETDATE());", cancellationToken);
+        await AddColumnIfMissingAsync(db, logger, "UpdatedAt", "ALTER TABLE dbo.OrderItemIngredients ADD UpdatedAt DATETIME NULL;", cancellationToken);
+    }
+
+    private static async Task EnsureOrderItemIngredientsIndexesAsync(OrdersDbContext db, ILogger logger, CancellationToken cancellationToken)
+    {
+        if (!await PrimaryKeyExistsAsync(db, "PK_OrderItemIngredients", cancellationToken))
+        {
+            logger.LogInformation("Adding missing constraint PK_OrderItemIngredients.");
+            await db.Database.ExecuteSqlRawAsync("ALTER TABLE dbo.OrderItemIngredients ADD CONSTRAINT PK_OrderItemIngredients PRIMARY KEY (OrderItemIngredientID);", cancellationToken);
+        }
+
+        if (!await IndexExistsAsync(db, "IX_OrderItemIngredients_OrderItemID", cancellationToken))
+        {
+            logger.LogInformation("Adding missing index IX_OrderItemIngredients_OrderItemID.");
+            await db.Database.ExecuteSqlRawAsync("CREATE INDEX IX_OrderItemIngredients_OrderItemID ON dbo.OrderItemIngredients(OrderItemID);", cancellationToken);
+        }
+
+        if (!await IndexExistsAsync(db, "UQ_OrderItemIngredients_OrderItem_Ingredient", cancellationToken))
+        {
+            logger.LogInformation("Adding missing index UQ_OrderItemIngredients_OrderItem_Ingredient.");
+            await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX UQ_OrderItemIngredients_OrderItem_Ingredient ON dbo.OrderItemIngredients(OrderItemID, IngredientID);", cancellationToken);
+        }
+    }
+
+    private static async Task EnsureOrderItemIngredientsConstraintsAsync(OrdersDbContext db, ILogger logger, CancellationToken cancellationToken)
+    {
+        if (await ForeignKeyExistsAsync(db, "FK_OrderItemIngredients_Ingredients", cancellationToken))
+        {
+            logger.LogWarning("Dropping incorrect FK_OrderItemIngredients_Ingredients because Orders stores Catalog ingredient references as external IDs.");
+            await db.Database.ExecuteSqlRawAsync("ALTER TABLE dbo.OrderItemIngredients DROP CONSTRAINT FK_OrderItemIngredients_Ingredients;", cancellationToken);
+        }
+
+        await db.Database.ExecuteSqlRawAsync("""
+            IF EXISTS
+            (
+                SELECT 1
+                FROM sys.foreign_keys fk
+                WHERE fk.name = N'FK_OrderItemIngredients_OrderItems'
+                  AND fk.parent_object_id = OBJECT_ID(N'dbo.OrderItemIngredients')
+                  AND NOT EXISTS
+                  (
+                      SELECT 1
+                      FROM sys.foreign_key_columns fkc
+                      JOIN sys.columns parent_col
+                        ON parent_col.object_id = fkc.parent_object_id
+                       AND parent_col.column_id = fkc.parent_column_id
+                      JOIN sys.columns ref_col
+                        ON ref_col.object_id = fkc.referenced_object_id
+                       AND ref_col.column_id = fkc.referenced_column_id
+                      WHERE fkc.constraint_object_id = fk.object_id
+                        AND parent_col.name = N'OrderItemID'
+                        AND fkc.referenced_object_id = OBJECT_ID(N'dbo.OrderItems')
+                        AND ref_col.name = N'ItemID'
+                  )
+            )
+            BEGIN
+                ALTER TABLE dbo.OrderItemIngredients DROP CONSTRAINT FK_OrderItemIngredients_OrderItems;
+            END
+            """, cancellationToken);
+
+        if (await PhysicalTableExistsAsync(db, "OrderItems", cancellationToken)
+            && !await ForeignKeyExistsAsync(db, "FK_OrderItemIngredients_OrderItems", cancellationToken))
+        {
+            logger.LogInformation("Adding missing constraint FK_OrderItemIngredients_OrderItems.");
+            await db.Database.ExecuteSqlRawAsync("""
+                ALTER TABLE dbo.OrderItemIngredients WITH NOCHECK
+                ADD CONSTRAINT FK_OrderItemIngredients_OrderItems FOREIGN KEY (OrderItemID) REFERENCES dbo.OrderItems(ItemID);
+                """, cancellationToken);
+        }
+    }
     private static async Task WaitForDatabaseAsync(OrdersDbContext db, ILogger logger, CancellationToken cancellationToken)
     {
         var delay = TimeSpan.FromSeconds(1);
@@ -142,7 +300,8 @@ public static class OrdersDbBootstrapper
         var missingWriteTables = new List<string>();
         foreach (var table in OwnedWriteTables)
         {
-            if (!await ObjectExistsAsync(db, table, requirePhysicalTable: true, cancellationToken))
+            var requirePhysicalTable = !string.Equals(table, "OrderItemIngredients", StringComparison.OrdinalIgnoreCase);
+            if (!await ObjectExistsAsync(db, table, requirePhysicalTable, cancellationToken))
             {
                 missingWriteTables.Add(table);
             }
@@ -272,6 +431,184 @@ public static class OrdersDbBootstrapper
         var message = ex.GetBaseException().Message ?? string.Empty;
         return message.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase)
                && message.Contains(objectName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task<bool> OrderItemIngredientsPhysicalTableExistsAsync(
+        OrdersDbContext db,
+        ILogger logger,
+        CancellationToken cancellationToken,
+        bool logScalarResult)
+    {
+        var result = await ExecuteScalarAsync(db, """
+            SELECT CASE WHEN OBJECT_ID(N'[dbo].[OrderItemIngredients]', N'U') IS NULL THEN 0 ELSE 1 END
+            """, cancellationToken);
+        var exists = ConvertScalarToBoolean(result);
+        if (logScalarResult)
+        {
+            logger.LogInformation("OrderItemIngredients physical table existence scalar result: {Result}; parsed exists: {Exists}.", result, exists);
+        }
+
+        return exists;
+    }
+
+    private static async Task<bool> OrderItemIngredientsAnyObjectExistsAsync(OrdersDbContext db, CancellationToken cancellationToken)
+    {
+        var result = await ExecuteScalarAsync(db, """
+            SELECT CASE WHEN EXISTS
+            (
+                SELECT 1
+                FROM sys.objects
+                WHERE schema_id = SCHEMA_ID('dbo')
+                  AND name = N'OrderItemIngredients'
+
+                UNION ALL
+
+                SELECT 1
+                FROM sys.synonyms
+                WHERE schema_id = SCHEMA_ID('dbo')
+                  AND name = N'OrderItemIngredients'
+            ) THEN 1 ELSE 0 END
+            """, cancellationToken);
+        return ConvertScalarToBoolean(result);
+    }
+
+    private static async Task<bool> OrderItemIngredientsSynonymExistsAsync(OrdersDbContext db, CancellationToken cancellationToken)
+    {
+        var result = await ExecuteScalarAsync(db, """
+            SELECT CASE WHEN EXISTS
+            (
+                SELECT 1
+                FROM sys.synonyms
+                WHERE schema_id = SCHEMA_ID('dbo')
+                  AND name = N'OrderItemIngredients'
+            ) THEN 1 ELSE 0 END
+            """, cancellationToken);
+        return ConvertScalarToBoolean(result);
+    }
+
+    private static async Task<bool> PhysicalTableExistsAsync(OrdersDbContext db, string tableName, CancellationToken cancellationToken)
+    {
+        var result = await ExecuteScalarAsync(db, """
+            SELECT CASE WHEN EXISTS
+            (
+                SELECT 1
+                FROM sys.tables
+                WHERE schema_id = SCHEMA_ID('dbo')
+                  AND name = @name
+            ) THEN 1 ELSE 0 END
+            """, cancellationToken, ("@name", tableName));
+        return ConvertScalarToBoolean(result);
+    }
+
+    private static async Task<bool> ColumnExistsAsync(OrdersDbContext db, string columnName, CancellationToken cancellationToken)
+    {
+        var result = await ExecuteScalarAsync(db, """
+            SELECT CASE WHEN COL_LENGTH(N'dbo.OrderItemIngredients', @name) IS NULL THEN 0 ELSE 1 END
+            """, cancellationToken, ("@name", columnName));
+        return ConvertScalarToBoolean(result);
+    }
+
+    private static async Task<bool> IndexExistsAsync(OrdersDbContext db, string indexName, CancellationToken cancellationToken)
+    {
+        var result = await ExecuteScalarAsync(db, """
+            SELECT CASE WHEN EXISTS
+            (
+                SELECT 1
+                FROM sys.indexes
+                WHERE object_id = OBJECT_ID(N'[dbo].[OrderItemIngredients]', N'U')
+                  AND name = @name
+            ) THEN 1 ELSE 0 END
+            """, cancellationToken, ("@name", indexName));
+        return ConvertScalarToBoolean(result);
+    }
+
+    private static async Task<bool> PrimaryKeyExistsAsync(OrdersDbContext db, string keyName, CancellationToken cancellationToken)
+    {
+        var result = await ExecuteScalarAsync(db, """
+            SELECT CASE WHEN EXISTS
+            (
+                SELECT 1
+                FROM sys.key_constraints
+                WHERE parent_object_id = OBJECT_ID(N'[dbo].[OrderItemIngredients]', N'U')
+                  AND name = @name
+            ) THEN 1 ELSE 0 END
+            """, cancellationToken, ("@name", keyName));
+        return ConvertScalarToBoolean(result);
+    }
+
+    private static async Task<bool> ForeignKeyExistsAsync(OrdersDbContext db, string keyName, CancellationToken cancellationToken)
+    {
+        var result = await ExecuteScalarAsync(db, """
+            SELECT CASE WHEN EXISTS
+            (
+                SELECT 1
+                FROM sys.foreign_keys
+                WHERE parent_object_id = OBJECT_ID(N'[dbo].[OrderItemIngredients]', N'U')
+                  AND name = @name
+            ) THEN 1 ELSE 0 END
+            """, cancellationToken, ("@name", keyName));
+        return ConvertScalarToBoolean(result);
+    }
+
+    private static async Task AddColumnIfMissingAsync(
+        OrdersDbContext db,
+        ILogger logger,
+        string columnName,
+        string addColumnSql,
+        CancellationToken cancellationToken)
+    {
+        if (await ColumnExistsAsync(db, columnName, cancellationToken))
+        {
+            return;
+        }
+
+        logger.LogInformation("Adding missing column OrderItemIngredients.{ColumnName}.", columnName);
+        await db.Database.ExecuteSqlRawAsync(addColumnSql, cancellationToken);
+    }
+
+    private static async Task<object?> ExecuteScalarAsync(
+        OrdersDbContext db,
+        string sql,
+        CancellationToken cancellationToken,
+        params (string Name, object Value)[] parameters)
+    {
+        await db.Database.OpenConnectionAsync(cancellationToken);
+        try
+        {
+            await using var command = db.Database.GetDbConnection().CreateCommand();
+            command.CommandText = sql;
+            command.CommandType = CommandType.Text;
+
+            foreach (var (name, value) in parameters)
+            {
+                var parameter = command.CreateParameter();
+                parameter.ParameterName = name;
+                parameter.Value = value;
+                command.Parameters.Add(parameter);
+            }
+
+            return await command.ExecuteScalarAsync(cancellationToken);
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+    }
+
+    private static bool ConvertScalarToBoolean(object? value)
+    {
+        return value switch
+        {
+            null or DBNull => false,
+            bool boolean => boolean,
+            byte number => number != 0,
+            short number => number != 0,
+            int number => number != 0,
+            long number => number != 0,
+            decimal number => number != 0,
+            string text when int.TryParse(text, out var number) => number != 0,
+            _ => Convert.ToInt32(value) != 0
+        };
     }
 
     private static async Task<bool> TableExistsAsync(OrdersDbContext db, string tableName, CancellationToken cancellationToken)
@@ -554,3 +891,4 @@ public static class OrdersDbBootstrapper
         await db.Database.ExecuteSqlRawAsync(sql, cancellationToken);
     }
 }
+

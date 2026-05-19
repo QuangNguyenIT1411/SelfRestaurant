@@ -41,6 +41,7 @@ public static class CatalogDbBootstrapper
         await EnsureIngredientBatchSchemaAsync(db, cancellationToken);
         await ValidateOwnedSchemaAsync(db, logger, cancellationToken);
         await SeedReferenceDataAsync(db, logger, cancellationToken);
+        await EnsureLogicalRecipeDataAsync(db, cancellationToken);
     }
 
     private static async Task WaitForDatabaseAsync(CatalogDbContext db, ILogger logger, CancellationToken cancellationToken)
@@ -155,6 +156,95 @@ public static class CatalogDbBootstrapper
         {
             await db.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    private static async Task EnsureLogicalRecipeDataAsync(CatalogDbContext db, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           IF NOT EXISTS (SELECT 1 FROM dbo.Ingredients WHERE Name = N'Nước dùng')
+                           BEGIN
+                               INSERT INTO dbo.Ingredients (Name, Unit, CurrentStock, ReorderLevel, IsActive)
+                               VALUES (N'Nước dùng', N'lít', 60.00, 10.00, 1);
+                           END;
+
+                           IF NOT EXISTS (SELECT 1 FROM dbo.Ingredients WHERE Name = N'Đá')
+                           BEGIN
+                               INSERT INTO dbo.Ingredients (Name, Unit, CurrentStock, ReorderLevel, IsActive)
+                               VALUES (N'Đá', N'kg', 80.00, 15.00, 1);
+                           END;
+
+                           IF NOT EXISTS (SELECT 1 FROM dbo.Ingredients WHERE Name = N'Sữa tươi')
+                           BEGIN
+                               INSERT INTO dbo.Ingredients (Name, Unit, CurrentStock, ReorderLevel, IsActive)
+                               VALUES (N'Sữa tươi', N'lít', 25.00, 5.00, 1);
+                           END;
+
+                           DECLARE @BrothId INT = (SELECT TOP (1) IngredientID FROM dbo.Ingredients WHERE Name = N'Nước dùng');
+                           DECLARE @IceId INT = (SELECT TOP (1) IngredientID FROM dbo.Ingredients WHERE Name = N'Đá');
+                           DECLARE @MilkId INT = (SELECT TOP (1) IngredientID FROM dbo.Ingredients WHERE Name = N'Sữa tươi');
+
+                           DECLARE @recipes TABLE
+                           (
+                               DishID INT NOT NULL,
+                               IngredientID INT NOT NULL,
+                               QuantityPerDish DECIMAL(18,2) NOT NULL,
+                               PRIMARY KEY (DishID, IngredientID)
+                           );
+
+                           INSERT INTO @recipes (DishID, IngredientID, QuantityPerDish)
+                           VALUES
+                               (1, 1, 0.20), (1, 21, 0.30), (1, @BrothId, 0.50), (1, 7, 0.03), (1, 8, 0.02), (1, 9, 0.05), (1, 13, 0.02),
+                               (2, 3, 0.15), (2, 22, 0.30), (2, 7, 0.08), (2, 11, 0.05), (2, 13, 0.03),
+                               (3, 3, 0.15), (3, 25, 0.20), (3, 26, 1.00), (3, 11, 0.05), (3, 14, 0.02),
+                               (4, 1, 0.18), (4, 22, 0.30), (4, @BrothId, 0.50), (4, 7, 0.05), (4, 8, 0.02), (4, 20, 0.01),
+                               (5, 3, 0.10), (5, 4, 0.08), (5, 24, 0.30), (5, @BrothId, 0.45), (5, 7, 0.05), (5, 9, 0.05),
+                               (6, 1, 0.15), (6, 23, 0.25), (6, 12, 0.08), (6, 10, 0.05), (6, 14, 0.03),
+                               (7, 2, 0.25), (7, 25, 0.20), (7, 11, 0.05), (7, 7, 0.03),
+                               (8, 3, 0.10), (8, 36, 0.05), (8, 26, 0.50), (8, 14, 0.05),
+                               (9, 4, 0.08), (9, 37, 0.05), (9, 6, 0.05), (9, 7, 0.03),
+                               (10, 6, 0.10), (10, 11, 0.05), (10, 10, 0.05), (10, 12, 0.05),
+                               (11, 33, 0.10), (11, 32, 0.05), (11, 16, 0.03), (11, @MilkId, 0.10),
+                               (12, 26, 2.00), (12, 30, 0.10), (12, 16, 0.05), (12, @MilkId, 0.15),
+                               (13, 32, 0.08), (13, 33, 0.12), (13, 16, 0.04), (13, 34, 0.05),
+                               (14, 27, 0.15), (14, 16, 0.02), (14, @IceId, 0.15),
+                               (15, 31, 0.01), (15, 16, 0.01), (15, @IceId, 0.20),
+                               (16, 29, 0.02), (16, 30, 0.05), (16, 16, 0.02), (16, @IceId, 0.20),
+                               (17, 28, 0.20), (17, 30, 0.08), (17, 16, 0.03), (17, @IceId, 0.15),
+                               (22, 5, 0.18), (22, 8, 0.02), (22, 18, 0.01), (22, 19, 0.01), (22, 14, 0.03), (22, 15, 0.01), (22, 17, 0.01);
+
+                           DELETE di
+                           FROM dbo.DishIngredients di
+                           INNER JOIN @recipes r ON r.DishID = di.DishID
+                           WHERE NOT EXISTS
+                           (
+                               SELECT 1
+                               FROM @recipes keep
+                               WHERE keep.DishID = di.DishID
+                                 AND keep.IngredientID = di.IngredientID
+                           );
+
+                           UPDATE di
+                           SET QuantityPerDish = r.QuantityPerDish
+                           FROM dbo.DishIngredients di
+                           INNER JOIN @recipes r
+                               ON r.DishID = di.DishID
+                              AND r.IngredientID = di.IngredientID
+                           WHERE di.QuantityPerDish <> r.QuantityPerDish;
+
+                           INSERT INTO dbo.DishIngredients (DishID, IngredientID, QuantityPerDish)
+                           SELECT r.DishID, r.IngredientID, r.QuantityPerDish
+                           FROM @recipes r
+                           INNER JOIN dbo.Dishes d ON d.DishID = r.DishID
+                           WHERE NOT EXISTS
+                           (
+                               SELECT 1
+                               FROM dbo.DishIngredients di
+                               WHERE di.DishID = r.DishID
+                                 AND di.IngredientID = r.IngredientID
+                           );
+                           """;
+
+        await db.Database.ExecuteSqlRawAsync(sql, cancellationToken);
     }
 
     private static async Task EnsureIngredientBatchSchemaAsync(CatalogDbContext db, CancellationToken cancellationToken)

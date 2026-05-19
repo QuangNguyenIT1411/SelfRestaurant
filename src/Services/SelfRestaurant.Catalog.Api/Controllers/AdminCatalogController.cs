@@ -640,9 +640,9 @@ public sealed class AdminCatalogController : ControllerBase
             return NotFound(new { message = "Không tìm thấy món ăn." });
         }
 
-        if ((entity.IsActive ?? false) == true)
+        if ((entity.Available ?? true) == true)
         {
-            return Conflict(new { message = "Vui lòng vô hiệu hóa trước khi xóa." });
+            return Conflict(new { message = "Vui lòng tạm ngừng món ăn trước khi xóa" });
         }
 
         var beforeAudit = new
@@ -783,6 +783,7 @@ public sealed class AdminCatalogController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] bool includeInactive = true,
+        [FromQuery] string? stockStatus = null,
         CancellationToken cancellationToken = default)
     {
         page = Math.Max(1, page);
@@ -797,7 +798,16 @@ public sealed class AdminCatalogController : ControllerBase
         if (!string.IsNullOrWhiteSpace(search))
         {
             var key = search.Trim();
-            query = query.Where(i => i.Name.Contains(key) || i.Unit.Contains(key));
+            query = query.Where(i => i.Name.Contains(key));
+        }
+
+        if (string.Equals(stockStatus, "LOW", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(i => i.CurrentStock <= i.ReorderLevel);
+        }
+        else if (string.Equals(stockStatus, "NORMAL", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(i => i.CurrentStock > i.ReorderLevel);
         }
 
         var totalItems = await query.CountAsync(cancellationToken);
@@ -830,6 +840,35 @@ public sealed class AdminCatalogController : ControllerBase
             .ToList();
 
         return Ok(new PagedResponse<AdminIngredientResponse>(page, pageSize, totalItems, totalPages, items));
+    }
+
+
+    [HttpGet("ingredients/{ingredientId:int}/related-dishes")]
+    public async Task<ActionResult<IReadOnlyList<AdminRelatedIngredientDishResponse>>> GetIngredientRelatedDishes(int ingredientId, CancellationToken cancellationToken = default)
+    {
+        var exists = await _db.Ingredients.AnyAsync(i => i.IngredientID == ingredientId, cancellationToken);
+        if (!exists)
+        {
+            return NotFound(new { message = "Không tìm thấy nguyên liệu." });
+        }
+
+        var rows = await _db.DishIngredients
+            .AsNoTracking()
+            .Where(di => di.IngredientID == ingredientId)
+            .Include(di => di.Dish)
+                .ThenInclude(d => d.Category)
+            .OrderBy(di => di.Dish.Name)
+            .Select(di => new AdminRelatedIngredientDishResponse(
+                di.DishID,
+                di.Dish.Name,
+                di.Dish.Category != null ? di.Dish.Category.Name : null,
+                di.QuantityPerDish,
+                di.Ingredient.Unit,
+                di.Dish.Available ?? false,
+                di.Dish.IsActive ?? false))
+            .ToListAsync(cancellationToken);
+
+        return Ok(rows);
     }
 
     [HttpGet("ingredients/{ingredientId:int}")]
@@ -1651,6 +1690,7 @@ public sealed class AdminCatalogController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] bool includeInactive = true,
+        [FromQuery] string? stockStatus = null,
         CancellationToken cancellationToken = default)
     {
         page = Math.Max(1, page);
@@ -1854,6 +1894,7 @@ public sealed class AdminCatalogController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] bool includeInactive = true,
+        [FromQuery] string? stockStatus = null,
         CancellationToken cancellationToken = default)
     {
         page = Math.Max(1, page);
@@ -2063,14 +2104,50 @@ public sealed class AdminCatalogController : ControllerBase
         entity.IsActive = false;
         entity.UpdatedAt = DateTime.Now;
         _auditLogger.Add(
-            actionType: "TABLE_DEACTIVATED",
+            actionType: "TABLE_HIDDEN",
             entityType: "TABLE",
             entityId: entity.TableID.ToString(),
             tableId: entity.TableID,
             beforeState: beforeAudit,
             afterState: new { isActive = false, entity.StatusID });
         await _db.SaveChangesAsync(cancellationToken);
-        return Ok(new { message = "Đã vô hiệu bàn." });
+        return Ok(new { message = "Đã ẩn bàn." });
+    }
+
+    [HttpDelete("tables/{tableId:int}")]
+    public async Task<ActionResult> DeleteTable(int tableId, CancellationToken cancellationToken = default)
+    {
+        var entity = await _db.DiningTables.FirstOrDefaultAsync(t => t.TableID == tableId, cancellationToken);
+        if (entity is null)
+        {
+            return NotFound(new { message = "Không tìm thấy bàn." });
+        }
+
+        if ((entity.IsActive ?? false) == true)
+        {
+            return Conflict(new { message = "Vui lòng ẩn bàn trước khi xóa" });
+        }
+
+        var beforeAudit = new
+        {
+            entity.BranchID,
+            entity.TableNumber,
+            entity.NumberOfSeats,
+            entity.StatusID,
+            entity.QRCode,
+            entity.IsActive
+        };
+
+        _db.DiningTables.Remove(entity);
+        _auditLogger.Add(
+            actionType: "TABLE_DELETED",
+            entityType: "TABLE",
+            entityId: entity.TableID.ToString(),
+            tableId: entity.TableID,
+            beforeState: beforeAudit,
+            afterState: null);
+        await _db.SaveChangesAsync(cancellationToken);
+        return Ok(new { message = "Đã xóa bàn." });
     }
 
     [HttpGet("internal/audit-logs")]
@@ -2692,6 +2769,15 @@ public sealed class AdminCatalogController : ControllerBase
         decimal QuantityPerDish);
     public sealed record UpdateDishIngredientsRequest(IReadOnlyList<UpdateDishIngredientItem>? Items);
     public sealed record UpdateDishIngredientItem(int IngredientId, decimal QuantityPerDish);
+
+    public sealed record AdminRelatedIngredientDishResponse(
+        int DishId,
+        string Name,
+        string? CategoryName,
+        decimal QuantityPerDish,
+        string Unit,
+        bool Available,
+        bool IsActive);
     public sealed record ChefDishAvailabilityRequest(bool Available);
     public sealed record ChefDishAvailabilityResponse(bool Success, string Message, bool Available);
 

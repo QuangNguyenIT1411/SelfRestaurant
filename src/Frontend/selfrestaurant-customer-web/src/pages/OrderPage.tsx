@@ -139,6 +139,13 @@ function renderStatusBadge(status: "pending" | "preparing" | "ready" | "serving"
   );
 }
 
+function getOrderProgress(status: string) {
+  if (status === "CANCELLED") return 0;
+  if (["READY", "SERVED", "COMPLETED", "SERVING"].includes(status)) return 3;
+  if (["CONFIRMED", "PREPARING"].includes(status)) return 2;
+  return 1;
+}
+
 function getActiveCustomer(
   sessionCustomer?: CustomerSessionUserDto | null,
   loyaltyCustomer?: LoyaltyScanResponse["customer"] | null,
@@ -245,6 +252,7 @@ export function OrderPage() {
   const activeCustomer = getActiveCustomer(session.data?.customer, scanLoyalty.data?.customer);
   const canRemove = normalizedOrderStatus === "PENDING";
   const canSubmit = items.length > 0 && canRemove;
+  const progressStep = getOrderProgress(normalizedOrderStatus);
 
   return (
     <div className="container p-3 order-page-shell">
@@ -262,7 +270,7 @@ export function OrderPage() {
         </div>
       ) : null}
 
-      <header className="p-3 mb-3 bg-white shadow-sm rounded d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 order-header-card">
+      <header className="p-3 mb-3 bg-white shadow-sm rounded d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 order-header-card customer-premium-header">
         <div className="bill-title">
           <i className="fas fa-receipt me-2" />
           {text.billTitle} - <span id="table-number">{text.tablePrefix} {tableNumber}</span>
@@ -273,11 +281,27 @@ export function OrderPage() {
         </Link>
       </header>
 
+      <section className="order-tracking-card" aria-label="Theo dõi trạng thái đơn hàng">
+        <div className="order-tracking-copy">
+          <span className="order-eyebrow">Trạng thái đơn</span>
+          <strong>{items.length > 0 ? (canRemove ? text.pending : text.sentKitchen) : text.emptyOrder}</strong>
+          <small>{text.paymentHint} <b>{text.cashierDesk}</b> {text.afterMeal}</small>
+        </div>
+        <div className="order-progress-track" data-step={progressStep}>
+          {[text.pending, text.preparing, text.ready].map((label, index) => (
+            <div key={label} className={`order-progress-step ${progressStep >= index + 1 ? "is-active" : ""}`}>
+              <span>{index + 1}</span>
+              <small>{label}</small>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <main>
         <div className="row g-4">
           <div className="col-lg-8">
-            <h2 className="h4 mb-3">{text.orderedDishes}</h2>
-            <div className="bg-white rounded shadow-sm">
+            <h2 className="h4 mb-3 customer-section-title">{text.orderedDishes}</h2>
+            <div className="bg-white rounded shadow-sm order-items-card">
               <div className="list-group list-group-flush order-list-group" id="item-list">
                 {items.length > 0 ? (
                   items.map((item) => {
@@ -345,7 +369,7 @@ export function OrderPage() {
           </div>
 
           <div className="col-lg-4">
-            <h2 className="h4 mb-3">{text.summaryTitle}</h2>
+            <h2 className="h4 mb-3 customer-section-title">{text.summaryTitle}</h2>
             <div className="card shadow-sm border-0 order-summary-card">
               <div className="card-body p-4">
                 <div className="order-summary-row">

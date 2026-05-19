@@ -25,8 +25,9 @@ public sealed class OrdersController : ControllerBase
     private readonly IIntegrationEventPublisher _eventPublisher;
     private readonly BusinessAuditLogger _auditLogger;
     private readonly IHostEnvironment _environment;
+    private readonly ILogger<OrdersController> _logger;
 
-    public OrdersController(OrdersDbContext db, ICatalogReadModel catalogApi, ICustomerLoyaltyReadModel customersApi, BillingCheckoutGuardClient billingGuard, IIntegrationEventPublisher eventPublisher, BusinessAuditLogger auditLogger, IHostEnvironment environment)
+    public OrdersController(OrdersDbContext db, ICatalogReadModel catalogApi, ICustomerLoyaltyReadModel customersApi, BillingCheckoutGuardClient billingGuard, IIntegrationEventPublisher eventPublisher, BusinessAuditLogger auditLogger, IHostEnvironment environment, ILogger<OrdersController> logger)
     {
         _db = db;
         _catalogApi = catalogApi;
@@ -35,6 +36,7 @@ public sealed class OrdersController : ControllerBase
         _eventPublisher = eventPublisher;
         _auditLogger = auditLogger;
         _environment = environment;
+        _logger = logger;
     }
 
     [HttpPost("api/tables/{tableId:int}/occupy")]
@@ -2247,6 +2249,117 @@ public sealed class OrdersController : ControllerBase
         CancellationToken cancellationToken) =>
         UpdateOrderItemStatusAsync(orderId, itemId, "CANCELLED", request.Reason, null, cancellationToken);
 
+
+    [HttpGet("api/orders/{orderId:int}/items/{itemId:int}/ingredient-overrides")]
+    public async Task<ActionResult<OrderItemIngredientOverridesResponse>> GetOrderItemIngredientOverrides(int orderId, int itemId, CancellationToken cancellationToken)
+    {
+        await EnsureOrderItemIngredientOverrideSchemaAsync(cancellationToken);
+
+        var resolution = await ResolveOrderItemForOverrideAsync(orderId, itemId, cancellationToken);
+        if (resolution.Item is null)
+        {
+            return NotFound();
+        }
+        var item = resolution.Item;
+
+        var overrides = await _db.OrderItemIngredients
+            .AsNoTracking()
+            .Where(x => x.OrderItemID == item.ItemID && !x.IsRemoved)
+            .Select(x => new OrderItemIngredientOverrideItem(x.IngredientID, null, null, x.Quantity))
+            .ToListAsync(cancellationToken);
+
+        return Ok(new OrderItemIngredientOverridesResponse(orderId, item.ItemID, item.DishID, overrides));
+    }
+
+    [HttpPut("api/orders/{orderId:int}/items/{itemId:int}/ingredient-overrides")]
+    public async Task<ActionResult> UpdateOrderItemIngredientOverrides(int orderId, int itemId, [FromBody] UpdateOrderItemIngredientOverridesRequest request, CancellationToken cancellationToken)
+    {
+        await EnsureOrderItemIngredientOverrideSchemaAsync(cancellationToken);
+
+        var order = await _db.Orders
+            .Include(o => o.Status)
+            .FirstOrDefaultAsync(o => o.OrderID == orderId && (o.IsActive ?? true), cancellationToken);
+        if (order is null)
+        {
+            return NotFound();
+        }
+
+        var allowed = new[] { "CONFIRMED", "PREPARING", "READY", "SERVING" };
+        if (!allowed.Contains(order.Status.StatusCode))
+        {
+            return BadRequest("Chỉ được chỉnh thành phần khi đơn đang trong luồng xử lý bếp.");
+        }
+
+        var resolution = await ResolveOrderItemForOverrideAsync(orderId, itemId, cancellationToken, track: true);
+        var ingredientCount = request.Items?.Count ?? 0;
+        _logger.LogInformation(
+            "Chef ingredient override save requested. OrderId={OrderId}; IncomingItemId={IncomingItemId}; ResolvedOrderItemId={ResolvedOrderItemId}; ResolutionMethod={ResolutionMethod}; MatchCount={MatchCount}; IngredientCount={IngredientCount}.",
+            orderId,
+            itemId,
+            resolution.Item?.ItemID,
+            resolution.Method,
+            resolution.MatchCount,
+            ingredientCount);
+        if (resolution.Item is null)
+        {
+            return BadRequest("Không tìm thấy món trong đơn hàng hiện tại để cập nhật thành phần.");
+        }
+        var item = resolution.Item;
+        var resolvedItemId = item.ItemID;
+
+        var resolvedStillExists = await _db.OrderItems
+            .AsNoTracking()
+            .AnyAsync(x => x.OrderID == orderId && x.ItemID == resolvedItemId, cancellationToken);
+        if (!resolvedStillExists)
+        {
+            _logger.LogWarning(
+                "Chef ingredient override blocked before save because resolved item no longer exists. OrderId={OrderId}; IncomingItemId={IncomingItemId}; ResolvedOrderItemId={ResolvedOrderItemId}; ResolutionMethod={ResolutionMethod}.",
+                orderId,
+                itemId,
+                resolvedItemId,
+                resolution.Method);
+            return BadRequest("Không tìm thấy món trong đơn hàng hiện tại để cập nhật thành phần.");
+        }
+
+        var cleaned = (request.Items ?? Array.Empty<UpdateOrderItemIngredientOverrideItem>())
+            .Where(x => x.IngredientId > 0)
+            .GroupBy(x => x.IngredientId)
+            .Select(g => g.Last())
+            .ToList();
+        if (cleaned.Any(x => x.Quantity < 0))
+        {
+            return BadRequest("Số lượng nguyên liệu không được âm.");
+        }
+
+        var current = await _db.OrderItemIngredients.Where(x => x.OrderItemID == resolvedItemId).ToListAsync(cancellationToken);
+        _db.OrderItemIngredients.RemoveRange(current);
+        var normalizedOverrideNote = NormalizeSnapshot(request.Note, 500);
+        foreach (var row in cleaned)
+        {
+            _db.OrderItemIngredients.Add(new OrderItemIngredients
+            {
+                OrderItemID = resolvedItemId,
+                IngredientID = row.IngredientId,
+                IngredientName = NormalizeSnapshot(row.IngredientName, 200),
+                Unit = NormalizeSnapshot(row.Unit, 50),
+                Quantity = row.Quantity,
+                Note = normalizedOverrideNote,
+                IsRemoved = false,
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            });
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Note))
+        {
+            var note = request.Note.Trim();
+            item.Note = string.IsNullOrWhiteSpace(item.Note) ? $"Điều chỉnh thành phần: {note}" : $"{item.Note} | Điều chỉnh thành phần: {note}";
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return Ok(new { message = "Đã lưu thành phần riêng cho món trong đơn này." });
+    }
+
     [HttpPut("api/orders/{orderId:int}/items/{itemId:int}/chef-note")]
     public async Task<ActionResult> ChefUpdateItemNote(
         int orderId,
@@ -2980,6 +3093,57 @@ public sealed class OrdersController : ControllerBase
         return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned[..Math.Min(cleaned.Length, 500)];
     }
 
+    private static string? NormalizeSnapshot(string? value, int maxLength)
+    {
+        var cleaned = value?.Trim();
+        return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned[..Math.Min(cleaned.Length, maxLength)];
+    }
+
+    private async Task EnsureOrderItemIngredientOverrideSchemaAsync(CancellationToken cancellationToken)
+    {
+        await _db.Database.ExecuteSqlRawAsync("""
+            IF OBJECT_ID(N'dbo.OrderItemIngredients', N'U') IS NOT NULL
+            BEGIN
+                IF COL_LENGTH(N'dbo.OrderItemIngredients', N'IngredientName') IS NULL
+                    ALTER TABLE dbo.OrderItemIngredients ADD IngredientName NVARCHAR(200) NULL;
+
+                IF COL_LENGTH(N'dbo.OrderItemIngredients', N'Unit') IS NULL
+                    ALTER TABLE dbo.OrderItemIngredients ADD Unit NVARCHAR(50) NULL;
+
+                IF COL_LENGTH(N'dbo.OrderItemIngredients', N'Note') IS NULL
+                    ALTER TABLE dbo.OrderItemIngredients ADD Note NVARCHAR(500) NULL;
+
+                IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_OrderItemIngredients_Ingredients' AND parent_object_id = OBJECT_ID(N'dbo.OrderItemIngredients'))
+                    ALTER TABLE dbo.OrderItemIngredients DROP CONSTRAINT FK_OrderItemIngredients_Ingredients;
+            END
+            """, cancellationToken);
+    }
+
+    private async Task<OrderItemResolution> ResolveOrderItemForOverrideAsync(int orderId, int itemId, CancellationToken cancellationToken, bool track = false)
+    {
+        var query = track ? _db.OrderItems.AsQueryable() : _db.OrderItems.AsNoTracking();
+        var item = await query.FirstOrDefaultAsync(x => x.ItemID == itemId && x.OrderID == orderId, cancellationToken);
+        if (item is not null)
+        {
+            return new OrderItemResolution(item, "direct ItemID", 1);
+        }
+
+        var dishMatches = await query
+            .Where(x => x.OrderID == orderId && x.DishID == itemId)
+            .OrderByDescending(x => x.ItemID)
+            .Take(2)
+            .ToListAsync(cancellationToken);
+
+        if (dishMatches.Count == 1)
+        {
+            return new OrderItemResolution(dishMatches[0], "fallback DishID", 1);
+        }
+
+        return new OrderItemResolution(null, "failed", dishMatches.Count);
+    }
+
+    private sealed record OrderItemResolution(OrderItems? Item, string Method, int MatchCount);
+
     private static bool IsDishOrderable(CatalogApiClient.DishSnapshotResponse? dishSnapshot)
         => dishSnapshot is not null
            && dishSnapshot.IsActive
@@ -3452,6 +3616,10 @@ public sealed class OrdersController : ControllerBase
     public sealed record SubmitOrderRequest(string? IdempotencyKey, string? ExpectedDiningSessionCode = null);
     public sealed record UpdateQuantityRequest(int Quantity);
     public sealed record UpdateItemNoteRequest(string? Note, bool? Append);
+    public sealed record OrderItemIngredientOverrideItem(int IngredientId, string? IngredientName, string? Unit, decimal Quantity);
+    public sealed record OrderItemIngredientOverridesResponse(int OrderId, int ItemId, int DishId, IReadOnlyList<OrderItemIngredientOverrideItem> Items);
+    public sealed record UpdateOrderItemIngredientOverrideItem(int IngredientId, string? IngredientName, string? Unit, decimal Quantity);
+    public sealed record UpdateOrderItemIngredientOverridesRequest(IReadOnlyList<UpdateOrderItemIngredientOverrideItem>? Items, string? Note);
     public sealed record ScanLoyaltyCardRequest(string? PhoneNumber);
     public sealed record UpdateOrderStatusRequest(string? StatusCode);
     public sealed record SubmitOrderBatchRequest(IReadOnlyList<AddItemRequest>? Items, string? CustomerPhoneNumber, string? IdempotencyKey, string? ExpectedDiningSessionCode = null);

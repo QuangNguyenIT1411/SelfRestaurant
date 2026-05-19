@@ -282,9 +282,9 @@ public sealed class AdminGatewayController : ControllerBase
 
         var current = await _catalogClient.GetAdminDishByIdAsync(dishId, cancellationToken);
         if (current is null) return Error("dish_not_found", "Không tìm thấy món ăn.", 404);
-        if (current.IsActive)
+        if (current.Available)
         {
-            return Error("dish_delete_failed", "Vui lòng vô hiệu hóa trước khi xóa.", 409);
+            return Error("dish_delete_failed", "Vui lòng tạm ngừng món ăn trước khi xóa", 409);
         }
 
         var referenceStatus = await _ordersClient.GetDishReferenceStatusAsync(dishId, cancellationToken);
@@ -333,12 +333,19 @@ public sealed class AdminGatewayController : ControllerBase
     }
 
     [HttpGet("ingredients")]
-    public async Task<ActionResult<AdminIngredientsScreenDto>> GetIngredients([FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] bool includeInactive = true, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<AdminIngredientsScreenDto>> GetIngredients([FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] bool includeInactive = true, [FromQuery] string? stockStatus = null, CancellationToken cancellationToken = default)
     {
         if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
-        var ingredients = await _catalogClient.GetAdminIngredientsAsync(search, page, pageSize, includeInactive, cancellationToken)
+        var ingredients = await _catalogClient.GetAdminIngredientsAsync(search, page, pageSize, includeInactive, stockStatus, cancellationToken)
             ?? new AdminIngredientPagedResponse(Math.Max(1, page), Math.Clamp(pageSize, 1, 100), 0, 0, Array.Empty<AdminIngredientDto>());
         return Ok(new AdminIngredientsScreenDto(ingredients));
+    }
+
+    [HttpGet("ingredients/{ingredientId:int}/related-dishes")]
+    public async Task<ActionResult<IReadOnlyList<AdminRelatedIngredientDishDto>>> GetIngredientRelatedDishes(int ingredientId, CancellationToken cancellationToken = default)
+    {
+        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        return Ok(await _catalogClient.GetIngredientRelatedDishesAsync(ingredientId, cancellationToken));
     }
 
     [HttpGet("ingredients/{ingredientId:int}")]
@@ -633,11 +640,31 @@ public sealed class AdminGatewayController : ControllerBase
         if (table is null) return Error("table_not_found", "Không tìm thấy bàn.", 404);
         if (table.BranchId != admin.BranchId)
         {
-            return Error("forbidden_branch_scope", "Bạn chỉ có thể vô hiệu bàn thuộc chi nhánh của mình.", 403);
+            return Error("forbidden_branch_scope", "Bạn chỉ có thể ẩn bàn thuộc chi nhánh của mình.", 403);
         }
 
         await _catalogClient.DeactivateAdminTableAsync(tableId, cancellationToken);
-        return Ok(new { success = true, message = "Đã vô hiệu hóa bàn." });
+        return Ok(new { success = true, message = "Đã ẩn bàn." });
+    }
+
+    [HttpDelete("tables/{tableId:int}")]
+    public async Task<ActionResult<object>> DeleteTable(int tableId, CancellationToken cancellationToken)
+    {
+        var admin = RequireAdmin();
+        if (admin is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+        var table = await _catalogClient.GetAdminTableByIdAsync(tableId, cancellationToken);
+        if (table is null) return Error("table_not_found", "Không tìm thấy bàn.", 404);
+        if (table.BranchId != admin.BranchId)
+        {
+            return Error("forbidden_branch_scope", "Bạn chỉ có thể xóa bàn thuộc chi nhánh của mình.", 403);
+        }
+        if (table.IsActive)
+        {
+            return Error("table_delete_failed", "Vui lòng ẩn bàn trước khi xóa", 409);
+        }
+
+        await _catalogClient.DeleteAdminTableAsync(tableId, cancellationToken);
+        return Ok(new { success = true, message = "Đã xóa bàn." });
     }
 
     [HttpGet("employees")]

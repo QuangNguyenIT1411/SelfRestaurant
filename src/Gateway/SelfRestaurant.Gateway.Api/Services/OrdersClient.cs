@@ -155,6 +155,12 @@ public sealed class OrdersClient : ApiClientBase
     public Task ChefUpdateItemNoteAsync(int orderId, int itemId, string? note, bool append, CancellationToken cancellationToken) =>
         PutAsync($"/api/orders/{orderId}/items/{itemId}/chef-note", new { note, append }, cancellationToken);
 
+    public Task<ChefOrderItemIngredientOverridesDto?> GetOrderItemIngredientOverridesAsync(int orderId, int itemId, CancellationToken cancellationToken) =>
+        GetAsync<ChefOrderItemIngredientOverridesDto>($"/api/orders/{orderId}/items/{itemId}/ingredient-overrides", cancellationToken);
+
+    public Task UpdateOrderItemIngredientOverridesAsync(int orderId, int itemId, ChefUpdateOrderItemIngredientOverrideRequest request, CancellationToken cancellationToken) =>
+        PutAsync($"/api/orders/{orderId}/items/{itemId}/ingredient-overrides", request, cancellationToken);
+
     public async Task<IReadOnlyList<ChefHistoryDto>> GetChefHistoryAsync(int branchId, int take, CancellationToken cancellationToken)
     {
         var list = await GetAsync<IReadOnlyList<ChefHistoryDto>>($"/api/branches/{branchId}/chef/history?take={take}", cancellationToken);

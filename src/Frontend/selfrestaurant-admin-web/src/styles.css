@@ -82,6 +82,12 @@ input, textarea, select { border-radius: 14px; border: 1px solid #d6deeb; paddin
 .ingredient-modal-list { display: grid; gap: .75rem; }
 .ingredient-line { display: grid; grid-template-columns: minmax(0, 1fr) 140px; align-items: center; gap: 1rem; padding: .9rem 1rem; border-radius: 16px; border: 1px solid #e6e9f2; background: #fff; }
 .ingredient-line.selected { border-color: #bfdbfe; background: #f8fbff; }
+.dish-ingredient-pagination-summary { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; padding: .85rem 1rem; border: 1px solid #e6e9f2; border-radius: 16px; background: #f8fbff; }
+.dish-ingredient-pagination-summary > div { display: grid; gap: .2rem; }
+.dish-ingredient-pagination-summary label { display: inline-flex; align-items: center; gap: .55rem; margin: 0; color: #475569; font-weight: 700; }
+.dish-ingredient-pagination-summary select { width: auto; min-width: 5rem; }
+.dish-ingredient-pagination { justify-content: space-between; align-items: center; margin: 1rem 0 0; }
+.dish-ingredient-pagination-info { padding: .58rem .85rem; border-radius: 10px; background: #f8fafc; color: #475569; font-weight: 800; }
 .ingredient-toggle { display: flex; align-items: center; gap: .85rem; }
 .ingredient-toggle input { width: auto; }
 .category-helper { display: grid; gap: .65rem; margin-top: .75rem; }
@@ -356,4 +362,80 @@ input, textarea, select { border-radius: 14px; border: 1px solid #d6deeb; paddin
   justify-content: flex-end;
   gap: 10px;
   margin-top: 20px;
+}
+
+.ingredient-related-modal { width: min(920px, calc(100vw - 2rem)); }
+.qr-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+.qr-table-card { border: 1px solid #e6e9f2; border-radius: 18px; background: #fff; padding: 1rem; display: grid; gap: 1rem; box-shadow: 0 8px 24px rgba(15, 23, 42, .06); }
+.qr-table-card-head { display: flex; justify-content: space-between; gap: .75rem; align-items: flex-start; }
+.qr-table-card-head h3 { margin: 0; }
+.qr-table-card-head p { margin: .2rem 0 0; color: #64748b; font-weight: 700; }
+.qr-table-card-body { display: grid; gap: .75rem; justify-items: center; }
+.qr-url-box { width: 100%; padding: .75rem; border-radius: 12px; background: #f8fafc; border: 1px solid #e2e8f0; color: #475569; font-size: .85rem; word-break: break-all; }
+.button-link { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+
+/* Admin light modal/readability guardrails */
+.modal-card,
+.admin-modal-card,
+.ingredient-related-modal,
+.app-dialog,
+.qr-table-card,
+.dish-image-picker,
+.dish-ingredient-pagination-summary {
+  color: #0f172a;
+}
+
+.modal-card h1,
+.modal-card h2,
+.modal-card h3,
+.modal-card h4,
+.modal-card strong,
+.admin-modal-card strong,
+.ingredient-related-modal strong,
+.app-dialog h2,
+.qr-table-card strong {
+  color: #0f172a;
+}
+
+.modal-card p,
+.modal-card small,
+.modal-card .muted,
+.modal-card .muted-caption,
+.modal-card .ingredient-summary-cell,
+.admin-modal-card small,
+.ingredient-related-modal small,
+.app-dialog p,
+.qr-table-card p,
+.qr-url-box {
+  color: #475569 !important;
+}
+
+.modal-card input,
+.modal-card textarea,
+.modal-card select,
+.app-dialog-field input,
+.app-dialog-field textarea {
+  background: #ffffff;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.modal-card input::placeholder,
+.modal-card textarea::placeholder,
+.app-dialog-field input::placeholder,
+.app-dialog-field textarea::placeholder {
+  color: #64748b;
+  opacity: 1;
+}
+
+.modal-card button:not(.ghost):not(.danger),
+.app-dialog-actions button:not(.ghost):not(.danger) {
+  color: #ffffff;
+}
+
+.modal-card button.ghost,
+.app-dialog-actions button.ghost {
+  background: #ffffff;
+  border-color: #94a3b8;
+  color: #0f172a;
 }

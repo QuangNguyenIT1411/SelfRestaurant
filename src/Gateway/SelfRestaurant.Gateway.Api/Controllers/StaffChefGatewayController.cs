@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
@@ -174,7 +174,7 @@ public sealed class StaffChefGatewayController : ControllerBase
         return Ok(new
         {
             success = true,
-            nextPath = $"/Staff/Account/Login?message={Uri.EscapeDataString($"Tạm biệt {userName}! Bạn đã đăng xuất thành công.")}&type=success"
+            nextPath = $"/Staff/Account/Login?message={Uri.EscapeDataString($"T?m bi?t {userName}! B?n ?? ??ng xu?t th?nh c?ng.")}&type=success"
         });
     }
 
@@ -349,10 +349,75 @@ public sealed class StaffChefGatewayController : ControllerBase
         var lines = await _catalogClient.GetDishIngredientsAsync(dishId, cancellationToken);
         var items = lines
             .Where(x => x.Selected)
-            .Select(x => new ChefDishIngredientItemDto(x.IngredientId, x.Name, x.Unit, x.CurrentStock, x.IsActive, x.QuantityPerDish))
+            .Select(x => new ChefDishIngredientItemDto(x.IngredientId, x.Name, x.Unit, x.CurrentStock, x.IsActive, x.QuantityPerDish, x.QuantityPerDish, false))
             .ToArray();
 
-        return Ok(new ChefDishIngredientsDto(dishId, dish.Name, items));
+        return Ok(new ChefDishIngredientsDto(dishId, dish.Name, null, null, items));
+    }
+
+
+    [HttpGet("chef/orders/{orderId:int}/items/{itemId:int}/ingredients")]
+    public async Task<ActionResult<ChefDishIngredientsDto>> GetOrderItemIngredients(int orderId, int itemId, CancellationToken cancellationToken)
+    {
+        var staff = RequireChef();
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
+        var overrides = await _ordersClient.GetOrderItemIngredientOverridesAsync(orderId, itemId, cancellationToken);
+        if (overrides is null) return Error("item_not_found", "Không tìm thấy món trong đơn.", 404);
+        await EnsureDishInTodayMenuAsync(staff.BranchId, overrides.DishId, cancellationToken);
+        var dish = await _catalogClient.GetAdminDishByIdAsync(overrides.DishId, cancellationToken);
+        if (dish is null) return Error("dish_not_found", "Không tìm thấy món ăn.", 404);
+        var overrideMap = overrides.Items.ToDictionary(x => x.IngredientId, x => x.Quantity);
+        var lines = await _catalogClient.GetDishIngredientsAsync(overrides.DishId, cancellationToken);
+        var items = lines
+            .Where(x => x.Selected)
+            .Select(x =>
+            {
+                var hasOverride = overrideMap.TryGetValue(x.IngredientId, out var quantity);
+                return new ChefDishIngredientItemDto(x.IngredientId, x.Name, x.Unit, x.CurrentStock, x.IsActive, hasOverride ? quantity : x.QuantityPerDish, x.QuantityPerDish, hasOverride);
+            })
+            .ToArray();
+        return Ok(new ChefDishIngredientsDto(overrides.DishId, dish.Name, orderId, itemId, items));
+    }
+
+    [HttpPut("chef/orders/{orderId:int}/items/{itemId:int}/ingredients")]
+    public async Task<ActionResult<object>> UpdateOrderItemIngredients(int orderId, int itemId, [FromBody] ChefUpdateOrderItemIngredientOverrideRequest request, CancellationToken cancellationToken)
+    {
+        var staff = RequireChef();
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản bếp.", 401);
+        var requestedItems = request.Items ?? Array.Empty<ChefOrderItemIngredientOverrideDto>();
+        if (requestedItems.Any(x => x.IngredientId <= 0)) return Error("invalid_ingredient", "Nguyên liệu không hợp lệ.", 400);
+        if (requestedItems.Any(x => x.Quantity < 0)) return Error("invalid_quantity", "Số lượng nguyên liệu không được âm.", 400);
+
+        var current = await _ordersClient.GetOrderItemIngredientOverridesAsync(orderId, itemId, cancellationToken);
+        if (current is null) return Error("item_not_found", "Không tìm thấy món trong đơn.", 404);
+        await EnsureDishInTodayMenuAsync(staff.BranchId, current.DishId, cancellationToken);
+
+        var recipe = await _catalogClient.GetDishIngredientsAsync(current.DishId, cancellationToken);
+        var recipeMap = recipe
+            .Where(x => x.Selected)
+            .GroupBy(x => x.IngredientId)
+            .ToDictionary(x => x.Key, x => x.Last());
+        var enrichedItems = requestedItems
+            .GroupBy(x => x.IngredientId)
+            .Select(group =>
+            {
+                var item = group.Last();
+                recipeMap.TryGetValue(item.IngredientId, out var recipeItem);
+                return new ChefOrderItemIngredientOverrideDto(
+                    item.IngredientId,
+                    recipeItem?.Name ?? item.IngredientName,
+                    recipeItem?.Unit ?? item.Unit,
+                    item.Quantity);
+            })
+            .ToArray();
+
+        if (enrichedItems.Any(x => string.IsNullOrWhiteSpace(x.IngredientName) || string.IsNullOrWhiteSpace(x.Unit)))
+        {
+            return Error("invalid_ingredient_snapshot", "Tên và đơn vị nguyên liệu không hợp lệ.", 400);
+        }
+
+        await _ordersClient.UpdateOrderItemIngredientOverridesAsync(orderId, itemId, new ChefUpdateOrderItemIngredientOverrideRequest(enrichedItems, request.Note), cancellationToken);
+        return Ok(new { success = true, message = "Đã lưu thành phần riêng cho món trong đơn này." });
     }
 
     [HttpPut("chef/dishes/{dishId:int}/ingredients")]
@@ -456,7 +521,7 @@ public sealed class StaffChefGatewayController : ControllerBase
                 request.IsActive ?? true),
             cancellationToken);
 
-        return Ok(new { success = true, message = "Đã thêm món mới vào thực đơn hôm nay." });
+        return Ok(new { success = true, message = "?? th?m m?n m?i v?o th?c ??n h?m nay." });
     }
 
     [HttpPut("chef/dishes/{dishId:int}")]
@@ -549,7 +614,7 @@ public sealed class StaffChefGatewayController : ControllerBase
             await _identityClient.StaffChangePasswordAsync(
                 new StaffChangePasswordRequest(staff.EmployeeId, request.CurrentPassword, request.NewPassword),
                 cancellationToken);
-            return Ok(new { success = true, message = "Đổi mật khẩu thành công." });
+            return Ok(new { success = true, message = "??i m?t kh?u th?nh c?ng." });
         }
         catch (Exception ex)
         {
@@ -643,7 +708,7 @@ public sealed class StaffChefGatewayController : ControllerBase
         var page = 1;
         while (true)
         {
-            var response = await _catalogClient.GetAdminIngredientsAsync(null, page, 100, true, cancellationToken);
+            var response = await _catalogClient.GetAdminIngredientsAsync(null, page, 100, true, null, cancellationToken);
             if (response is null || response.Items.Count == 0) break;
             result.AddRange(response.Items.Where(x => x.IsActive));
             if (page >= response.TotalPages) break;
@@ -803,8 +868,7 @@ public sealed class StaffChefGatewayController : ControllerBase
 
             var mapped = ch switch
             {
-                'đ' or 'Ð' => 'd',
-                'Đ' => 'd',
+                '\u0111' or '\u0110' => 'd',
                 _ => char.ToLowerInvariant(ch)
             };
 
@@ -910,7 +974,7 @@ public sealed class StaffChefGatewayController : ControllerBase
         var normalized = message.Trim();
         if (normalized.Contains("Đơn hàng không có món để chuyển sang bếp.", StringComparison.OrdinalIgnoreCase))
         {
-            return "Đơn hàng chưa có món hợp lệ để bắt đầu nấu.";
+            return "??n h?ng ch?a c? m?n h?p l? ?? b?t ??u n?u.";
         }
 
         if (normalized.Contains("Order is already in kitchen processing state", StringComparison.OrdinalIgnoreCase))
@@ -920,7 +984,7 @@ public sealed class StaffChefGatewayController : ControllerBase
 
         if (normalized.Contains("Order is not in a status that can enter kitchen processing", StringComparison.OrdinalIgnoreCase))
         {
-            return "Đơn này chưa ở trạng thái có thể bắt đầu nấu.";
+            return "??n n?y ch?a ? tr?ng th?i c? th? b?t ??u n?u.";
         }
 
         if (normalized.Contains("Không thể trừ nguyên liệu trong kho", StringComparison.OrdinalIgnoreCase))
@@ -989,3 +1053,4 @@ public sealed class StaffChefGatewayController : ControllerBase
     private ActionResult Error(string code, string message, int statusCode, object? details = null)
         => StatusCode(statusCode, new ApiErrorResponse(false, code, message, details));
 }
+

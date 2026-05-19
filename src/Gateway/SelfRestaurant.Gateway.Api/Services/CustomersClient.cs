@@ -31,8 +31,11 @@ public sealed class CustomersClient : ApiClientBase
         return list ?? Array.Empty<ReadyDishNotificationDto>();
     }
 
-    public Task ResolveReadyNotificationAsync(long notificationId, int customerId, CancellationToken cancellationToken) =>
-        PostAsync<object>($"/api/customers/{customerId}/ready-notifications/{notificationId}/resolve", new { }, cancellationToken);
+    public Task ResolveReadyNotificationAsync(long notificationId, int customerId, int? tableId, CancellationToken cancellationToken)
+    {
+        var suffix = tableId is > 0 ? $"?tableId={tableId.Value}" : string.Empty;
+        return PostAsync<object>($"/api/customers/{customerId}/ready-notifications/{notificationId}/resolve{suffix}", new { }, cancellationToken);
+    }
 
     public Task ResetDevTestStateAsync(CancellationToken cancellationToken) =>
         PostAsync<object>("/api/dev/reset-test-state", new { }, cancellationToken);

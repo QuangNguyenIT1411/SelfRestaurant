@@ -12,6 +12,16 @@ type Props = {
 
 type CheckoutResultView = CashierCheckoutResultDto & {
   orderCode: string;
+  tableName: string;
+  customerName: string;
+  cashierName: string;
+  cashierRoleName: string;
+  branchName: string;
+  paidTime: string;
+  subtotal: number;
+  discount: number;
+  pointsDiscount: number;
+  items: CashierDashboardDto["orders"][number]["items"];
   paymentMethod: string;
   paymentAmount: number;
 };
@@ -294,7 +304,7 @@ export function DashboardPage({ onLogout }: Props) {
   }
 
   async function processCheckout() {
-    if (!activeOrder || checkoutSubmitting) return;
+    if (!dashboard || !activeOrder || !selectedTable || checkoutSubmitting) return;
     setError(null);
     setMessage(null);
 
@@ -310,6 +320,21 @@ export function DashboardPage({ onLogout }: Props) {
 
     try {
       setCheckoutSubmitting(true);
+      const invoiceSnapshot = {
+        orderCode: activeOrder.orderCode,
+        tableName: selectedTable.number,
+        customerName: activeOrder.customerName,
+        cashierName: dashboard.staff.name,
+        cashierRoleName: dashboard.staff.roleName,
+        branchName: dashboard.staff.branchName,
+        paidTime: new Date().toISOString(),
+        subtotal: activeOrder.subtotal,
+        discount: checkoutPreview.discount,
+        pointsDiscount: checkoutPreview.pointsUsed,
+        items: activeOrder.items.map((item) => ({ ...item })),
+        paymentMethod,
+        paymentAmount: checkoutPreview.paymentAmount,
+      };
       const result = await cashierApi.checkout(activeOrder.orderId, {
         discount: checkoutPreview.discount,
         pointsUsed: checkoutPreview.pointsUsed,
@@ -320,19 +345,27 @@ export function DashboardPage({ onLogout }: Props) {
 
       setCheckoutResult({
         ...result,
-        orderCode: activeOrder.orderCode,
-        paymentMethod,
-        paymentAmount: checkoutPreview.paymentAmount,
+        ...invoiceSnapshot,
+        customerName: result.customerName ?? invoiceSnapshot.customerName,
       });
       setMessage(result.message);
       clearCheckoutIntentKey(activeOrder.orderId);
       await loadDashboard(true);
-      window.setTimeout(() => window.location.reload(), 900);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể thanh toán hóa đơn.");
     } finally {
       setCheckoutSubmitting(false);
     }
+  }
+
+  async function closeCheckoutResult() {
+    setCheckoutResult(null);
+    setActiveTableId(null);
+    await loadDashboard(true);
+  }
+
+  function printCheckoutResult() {
+    window.print();
   }
 
   if (loading) return <div className="screen-message">Đang tải quầy thu ngân...</div>;
@@ -344,8 +377,8 @@ export function DashboardPage({ onLogout }: Props) {
   const canCheckout = !!activeOrder;
 
   return (
-    <main className="cashier-shell">
-      <section className="hero-card cashier-hero">
+    <main className="cashier-shell cashier-pos-shell">
+      <section className="hero-card cashier-hero cashier-pos-hero">
         <header className="cashier-header">
           <div>
             <h1>Quầy Thu Ngân</h1>
@@ -368,7 +401,7 @@ export function DashboardPage({ onLogout }: Props) {
           </div>
         </header>
 
-        <section className="stats-grid">
+        <section className="stats-grid cashier-pos-stats">
           <article>
             <strong>{dashboard.todayOrders}</strong>
             <span>Đơn hôm nay</span>
@@ -383,8 +416,8 @@ export function DashboardPage({ onLogout }: Props) {
       {message ? <div className="success-box">{message}</div> : null}
       {error ? <div className="error-box">{error}</div> : null}
 
-      <section className="split-grid cash-grid">
-        <div className="panel cashier-panel-card">
+      <section className="split-grid cash-grid cashier-pos-grid">
+        <div className="panel cashier-panel-card cashier-pos-panel cashier-table-panel">
           <div className="cashier-panel-header">
             <h2>
               <i className="bi bi-table me-2" />
@@ -411,7 +444,7 @@ export function DashboardPage({ onLogout }: Props) {
                 visibleTables.map((table) => (
                   <article
                     key={table.tableId}
-                    className={`table-card ${table.status.toLowerCase()} ${selectedTable?.tableId === table.tableId ? "selected" : ""}`}
+                    className={`table-card cashier-table-card ${table.status.toLowerCase()} ${selectedTable?.tableId === table.tableId ? "selected" : ""}`}
                     onClick={() => setActiveTableId(table.tableId)}
                   >
                     <div className="table-number">{table.number}</div>
@@ -431,7 +464,7 @@ export function DashboardPage({ onLogout }: Props) {
           </div>
         </div>
 
-        <div className="panel cashier-panel-card">
+        <div className="panel cashier-panel-card cashier-pos-panel cashier-order-panel">
           <div className="cashier-panel-header">
             <h2>
               <i className="bi bi-receipt me-2" />
@@ -452,7 +485,7 @@ export function DashboardPage({ onLogout }: Props) {
               </div>
             ) : (
               <>
-                <div className="inline-filter-card cashier-order-summary-card">
+                <div className="inline-filter-card cashier-order-summary-card cashier-pos-order-summary">
                   <div>
                     <strong>{activeOrder.orderCode}</strong>
                     <div className="muted">{activeOrder.customerName || "Khách lẻ"}</div>
@@ -462,7 +495,7 @@ export function DashboardPage({ onLogout }: Props) {
 
                 <div className="detail-list">
                   {activeOrder.items.map((item, index) => (
-                    <article key={`${activeOrder.orderId}-${index}`} className="detail-item-card">
+                    <article key={`${activeOrder.orderId}-${index}`} className="detail-item-card cashier-pos-item-card">
                       <div className="d-flex" style={{ gap: "1rem" }}>
                         {item.image ? (
                           <img
@@ -486,7 +519,7 @@ export function DashboardPage({ onLogout }: Props) {
           </div>
         </div>
 
-        <div className="panel cashier-panel-card">
+        <div className="panel cashier-panel-card cashier-pos-panel cashier-payment-panel">
           <div className="cashier-panel-header">
             <h2>
               <i className="bi bi-credit-card me-2" />
@@ -675,7 +708,7 @@ export function DashboardPage({ onLogout }: Props) {
                 <i className="bi bi-check-circle-fill me-2" />
                 Thanh toán thành công
               </h2>
-              <button className="ghost" onClick={() => setCheckoutResult(null)}>
+              <button className="ghost" onClick={() => void closeCheckoutResult()}>
                 Đóng
               </button>
             </div>
@@ -686,6 +719,10 @@ export function DashboardPage({ onLogout }: Props) {
               </div>
 
               <div className="bill-meta-grid">
+                <div className="bill-meta-card">
+                  <span>Bàn</span>
+                  <strong>{checkoutResult.tableName}</strong>
+                </div>
                 <div className="bill-meta-card">
                   <span>Mã đơn hàng</span>
                   <strong>{checkoutResult.orderCode}</strong>
@@ -698,9 +735,43 @@ export function DashboardPage({ onLogout }: Props) {
                   <span>Phương thức</span>
                   <strong>{paymentMethodLabel(checkoutResult.paymentMethod)}</strong>
                 </div>
+                <div className="bill-meta-card">
+                  <span>Thời gian</span>
+                  <strong>{new Date(checkoutResult.paidTime).toLocaleString("vi-VN")}</strong>
+                </div>
+                <div className="bill-meta-card">
+                  <span>Thu ngân</span>
+                  <strong>{checkoutResult.cashierName}</strong>
+                </div>
+              </div>
+
+              <div className="order-list compact-list">
+                {checkoutResult.items.map((item, index) => (
+                  <div className="order-line" key={`${item.dishName}-${index}`}>
+                    <div>
+                      <strong>{item.dishName}</strong>
+                      <span>
+                        {item.quantity} x {item.unitPrice.toLocaleString("vi-VN")} đ
+                      </span>
+                    </div>
+                    <strong>{item.lineTotal.toLocaleString("vi-VN")} đ</strong>
+                  </div>
+                ))}
               </div>
 
               <div className="bill-breakdown">
+                <div>
+                  <span>Tạm tính</span>
+                  <strong>{checkoutResult.subtotal.toLocaleString("vi-VN")} đ</strong>
+                </div>
+                <div>
+                  <span>Giảm giá</span>
+                  <strong>{checkoutResult.discount.toLocaleString("vi-VN")} đ</strong>
+                </div>
+                <div>
+                  <span>Điểm sử dụng</span>
+                  <strong>{checkoutResult.pointsDiscount.toLocaleString("vi-VN")} đ</strong>
+                </div>
                 <div>
                   <span>Thành tiền</span>
                   <strong>{checkoutResult.totalAmount.toLocaleString("vi-VN")} đ</strong>
@@ -716,9 +787,13 @@ export function DashboardPage({ onLogout }: Props) {
               </div>
 
               <div className="cashier-modal-footer">
-                <button className="cashier-button-primary" onClick={() => window.print()}>
+                <button className="cashier-button-primary" onClick={printCheckoutResult}>
                   <i className="bi bi-printer me-2" />
                   In hóa đơn
+                </button>
+                <button className="cashier-button-outline" onClick={() => void closeCheckoutResult()}>
+                  <i className="bi bi-check2-circle me-2" />
+                  Hoàn tất
                 </button>
               </div>
             </div>
@@ -729,3 +804,4 @@ export function DashboardPage({ onLogout }: Props) {
     </main>
   );
 }
+

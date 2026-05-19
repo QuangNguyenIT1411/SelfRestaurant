@@ -17,7 +17,41 @@ import {
   type GuestCartItem,
 } from "../lib/guestCart";
 import { clearPersistentTableContext, savePersistentTableContext } from "../lib/persistentTable";
-import type { ActiveOrderItemDto, MenuDishDto } from "../lib/types";
+import type { ActiveOrderItemDto, MenuDishDto, ReadyDishNotificationDto } from "../lib/types";
+
+const readyDismissedStorageKey = "selfrestaurant.customer.readyNotifications.dismissed.v1";
+const readyDisplayedStorageKey = "selfrestaurant.customer.readyNotifications.displayed.v1";
+
+function readReadyKeySet(storageKey: string) {
+  if (typeof window === "undefined" || typeof window.sessionStorage === "undefined") {
+    return new Set<string>();
+  }
+
+  try {
+    const raw = window.sessionStorage.getItem(storageKey);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string") : []);
+  } catch {
+    return new Set<string>();
+  }
+}
+
+function writeReadyKeySet(storageKey: string, values: Set<string>) {
+  if (typeof window === "undefined" || typeof window.sessionStorage === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.setItem(storageKey, JSON.stringify([...values]));
+}
+
+function readyNotificationKey(notification: ReadyDishNotificationDto) {
+  if (notification.notificationId) return `notification:${notification.notificationId}`;
+  return `ready:${notification.orderId ?? "order"}:${notification.orderItemId ?? "item"}:${notification.status ?? "READY"}:${notification.createdAt ?? "time"}`;
+}
+
+function readyItemFallbackKey(item: ActiveOrderItemDto) {
+  return `item:${item.orderId}:${item.itemId}:${item.status ?? "READY"}`;
+}
 
 const t = {
   loading: "\u0110ang t\u1ea3i menu...",
@@ -200,8 +234,8 @@ export function MenuPage() {
   const [showSendConfirm, setShowSendConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showReadyModal, setShowReadyModal] = useState(false);
-  const [dismissedReadyOrderIds, setDismissedReadyOrderIds] = useState<number[]>([]);
-  const [lastReadySignalOrderId, setLastReadySignalOrderId] = useState<number | null>(null);
+  const [dismissedReadyKeys, setDismissedReadyKeys] = useState<Set<string>>(() => readReadyKeySet(readyDismissedStorageKey));
+  const [displayedReadyKeys, setDisplayedReadyKeys] = useState<Set<string>>(() => readReadyKeySet(readyDisplayedStorageKey));
   const [showReadyNotification, setShowReadyNotification] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "info"; message: string } | null>(null);
   const [guestCartItems, setGuestCartItems] = useState<GuestCartItem[]>([]);
@@ -322,6 +356,28 @@ export function MenuPage() {
     },
   });
 
+  const markReadyDismissed = (keys: string[]) => {
+    if (keys.length === 0) return;
+    setDismissedReadyKeys((current) => {
+      const next = new Set(current);
+      keys.forEach((key) => next.add(key));
+      writeReadyKeySet(readyDismissedStorageKey, next);
+      return next;
+    });
+    setDisplayedReadyKeys((current) => {
+      const next = new Set(current);
+      keys.forEach((key) => next.add(key));
+      writeReadyKeySet(readyDisplayedStorageKey, next);
+      return next;
+    });
+  };
+
+  const resolveReadyNotificationIds = async (notificationIds: number[]) => {
+    const uniqueIds = [...new Set(notificationIds.filter((notificationId) => notificationId > 0))];
+    if (uniqueIds.length === 0) return;
+    await Promise.all(uniqueIds.map((notificationId) => resolveNotification.mutateAsync(notificationId).catch(() => undefined)));
+  };
+
   useEffect(() => {
     if (!toast) return;
     const timer = window.setTimeout(() => setToast(null), 5000);
@@ -378,9 +434,13 @@ export function MenuPage() {
   const activeOrderIds = hasGuestCart ? [] : (order.data?.activeOrderIds ?? (currentOrderId ? [currentOrderId] : []));
   const hasPendingRound = hasGuestCart || Boolean(order.data?.hasPendingRound);
   const customerName = session.data?.customer?.name ?? "";
-  const activeReadyNotification = activeOrderIds.length > 0
-    ? (readyNotifications.data?.items ?? []).find((item) => item.orderId != null && activeOrderIds.includes(item.orderId)) ?? null
-    : (readyNotifications.data?.items ?? [])[0] ?? null;
+  const activeReadyNotifications = useMemo(
+    () => (readyNotifications.data?.items ?? [])
+      .filter((item) => !activeOrderIds.length || item.orderId == null || activeOrderIds.includes(item.orderId))
+      .filter((item) => !dismissedReadyKeys.has(readyNotificationKey(item))),
+    [activeOrderIds, dismissedReadyKeys, readyNotifications.data?.items],
+  );
+  const activeReadyNotification = activeReadyNotifications[0] ?? null;
   const visibleCategories = useMemo(
     () => categoryList.filter((category) => (
       category.dishes.some((dish) => (!vegOnly || dish.isVegetarian))
@@ -408,40 +468,60 @@ export function MenuPage() {
   const cancelled = items.filter((item) => group(item, orderStatus) === "cancelled");
   const hasReadyItems = ready.length > 0;
   const hasReceivedItems = received.length > 0;
+  const readyFallbackKeys = useMemo(
+    () => ready.map(readyItemFallbackKey).filter((key) => !dismissedReadyKeys.has(key)),
+    [dismissedReadyKeys, ready],
+  );
+  const activeReadyKeys = useMemo(
+    () => [
+      ...activeReadyNotifications.map(readyNotificationKey),
+      ...readyFallbackKeys,
+    ].filter((key, index, keys) => keys.indexOf(key) === index),
+    [activeReadyNotifications, readyFallbackKeys],
+  );
+  const activeReadyNotificationIds = useMemo(
+    () => [...new Set(activeReadyNotifications.map((notification) => notification.notificationId).filter((notificationId) => notificationId > 0))],
+    [activeReadyNotifications],
+  );
   const currentReadyOrderId = activeReadyNotification?.orderId ?? (ready[0]?.orderId ?? null);
-  const isReadyLikeStatus = ready.length > 0 || Boolean(activeReadyNotification);
+  const isReadyLikeStatus = activeReadyKeys.length > 0;
   const checkoutItems = [...kitchen, ...ready, ...received, ...cancelled];
   const totalCartCount = items.filter((item) => group(item, orderStatus) !== "cancelled").reduce((sum, item) => sum + item.quantity, 0);
   const totalDishCount = items.filter((item) => group(item, orderStatus) !== "cancelled").reduce((sum, item) => sum + item.quantity, 0);
 
   useEffect(() => {
-    if (!currentReadyOrderId || !isReadyLikeStatus || !hasReadyItems) {
+    if (!isReadyLikeStatus || (!hasReadyItems && activeReadyNotifications.length === 0)) {
       return;
     }
 
-    if (lastReadySignalOrderId !== currentReadyOrderId) {
-      setLastReadySignalOrderId(currentReadyOrderId);
+    const unseenKeys = activeReadyKeys.filter((key) => !displayedReadyKeys.has(key) && !dismissedReadyKeys.has(key));
+    if (unseenKeys.length > 0) {
+      setDisplayedReadyKeys((current) => {
+        const next = new Set(current);
+        unseenKeys.forEach((key) => next.add(key));
+        writeReadyKeySet(readyDisplayedStorageKey, next);
+        return next;
+      });
       setShowReadyNotification(true);
       setToast({
         type: "success",
-        message: "Bếp đã hoàn thành món ăn của bạn! Vui lòng đến quầy nhận món.",
+        message: unseenKeys.length > 1
+          ? "Bếp đã hoàn thành nhiều món/đơn của bạn! Vui lòng đến quầy nhận món."
+          : "Bếp đã hoàn thành món ăn của bạn! Vui lòng đến quầy nhận món.",
       });
     }
 
-    if (!dismissedReadyOrderIds.includes(currentReadyOrderId)) {
+    if (activeReadyKeys.some((key) => !dismissedReadyKeys.has(key))) {
       setShowReadyModal(true);
     }
-  }, [currentReadyOrderId, dismissedReadyOrderIds, hasReadyItems, isReadyLikeStatus, lastReadySignalOrderId]);
+  }, [activeReadyKeys, activeReadyNotifications.length, dismissedReadyKeys, displayedReadyKeys, hasReadyItems, isReadyLikeStatus]);
 
   useEffect(() => {
-    if (!currentReadyOrderId) {
+    if (!isReadyLikeStatus) {
       setShowReadyModal(false);
       setShowReadyNotification(false);
-      return;
     }
-
-    setDismissedReadyOrderIds((current) => current.filter((orderId) => orderId === currentReadyOrderId));
-  }, [currentReadyOrderId]);
+  }, [isReadyLikeStatus]);
 
   useEffect(() => {
     if (!selectedDish) {
@@ -1326,9 +1406,10 @@ export function MenuPage() {
         </div>
       ) : null}
 
-      {showReadyModal && currentReadyOrderId && isReadyLikeStatus && hasReadyItems ? (
+      {showReadyModal && isReadyLikeStatus ? (
         <div className="modal fade show d-block menu-static-modal" tabIndex={-1} aria-modal="true" role="dialog" onClick={() => {
-          setDismissedReadyOrderIds((current) => (current.includes(currentReadyOrderId) ? current : [...current, currentReadyOrderId]));
+          markReadyDismissed(activeReadyKeys);
+          void resolveReadyNotificationIds(activeReadyNotificationIds);
           setShowReadyModal(false);
         }}>
           <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
@@ -1340,7 +1421,8 @@ export function MenuPage() {
                   className="btn-close"
                   aria-label={t.close}
                   onClick={() => {
-                    setDismissedReadyOrderIds((current) => (current.includes(currentReadyOrderId) ? current : [...current, currentReadyOrderId]));
+                    markReadyDismissed(activeReadyKeys);
+                    void resolveReadyNotificationIds(activeReadyNotificationIds);
                     setShowReadyModal(false);
                   }}
                 />
@@ -1354,13 +1436,23 @@ export function MenuPage() {
                   <i className="bi bi-info-circle me-1" />
                   {t.readyHint}
                 </div>
+                {activeReadyNotifications.length > 1 ? (
+                  <ul className="small mt-3 mb-0">
+                    {activeReadyNotifications.map((notification) => (
+                      <li key={readyNotificationKey(notification)}>
+                        {notification.message || notification.dishName || `Đơn #${notification.orderId ?? ""}`}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </div>
               <div className="modal-footer border-0">
                 <button
                   type="button"
                   className="btn btn-outline-secondary"
                   onClick={() => {
-                    setDismissedReadyOrderIds((current) => (current.includes(currentReadyOrderId) ? current : [...current, currentReadyOrderId]));
+                    markReadyDismissed(activeReadyKeys);
+                    void resolveReadyNotificationIds(activeReadyNotificationIds);
                     setShowReadyModal(false);
                   }}
                 >
@@ -1372,18 +1464,15 @@ export function MenuPage() {
                   disabled={confirmReceived.isPending || resolveNotification.isPending}
                   onClick={() => {
                     const orderId = currentReadyOrderId;
-                    const notificationId = activeReadyNotification?.notificationId;
                     const alreadyReceived = !hasReadyItems || hasReceivedItems || ["SERVING", "SERVED", "COMPLETED"].includes(orderStatus);
-                    setDismissedReadyOrderIds((current) => (current.includes(currentReadyOrderId) ? current : [...current, currentReadyOrderId]));
+                    markReadyDismissed(activeReadyKeys);
                     setShowReadyModal(false);
                     void (async () => {
                       try {
                         if (orderId && !alreadyReceived) {
                           await confirmReceived.mutateAsync(orderId);
                         }
-                        if (notificationId) {
-                          await resolveNotification.mutateAsync(notificationId).catch(() => undefined);
-                        }
+                        await resolveReadyNotificationIds(activeReadyNotificationIds);
                         await queryClient.invalidateQueries({ queryKey: ["order"] });
                         await queryClient.invalidateQueries({ queryKey: ["orderItems"] });
                         await queryClient.invalidateQueries({ queryKey: ["readyNotifications"] });

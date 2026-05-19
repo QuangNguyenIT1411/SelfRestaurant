@@ -801,6 +801,20 @@ public sealed class IdentityController : ControllerBase
         await _db.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Staff login succeeded. employeeId={EmployeeId}", employee.EmployeeID);
 
+        _auditLogger.Add(
+            actionType: "staff.login",
+            entityType: "Employee",
+            entityId: employee.EmployeeID.ToString(),
+            employeeId: employee.EmployeeID,
+            actorType: "Employee",
+            actorId: employee.EmployeeID,
+            actorCode: employee.Username,
+            actorName: employee.Name,
+            actorRoleCode: employee.Role.RoleCode,
+            notes: $"Staff login successful for username: {username}");
+
+        await _db.SaveChangesAsync(cancellationToken);
+
         var branch = await _catalogApi.GetBranchAsync(employee.BranchID, cancellationToken);
 
         return Ok(new StaffLoginResponse(
@@ -851,8 +865,20 @@ public sealed class IdentityController : ControllerBase
 
         employee.Password = PasswordHashing.HashPassword(request.NewPassword);
         employee.UpdatedAt = DateTime.Now;
-        await _db.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Staff password changed. employeeId={EmployeeId}", employee.EmployeeID);
+
+        _auditLogger.Add(
+            actionType: "staff.password.change",
+            entityType: "Employee",
+            entityId: employee.EmployeeID.ToString(),
+            employeeId: employee.EmployeeID,
+            actorType: "Employee",
+            actorId: employee.EmployeeID,
+            actorCode: employee.Username,
+            actorName: employee.Name,
+            notes: "Staff password changed successfully");
+
+        await _db.SaveChangesAsync(cancellationToken);
 
         return Ok(new { message = "Đổi mật khẩu thành công." });
     }
@@ -898,6 +924,19 @@ public sealed class IdentityController : ControllerBase
         };
 
         _logger.LogInformation("Staff forgot-password token issued. employeeId={EmployeeId}", employee.EmployeeID);
+
+        _auditLogger.Add(
+            actionType: "staff.password.forgot",
+            entityType: "Employee",
+            entityId: employee.EmployeeID.ToString(),
+            employeeId: employee.EmployeeID,
+            actorType: "Employee",
+            actorId: employee.EmployeeID,
+            actorCode: employee.Username,
+            actorName: employee.Name,
+            notes: $"Staff password reset requested for: {key}");
+
+        await _db.SaveChangesAsync(cancellationToken);
 
         var smtpEnabled = _passwordResetEmailSender.IsEnabled;
         var emailSent = false;
@@ -980,6 +1019,19 @@ public sealed class IdentityController : ControllerBase
 
         await _db.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Staff password reset. employeeId={EmployeeId}", employee.EmployeeID);
+
+        _auditLogger.Add(
+            actionType: "staff.password.reset",
+            entityType: "Employee",
+            entityId: employee.EmployeeID.ToString(),
+            employeeId: employee.EmployeeID,
+            actorType: "Employee",
+            actorId: employee.EmployeeID,
+            actorCode: employee.Username,
+            actorName: employee.Name,
+            notes: "Staff password reset completed successfully");
+
+        await _db.SaveChangesAsync(cancellationToken);
         return Ok(new { message = "Đặt lại mật khẩu thành công! Bạn có thể đăng nhập với mật khẩu mới." });
     }
 
@@ -1043,9 +1095,21 @@ public sealed class IdentityController : ControllerBase
         employee.Phone = request.Phone.Trim();
         employee.Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
         employee.UpdatedAt = DateTime.Now;
+        _logger.LogInformation("Staff profile updated. employeeId={EmployeeId}", employee.EmployeeID);
+
+        _auditLogger.Add(
+            actionType: "staff.profile.update",
+            entityType: "Employee",
+            entityId: employee.EmployeeID.ToString(),
+            employeeId: employee.EmployeeID,
+            actorType: "Employee",
+            actorId: employee.EmployeeID,
+            actorCode: employee.Username,
+            actorName: employee.Name,
+            actorRoleCode: employee.Role.RoleCode,
+            notes: "Staff profile updated");
 
         await _db.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Staff profile updated. employeeId={EmployeeId}", employee.EmployeeID);
 
         var branch = await _catalogApi.GetBranchAsync(employee.BranchID, cancellationToken);
 
@@ -1431,10 +1495,36 @@ public sealed class IdentityController : ControllerBase
         
         var chefActivityLogs = new AdminChefActivityLogsPage(0, 0, 0, 0, Array.Empty<AdminChefActivityLogItem>());
         var chefItemCompletions = new AdminChefActivityLogsPage(0, 0, 0, 0, Array.Empty<AdminChefActivityLogItem>());
+        var staffActivityLogs = new AdminStaffActivityLogsPage(0, 0, 0, 0, Array.Empty<AdminStaffActivityLogItem>());
         var chefCookingHistory = new AdminChefCookingHistoryPage(0, 0, 0, 0, Array.Empty<AdminChefCookingHistoryItem>());
         var cashierHistory = new AdminCashierHistoryPage(0, 0, 0, 0, Array.Empty<AdminCashierHistoryItem>());
         var roleCode = employee.Role.RoleCode;
         var branch = await _catalogApi.GetBranchAsync(employee.BranchID, cancellationToken);
+
+        var staffAuditQuery = _db.BusinessAuditLogs
+            .AsNoTracking()
+            .Where(x => x.EmployeeId == employeeId)
+            .OrderByDescending(x => x.CreatedAtUtc);
+        var staffAuditTotalItems = await staffAuditQuery.CountAsync(cancellationToken);
+        var staffAuditTotalPages = (int)Math.Ceiling(staffAuditTotalItems / (double)pageSize);
+        var staffAuditItems = await staffAuditQuery
+            .Skip((activityPage - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x => new AdminStaffActivityLogItem(
+                x.BusinessAuditLogId,
+                x.CreatedAtUtc,
+                x.ActionType,
+                x.EntityType,
+                x.EntityId,
+                x.ActorName,
+                x.ActorRoleCode,
+                x.IpAddress,
+                x.UserAgent,
+                x.Notes,
+                x.BeforeState,
+                x.AfterState))
+            .ToListAsync(cancellationToken);
+        staffActivityLogs = new AdminStaffActivityLogsPage(activityPage, pageSize, staffAuditTotalItems, staffAuditTotalPages, staffAuditItems);
 
         if (roleCode is "CHEF" or "KITCHEN_STAFF")
         {
@@ -1535,6 +1625,7 @@ public sealed class IdentityController : ControllerBase
                 ResolveBranchName(employee.BranchID, branch)),
             chefActivityLogs,
             chefItemCompletions,
+            staffActivityLogs,
             chefCookingHistory,
             cashierHistory));
     }
@@ -2141,6 +2232,27 @@ public sealed class IdentityController : ControllerBase
         int TotalPages,
         IReadOnlyList<AdminChefActivityLogItem> Logs);
 
+    public sealed record AdminStaffActivityLogItem(
+        long AuditId,
+        DateTime TimestampUtc,
+        string ActionType,
+        string EntityType,
+        string EntityId,
+        string? ActorName,
+        string? ActorRoleCode,
+        string? IpAddress,
+        string? UserAgent,
+        string? Notes,
+        string? BeforeState,
+        string? AfterState);
+
+    public sealed record AdminStaffActivityLogsPage(
+        int Page,
+        int PageSize,
+        int TotalItems,
+        int TotalPages,
+        IReadOnlyList<AdminStaffActivityLogItem> Logs);
+
     public sealed record AdminChefCookingHistoryItem(
         int OrderId,
         string? OrderCode,
@@ -2187,6 +2299,7 @@ public sealed class IdentityController : ControllerBase
         AdminEmployeeHistoryMeta Employee,
         AdminChefActivityLogsPage ChefActivityLogs,
         AdminChefActivityLogsPage ChefItemCompletions,
+        AdminStaffActivityLogsPage StaffActivityLogs,
         AdminChefCookingHistoryPage ChefCookingHistory,
         AdminCashierHistoryPage CashierHistory);
 

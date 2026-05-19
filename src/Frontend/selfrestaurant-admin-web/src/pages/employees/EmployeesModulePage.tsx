@@ -30,6 +30,24 @@ function formatDateTime(value?: string | null) {
   return new Date(value).toLocaleString("vi-VN");
 }
 
+function getStaffActionLabel(actionType: string) {
+  const labels: Record<string, string> = {
+    "staff.login": "Đăng nhập",
+    "staff.password.change": "Đổi mật khẩu",
+    "staff.password.forgot": "Quên mật khẩu",
+    "staff.password.reset": "Đặt lại mật khẩu",
+    "staff.profile.update": "Cập nhật hồ sơ",
+  };
+  return labels[actionType] ?? actionType;
+}
+
+function getStaffActionBadge(actionType: string) {
+  if (actionType.includes("login")) return "badge bg-success";
+  if (actionType.includes("password")) return "badge bg-warning text-dark";
+  if (actionType.includes("profile")) return "badge bg-info";
+  return "badge bg-secondary";
+}
+
 function normalizeRoleText(value?: string | null) {
   return (value ?? "")
     .normalize("NFD")
@@ -483,6 +501,49 @@ export function EmployeesModulePage({ mode, onLogout }: Props) {
                     <strong>{history.employee.employeeName}</strong>
                     <div className="muted">{history.employee.roleName} | {history.employee.branchName}</div>
                   </div>
+                </div>
+
+                <div className="history-block">
+                  <div className="history-block-title">Nhật ký tài khoản nhân viên</div>
+                  {history.staffActivityLogs.logs.length === 0 ? (
+                    <div className="empty-report compact-empty">Chưa có nhật ký tài khoản nhân viên.</div>
+                  ) : (
+                    <>
+                      <table className="data-table compact-table">
+                        <thead>
+                          <tr>
+                            <th>Thời gian</th>
+                            <th>Hành động</th>
+                            <th>IP Address</th>
+                            <th>Ghi chú</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {history.staffActivityLogs.logs.map((log) => (
+                            <tr key={`staff-activity-${log.auditId}`}>
+                              <td style={{ whiteSpace: "nowrap" }}>{formatDateTime(log.timestampUtc)}</td>
+                              <td><span className={getStaffActionBadge(log.actionType)}>{getStaffActionLabel(log.actionType)}</span></td>
+                              <td>
+                                <div className="contact-stack">
+                                  <span>{log.ipAddress || "-"}</span>
+                                  {log.userAgent ? <span className="muted-caption">{log.userAgent}</span> : null}
+                                </div>
+                              </td>
+                              <td>{log.notes || "-"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {history.staffActivityLogs.totalPages > 1 && (
+                        <AdminPagination
+                          currentPage={history.staffActivityLogs.page}
+                          totalPages={history.staffActivityLogs.totalPages}
+                          onPageChange={setActivityPage}
+                          keyPrefix="staff-activity"
+                        />
+                      )}
+                    </>
+                  )}
                 </div>
 
                 {showChefHistory ? (

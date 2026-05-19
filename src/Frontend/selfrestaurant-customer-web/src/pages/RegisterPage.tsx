@@ -86,8 +86,8 @@ export function RegisterPage() {
   };
 
   return (
-    <div className="auth-wrapper">
-      <div className="register-container">
+    <div className="auth-wrapper customer-auth-shell">
+      <div className="register-container customer-auth-card customer-register-card">
         <div className="register-header">
           <div className="logo">
             <i className="fas fa-utensils" />

@@ -106,11 +106,18 @@ public sealed class CatalogClient : ApiClientBase
     public Task UpdateDishIngredientsAsync(int dishId, IReadOnlyList<AdminDishIngredientItemRequest> items, CancellationToken cancellationToken) =>
         PutAsync($"/api/admin/dishes/{dishId}/ingredients", new AdminUpdateDishIngredientsRequest(items), cancellationToken);
 
+    public async Task<IReadOnlyList<AdminRelatedIngredientDishDto>> GetIngredientRelatedDishesAsync(int ingredientId, CancellationToken cancellationToken)
+    {
+        var list = await GetAsync<IReadOnlyList<AdminRelatedIngredientDishDto>>($"/api/admin/ingredients/{ingredientId}/related-dishes", cancellationToken);
+        return list ?? Array.Empty<AdminRelatedIngredientDishDto>();
+    }
+
     public Task<AdminIngredientPagedResponse?> GetAdminIngredientsAsync(
         string? search,
         int page,
         int pageSize,
         bool includeInactive,
+        string? stockStatus,
         CancellationToken cancellationToken)
     {
         var qs = new List<string>
@@ -123,6 +130,10 @@ public sealed class CatalogClient : ApiClientBase
         if (!string.IsNullOrWhiteSpace(search))
         {
             qs.Add($"search={Uri.EscapeDataString(search.Trim())}");
+        }
+        if (!string.IsNullOrWhiteSpace(stockStatus) && !string.Equals(stockStatus, "ALL", StringComparison.OrdinalIgnoreCase))
+        {
+            qs.Add($"stockStatus={Uri.EscapeDataString(stockStatus.Trim())}");
         }
 
         return GetAsync<AdminIngredientPagedResponse>($"/api/admin/ingredients?{string.Join("&", qs)}", cancellationToken);
@@ -309,6 +320,9 @@ public sealed class CatalogClient : ApiClientBase
 
     public Task DeactivateAdminTableAsync(int tableId, CancellationToken cancellationToken) =>
         PostAsync<object>($"/api/admin/tables/{tableId}/deactivate", new { }, cancellationToken);
+
+    public Task DeleteAdminTableAsync(int tableId, CancellationToken cancellationToken) =>
+        DeleteAsync($"/api/admin/tables/{tableId}", cancellationToken);
 
     public Task ResetDevTestStateAsync(CancellationToken cancellationToken) =>
         PostAsync<object>("/api/dev/reset-test-state", new { }, cancellationToken);

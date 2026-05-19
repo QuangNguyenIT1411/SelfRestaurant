@@ -15,6 +15,9 @@ type Props = {
 
 type IngredientEditorState = ChefDishIngredientsDto & {
   customerNote?: string | null;
+  editMode?: boolean;
+  editNote?: string;
+  draftItems?: { ingredientId: number; ingredientName: string; unit: string; quantity: string }[];
 };
 
 const CHEF_TEXT_MAP: Record<string, string> = {
@@ -144,6 +147,9 @@ function normalizeIngredientEditorPayload(payload: ChefDishIngredientsDto): Chef
       ...item,
       name: normalizeChefText(item.name),
       unit: normalizeChefText(item.unit),
+      quantityPerDish: Number(item.quantityPerDish) || 0,
+      defaultQuantityPerDish: Number(item.defaultQuantityPerDish ?? item.quantityPerDish) || 0,
+      isOverridden: Boolean(item.isOverridden),
     })),
   };
 }
@@ -263,16 +269,37 @@ export function DashboardPage({ onLogout }: Props) {
     }
   }
 
-  async function openIngredients(dishId: number, customerNote?: string | null) {
+  async function openIngredients(dishId: number, customerNote?: string | null, orderId?: number, itemId?: number) {
     setError(null);
     try {
+      const payload = orderId && itemId
+        ? await chefApi.getOrderItemIngredients(orderId, itemId)
+        : await chefApi.getDishIngredients(dishId);
+      const normalized = normalizeIngredientEditorPayload(payload);
       setIngredientEditor({
-        ...normalizeIngredientEditorPayload(await chefApi.getDishIngredients(dishId)),
+        ...normalized,
         customerNote: normalizeChefText(customerNote),
+        draftItems: normalized.items.map((item) => ({ ingredientId: item.ingredientId, ingredientName: item.name, unit: item.unit, quantity: String(item.quantityPerDish) })),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tải nguyên liệu.");
     }
+  }
+
+  async function saveOrderItemIngredientOverrides() {
+    if (!ingredientEditor?.orderId || !ingredientEditor.itemId || !ingredientEditor.draftItems) return;
+    const items = ingredientEditor.draftItems.map((item) => ({
+      ingredientId: item.ingredientId,
+      ingredientName: item.ingredientName,
+      unit: item.unit,
+      quantity: Number(item.quantity || "0"),
+    }));
+    if (items.some((item) => Number.isNaN(item.quantity) || item.quantity < 0)) {
+      setError("Số lượng nguyên liệu không được âm.");
+      return;
+    }
+    await act(() => chefApi.saveOrderItemIngredients(ingredientEditor.orderId!, ingredientEditor.itemId!, items, ingredientEditor.editNote));
+    setIngredientEditor(null);
   }
 
   async function saveAccount() {
@@ -516,8 +543,8 @@ export function DashboardPage({ onLogout }: Props) {
   }
 
   return (
-    <main className="chef-shell chef-index-shell">
-      <section className="chef-mvc-header">
+    <main className="chef-shell chef-index-shell chef-kds-shell">
+      <section className="chef-mvc-header chef-kds-header">
         <div className="chef-mvc-header-top">
           <div className="chef-mvc-brand">
             <i className="bi bi-fire chef-mvc-brand-icon" />
@@ -567,18 +594,18 @@ export function DashboardPage({ onLogout }: Props) {
       {error ? <div className="error-box">{error}</div> : null}
 
       {activeTab === "orders" ? (
-        <section className="board-grid">
+        <section className="board-grid chef-kds-board">
           <OrderColumn
             title="Chờ chế biến"
             tone="secondary"
             orders={data.pendingOrders}
-            actionLabel="Bt u nu"
+            actionLabel="BẮT ĐẦU NẤU"
             action={(orderId) => act(() => chefApi.startOrder(orderId))}
-            secondaryLabel="Hủy"
+            secondaryLabel="HỦY"
             secondaryAction={(orderId, orderCode) => {
               setCancelEditor({ orderId, orderCode, reason: "" });
             }}
-            onOpenIngredients={(dishId, customerNote) => void openIngredients(dishId, customerNote)}
+            onOpenIngredients={(dishId, customerNote, orderId, itemId) => void openIngredients(dishId, customerNote, orderId, itemId)}
             onStartItem={(orderId, itemId) => act(() => chefApi.startItem(orderId, itemId))}
             onCancelItem={promptCancelItem}
           />
@@ -588,11 +615,11 @@ export function DashboardPage({ onLogout }: Props) {
             orders={data.preparingOrders}
             actionLabel="Hoàn thành"
             action={(orderId) => act(() => chefApi.readyOrder(orderId))}
-            secondaryLabel="Hy n"
+            secondaryLabel="HỦY"
             secondaryAction={(orderId, orderCode) => {
               setCancelEditor({ orderId, orderCode, reason: "" });
             }}
-            onOpenIngredients={(dishId, customerNote) => void openIngredients(dishId, customerNote)}
+            onOpenIngredients={(dishId, customerNote, orderId, itemId) => void openIngredients(dishId, customerNote, orderId, itemId)}
             onReadyItem={(orderId, itemId) => act(() => chefApi.readyItem(orderId, itemId))}
             onCancelItem={promptCancelItem}
           />
@@ -600,11 +627,11 @@ export function DashboardPage({ onLogout }: Props) {
             title="Sẵn sàng"
             tone="success"
             orders={data.readyOrders}
-            secondaryLabel="Hy n"
+            secondaryLabel="HỦY"
             secondaryAction={(orderId, orderCode) => {
               setCancelEditor({ orderId, orderCode, reason: "" });
             }}
-            onOpenIngredients={(dishId, customerNote) => void openIngredients(dishId, customerNote)}
+            onOpenIngredients={(dishId, customerNote, orderId, itemId) => void openIngredients(dishId, customerNote, orderId, itemId)}
             onCancelItem={promptCancelItem}
           />
         </section>
@@ -671,21 +698,21 @@ export function DashboardPage({ onLogout }: Props) {
                   </div>
                   <div className="d-flex justify-content-between align-items-center mt-3">
                     <span className={`badge ${dish.available ? "bg-success" : "bg-secondary"}`}>
-                      {dish.available ? "Đang bán" : "Tạm ngưng bán"}
+                      {dish.available ? "Đang bán" : "Tạm ngưng"}
                     </span>
                     <div className="btn-group">
-                      {dish.available ? (
-                        <button className="btn btn-sm btn-outline-danger" onClick={() => void act(() => chefApi.setDishAvailability(dish.dishId, false))}>
-                          <i className="bi bi-pause-circle" /> Tạm ngưng bán
-                        </button>
-                      ) : (
-                        <button className="btn btn-sm btn-outline-success" onClick={() => void act(() => chefApi.setDishAvailability(dish.dishId, true))}>
-                          <i className="bi bi-play-circle" /> Tiếp tục bán
-                        </button>
-                      )}
                       <button className="btn btn-sm btn-outline-secondary" onClick={() => void openIngredients(dish.dishId)}>
                         <i className="bi bi-list-ul" /> Thành phần
                       </button>
+                      {dish.available ? (
+                        <button className="btn btn-sm btn-outline-warning" onClick={() => void act(() => chefApi.setDishAvailability(dish.dishId, false))}>
+                          <i className="bi bi-pause-circle" /> Tạm ngưng
+                        </button>
+                      ) : (
+                        <button className="btn btn-sm btn-outline-success" onClick={() => void act(() => chefApi.setDishAvailability(dish.dishId, true))}>
+                          <i className="bi bi-play-circle" /> Tiếp tục
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -707,44 +734,75 @@ export function DashboardPage({ onLogout }: Props) {
             <div className="panel-head chef-modal-head">
               <div>
                 <h2>Thành phần: {ingredientEditor.dishName}</h2>
-                <p className="muted">Xem định lượng nguyên liệu cho từng phần món.</p>
+                <p className="muted">Xem định lượng nguyên liệu cho món trong đơn hiện tại.</p>
               </div>
-              <button className="ghost" onClick={() => setIngredientEditor(null)}>Đóng</button>
             </div>
-            {ingredientEditor.customerNote?.trim() ? (
+            <div className="chef-ingredients-scroll">
+              {ingredientEditor.customerNote?.trim() ? (
+                <div className="inline-filter-card chef-modal-section">
+                  <div>
+                    <strong>Ghi chú từ khách hàng</strong>
+                    <div className="muted">{ingredientEditor.customerNote}</div>
+                  </div>
+                  <span className="soft-badge warning">Cần lưu ý khi chế biến</span>
+                </div>
+              ) : null}
               <div className="inline-filter-card chef-modal-section">
                 <div>
-                  <strong>Ghi chú từ khách hàng</strong>
-                  <div className="muted">{ingredientEditor.customerNote}</div>
+                  <strong>Công thức món</strong>
+                  <div className="muted">Mặc định lấy từ công thức Catalog. Nếu chỉnh sửa tại đây, thay đổi chỉ áp dụng cho món trong đơn này.</div>
                 </div>
-                <span className="soft-badge warning">Cần lưu ý khi chế biến</span>
+                <div className="chef-chip-row">
+                  <span className="soft-badge info">{ingredientEditor.items.length} nguyên liệu</span>
+                  <span className="soft-badge success">{ingredientEditor.items.filter((item) => item.isActive).length} đang hoạt động</span>
+                  {ingredientEditor.items.some((item) => item.isOverridden) ? <span className="soft-badge warning">Có điều chỉnh riêng</span> : null}
+                </div>
               </div>
-            ) : null}
-            <div className="inline-filter-card chef-modal-section">
-              <div>
-                <strong>Công thức món</strong>
-                <div className="muted">Thông tin công thức hiện có, chỉ Admin được chỉnh sửa.</div>
+              <div className="ingredient-editor">
+                {ingredientEditor.items.map((item) => {
+                  const draft = ingredientEditor.draftItems?.find((row) => row.ingredientId === item.ingredientId);
+                  return (
+                    <label key={item.ingredientId} className={`ingredient-line ${item.isOverridden ? "ingredient-overridden" : ""}`}>
+                      <div className="ingredient-meta">
+                        <span>{item.name} ({item.unit})</span>
+                        <small>Tồn kho: {item.currentStock.toLocaleString("vi-VN")} {item.unit}</small>
+                        {item.isOverridden ? <small>Đã chỉnh riêng cho món trong đơn này. Mặc định: {item.defaultQuantityPerDish.toLocaleString("vi-VN")} {item.unit}</small> : null}
+                      </div>
+                      {ingredientEditor.editMode ? (
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={draft?.quantity ?? String(item.quantityPerDish)}
+                          onChange={(event) => setIngredientEditor((current) => current ? {
+                            ...current,
+                            draftItems: (current.draftItems ?? []).map((row) => row.ingredientId === item.ingredientId ? { ...row, quantity: event.target.value } : row),
+                          } : current)}
+                        />
+                      ) : (
+                        <span className={item.isOverridden ? "soft-badge warning" : "soft-badge info"}>
+                          {item.quantityPerDish.toLocaleString("vi-VN")} {item.unit}
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
               </div>
-              <div className="chef-chip-row">
-                <span className="soft-badge info">{ingredientEditor.items.length} nguyên liệu</span>
-                <span className="soft-badge success">{ingredientEditor.items.filter((item) => item.isActive).length} đang hoạt động</span>
-              </div>
-            </div>
-            <div className="ingredient-editor">
-              {ingredientEditor.items.map((item) => (
-                <label key={item.ingredientId} className="ingredient-line">
-                  <div className="ingredient-meta">
-                    <span>{item.name} ({item.unit})</span>
-                    <small>Tồn kho: {item.currentStock.toLocaleString("vi-VN")} {item.unit}</small>
-                  </div>
-                  <span className="soft-badge info">
-                    {item.quantityPerDish.toLocaleString("vi-VN")} {item.unit}
-                  </span>
+              {ingredientEditor.editMode ? (
+                <label className="stack compact chef-modal-section">
+                  <span>Ghi chú lý do chỉnh sửa</span>
+                  <textarea rows={3} value={ingredientEditor.editNote ?? ""} onChange={(event) => setIngredientEditor({ ...ingredientEditor, editNote: event.target.value })} placeholder="Ví dụ: Khách yêu cầu ít đường hơn..." />
                 </label>
-              ))}
+              ) : null}
             </div>
             <div className="header-actions chef-modal-actions">
-              <button className="ghost" onClick={() => setIngredientEditor(null)}>Đóng</button>
+              {ingredientEditor.orderId && ingredientEditor.itemId && !ingredientEditor.editMode ? (
+                <button className="ghost" onClick={() => setIngredientEditor({ ...ingredientEditor, editMode: true })}>Chỉnh sửa thành phần cho đơn này</button>
+              ) : null}
+              {ingredientEditor.editMode ? (
+                <button onClick={() => void saveOrderItemIngredientOverrides()}>Lưu thành phần đơn này</button>
+              ) : null}
+              <button className="ghost" onClick={() => setIngredientEditor(null)}>{ingredientEditor.editMode ? "Hủy" : "Đóng"}</button>
             </div>
           </div>
         </section>
@@ -864,7 +922,7 @@ type OrderColumnProps = {
   action?: (orderId: number) => Promise<void>;
   secondaryLabel?: string;
   secondaryAction?: (orderId: number, orderCode: string) => void;
-  onOpenIngredients: (dishId: number, customerNote?: string | null) => void;
+  onOpenIngredients: (dishId: number, customerNote?: string | null, orderId?: number, itemId?: number) => void;
   onStartItem?: (orderId: number, itemId: number) => Promise<void>;
   onReadyItem?: (orderId: number, itemId: number) => Promise<void>;
   onCancelItem?: (orderId: number, itemId: number, dishName: string) => Promise<void>;
@@ -904,7 +962,7 @@ function OrderColumn({
         : "Không có món chờ phục vụ";
 
   return (
-    <section className={`panel order-column order-column-${tone}`}>
+    <section className={`panel order-column order-column-${tone} chef-kds-column`}>
       <div className={`kanban-header kanban-header-${tone}`}>
         <span className="kanban-title">
           <i className={iconClass} />
@@ -912,7 +970,7 @@ function OrderColumn({
         </span>
         <span className={`kanban-count kanban-count-${tone}`}>{orders.length}</span>
       </div>
-      <div className="order-list">
+      <div className="order-list chef-kds-order-list">
         {orders.length === 0 ? (
           <div className="kanban-empty-state">
             <i className="bi bi-check2-circle" />
@@ -922,7 +980,7 @@ function OrderColumn({
         {orders.map((order) => (
           <article
             key={order.orderId}
-            className={`order-card ${
+            className={`order-card chef-kds-order-card ${
               tone === "primary" ? "priority-high" : tone === "success" ? "priority-success" : "priority-normal"
             }`}
           >
@@ -952,7 +1010,7 @@ function OrderColumn({
                   <div className="d-flex flex-column align-items-end gap-2">
                     <button
                       className="ghost note-action-button"
-                      onClick={() => onOpenIngredients(item.dishId, item.note || "")}
+                      onClick={() => onOpenIngredients(item.dishId, item.note || "", order.orderId, item.itemId)}
                     >
                       Xem thành phần
                     </button>
@@ -1006,4 +1064,3 @@ function OrderColumn({
     </section>
   );
 }
-

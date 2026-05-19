@@ -70,8 +70,11 @@ export function MenuFromQrPage() {
   }
 
   return (
-    <div className="container py-5">
-      <div className="card text-center p-4">
+    <div className="container py-5 qr-entry-shell">
+      <div className="card text-center p-4 qr-entry-card">
+        <div className="qr-entry-icon" aria-hidden="true">
+          <i className="fas fa-qrcode" />
+        </div>
         <h3 className="mb-2">Self Restaurant</h3>
         <p className="text-muted mb-0">{message}</p>
       </div>

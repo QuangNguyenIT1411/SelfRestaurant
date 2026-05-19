@@ -72,7 +72,7 @@ export function OrdersPage() {
 
   return (
     <div className="container p-3 orders-page-shell">
-      <header className="p-3 mb-4 bg-white shadow-sm rounded d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+      <header className="p-3 mb-4 bg-white shadow-sm rounded d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 customer-premium-header orders-premium-header">
         <div>
           <h1 className="bill-title mb-1">
             <i className="fas fa-receipt me-2" />
@@ -89,7 +89,7 @@ export function OrdersPage() {
       <section className="orders-section">
         {orders.length > 0 ? (
           orders.map((orderItem: CustomerOrderHistoryDto) => (
-            <div key={orderItem.orderId} className="order-item">
+            <div key={orderItem.orderId} className="order-item order-history-card">
               <div className="row align-items-center">
                 <div className="col-md-5">
                   <h5 className="mb-1">
@@ -107,9 +107,9 @@ export function OrdersPage() {
                     </small>
                   </div>
                 </div>
-                <div className="col-md-4">{renderOrderStatus(orderItem.orderStatus ?? orderItem.statusCode)}</div>
+                <div className="col-md-4 order-history-status">{renderOrderStatus(orderItem.orderStatus ?? orderItem.statusCode)}</div>
                 <div className="col-md-3 text-md-end mt-3 mt-md-0">
-                  <strong className="text-danger">{formatCurrency(orderItem.totalAmount)}</strong>
+                  <strong className="text-danger order-history-total">{formatCurrency(orderItem.totalAmount)}</strong>
                 </div>
               </div>
             </div>

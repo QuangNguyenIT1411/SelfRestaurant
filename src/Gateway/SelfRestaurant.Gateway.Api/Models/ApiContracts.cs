@@ -362,6 +362,27 @@ public sealed record AdminChefActivityLogsPageDto(
     int TotalPages,
     IReadOnlyList<AdminChefActivityLogItemDto> Logs);
 
+public sealed record AdminStaffActivityLogItemDto(
+    long AuditId,
+    DateTime TimestampUtc,
+    string ActionType,
+    string EntityType,
+    string EntityId,
+    string? ActorName,
+    string? ActorRoleCode,
+    string? IpAddress,
+    string? UserAgent,
+    string? Notes,
+    string? BeforeState,
+    string? AfterState);
+
+public sealed record AdminStaffActivityLogsPageDto(
+    int Page,
+    int PageSize,
+    int TotalItems,
+    int TotalPages,
+    IReadOnlyList<AdminStaffActivityLogItemDto> Logs);
+
 public sealed record AdminChefCookingHistoryItemDto(
     int OrderId,
     string? OrderCode,
@@ -417,6 +438,8 @@ public sealed record AdminCashierHistoryPageDto(
 public sealed record AdminEmployeeHistoryResponse(
     AdminEmployeeHistoryMetaDto Employee,
     AdminChefActivityLogsPageDto ChefActivityLogs,
+    AdminChefActivityLogsPageDto ChefItemCompletions,
+    AdminStaffActivityLogsPageDto StaffActivityLogs,
     AdminChefCookingHistoryPageDto ChefCookingHistory,
     AdminCashierHistoryPageDto CashierHistory);
 
@@ -502,8 +525,21 @@ public sealed record AdminDishIngredientLineDto(
     bool Selected,
     decimal QuantityPerDish);
 
+public sealed record ChefOrderItemIngredientOverrideDto(int IngredientId, string? IngredientName, string? Unit, decimal Quantity);
+public sealed record ChefOrderItemIngredientOverridesDto(int OrderId, int ItemId, int DishId, IReadOnlyList<ChefOrderItemIngredientOverrideDto> Items);
+public sealed record ChefUpdateOrderItemIngredientOverrideRequest(IReadOnlyList<ChefOrderItemIngredientOverrideDto> Items, string? Note);
+
 public sealed record AdminDishIngredientItemRequest(int IngredientId, decimal QuantityPerDish);
 public sealed record AdminUpdateDishIngredientsRequest(IReadOnlyList<AdminDishIngredientItemRequest> Items);
+
+public sealed record AdminRelatedIngredientDishDto(
+    int DishId,
+    string Name,
+    string? CategoryName,
+    decimal QuantityPerDish,
+    string Unit,
+    bool Available,
+    bool IsActive);
 
 public sealed record AdminIngredientDto(
     int IngredientId,

@@ -595,3 +595,737 @@ label { display: grid; gap: 0.35rem; font-size: 0.95rem; }
   gap: 10px;
   margin-top: 20px;
 }
+
+/* Premium cashier POS modernization */
+.cashier-pos-shell {
+  --pos-ink: #f8fafc;
+  --pos-card: rgba(255, 255, 255, 0.96);
+  --pos-panel: rgba(15, 23, 42, 0.78);
+  --pos-muted: #64748b;
+  --pos-line: rgba(15, 23, 42, 0.08);
+  --pos-radius: 24px;
+  --pos-shadow: 0 24px 70px rgba(2, 6, 23, 0.2);
+  --pos-green: #22c55e;
+  --pos-blue: #2563eb;
+  --pos-orange: #f97316;
+  --pos-red: #ef4444;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(34, 197, 94, 0.16), transparent 26rem),
+    radial-gradient(circle at 86% 4%, rgba(37, 99, 235, 0.16), transparent 25rem),
+    linear-gradient(180deg, #0f172a 0%, #111827 50%, #0f172a 100%);
+  color: var(--pos-ink);
+  min-height: 100vh;
+  padding: 1rem;
+}
+
+.cashier-pos-hero.cashier-hero {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.86));
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 28px;
+  box-shadow: var(--pos-shadow);
+  margin-bottom: 1rem;
+  overflow: hidden;
+  position: sticky;
+  top: 0.75rem;
+  z-index: 20;
+  backdrop-filter: blur(18px);
+}
+
+.cashier-pos-hero::before {
+  background: linear-gradient(90deg, #22c55e, #2563eb, #f97316);
+  content: "";
+  height: 5px;
+  inset: 0 0 auto;
+  position: absolute;
+}
+
+.cashier-pos-hero h1 {
+  color: #fff;
+  font-weight: 950;
+  letter-spacing: -0.055em;
+}
+
+.cashier-pos-hero .muted {
+  color: #cbd5e1;
+}
+
+.cashier-pos-hero .header-actions .ghost,
+.cashier-pos-hero .cashier-link-button {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 999px;
+  color: #e2e8f0;
+  font-weight: 850;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.cashier-pos-hero .header-actions .ghost:hover,
+.cashier-pos-hero .cashier-link-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.cashier-pos-stats.stats-grid {
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.cashier-pos-stats article {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  box-shadow: 0 14px 34px rgba(2, 6, 23, 0.16);
+  color: #fff;
+  padding: 1rem;
+}
+
+.cashier-pos-stats strong {
+  color: #fff;
+  font-size: clamp(1.35rem, 2.4vw, 2rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 950;
+  letter-spacing: -0.045em;
+}
+
+.cashier-pos-stats span {
+  color: #cbd5e1;
+  font-weight: 800;
+}
+
+.cashier-pos-grid.cash-grid {
+  align-items: start;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(300px, 0.8fr) minmax(360px, 1fr) minmax(360px, 1fr);
+}
+
+.cashier-pos-panel.cashier-panel-card {
+  background: var(--pos-card);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 26px;
+  box-shadow: var(--pos-shadow);
+  color: #111827;
+  overflow: hidden;
+  backdrop-filter: blur(18px);
+}
+
+.cashier-pos-panel .cashier-panel-header {
+  background: linear-gradient(180deg, #fff, #f8fafc);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.07);
+  padding: 1rem;
+}
+
+.cashier-pos-panel .cashier-panel-header h2 {
+  color: #111827;
+  font-weight: 950;
+  letter-spacing: -0.035em;
+}
+
+.cashier-pos-panel .cashier-panel-body {
+  padding: 1rem;
+}
+
+.cashier-panel-body-scroll {
+  max-height: calc(100vh - 260px);
+  overflow-y: auto;
+  padding-right: 0.8rem !important;
+}
+
+.cashier-panel-body-scroll::-webkit-scrollbar,
+.table-grid::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cashier-panel-body-scroll::-webkit-scrollbar-thumb,
+.table-grid::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.32);
+  border-radius: 999px;
+}
+
+.table-search-group {
+  background: #fff;
+  border: 1px solid var(--pos-line);
+  border-radius: 999px;
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+
+.table-search-group input {
+  min-height: 46px;
+}
+
+.table-search-group input:focus {
+  box-shadow: none;
+}
+
+.cashier-status-summary {
+  gap: 0.5rem;
+  margin: 0.85rem 0;
+}
+
+.soft-badge {
+  border-radius: 999px;
+  font-weight: 900;
+}
+
+.table-grid {
+  align-content: start;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  max-height: calc(100vh - 360px);
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+
+.cashier-table-card.table-card {
+  background: #fff;
+  border: 1px solid var(--pos-line);
+  border-radius: 22px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.07);
+  cursor: pointer;
+  min-height: 124px;
+  padding: 0.9rem;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.cashier-table-card.table-card:hover,
+.cashier-table-card.table-card:focus-within {
+  border-color: rgba(37, 99, 235, 0.28);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.12);
+  transform: translateY(-2px);
+}
+
+.cashier-table-card.table-card.occupied {
+  border-color: rgba(249, 115, 22, 0.24);
+}
+
+.cashier-table-card.table-card.available {
+  border-color: rgba(34, 197, 94, 0.24);
+}
+
+.cashier-table-card.table-card.selected {
+  background: linear-gradient(180deg, #eff6ff, #fff);
+  border-color: #2563eb;
+  box-shadow: 0 18px 44px rgba(37, 99, 235, 0.16);
+}
+
+.cashier-table-card .table-number {
+  color: #111827;
+  font-size: 1.35rem;
+  font-weight: 950;
+  letter-spacing: -0.045em;
+}
+
+.cashier-table-card .table-status {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 900;
+  margin: 0.45rem 0;
+  padding: 0.32rem 0.55rem;
+}
+
+.cashier-table-card .table-status.available {
+  background: #ecfdf3;
+  color: #166534;
+}
+
+.cashier-table-card .table-status.occupied {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.cashier-pos-order-summary {
+  background: linear-gradient(135deg, #eff6ff, #fff);
+  border: 1px solid rgba(37, 99, 235, 0.12);
+  border-radius: 20px;
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.08);
+}
+
+.cashier-pos-order-summary strong {
+  color: #111827;
+  font-weight: 950;
+  letter-spacing: -0.025em;
+}
+
+.detail-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.cashier-pos-item-card.detail-item-card {
+  background: #fff;
+  border: 1px solid var(--pos-line);
+  border-radius: 20px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.055);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.cashier-pos-item-card.detail-item-card:hover {
+  border-color: rgba(37, 99, 235, 0.18);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.cashier-pos-item-card img {
+  border-radius: 16px !important;
+}
+
+.cashier-pos-item-card strong:last-child {
+  color: #dc2626;
+  font-variant-numeric: tabular-nums;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.total-section {
+  background: linear-gradient(180deg, #f8fafc, #fff);
+  border: 1px solid var(--pos-line);
+  border-radius: 22px;
+  padding: 0.85rem;
+}
+
+.total-row {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  color: #475569;
+  font-weight: 800;
+  padding: 0.75rem 0;
+}
+
+.total-row:last-child {
+  border-bottom: 0;
+}
+
+.total-row strong,
+.total-row span:last-child {
+  color: #111827;
+  font-variant-numeric: tabular-nums;
+  font-weight: 950;
+}
+
+.total-row input,
+.payment-input,
+.points-input {
+  background: #fff;
+  border: 1px solid var(--pos-line);
+  border-radius: 14px;
+  min-height: 42px;
+  padding: 0.55rem 0.7rem;
+}
+
+.total-row input:focus,
+.payment-input:focus,
+.points-input:focus {
+  border-color: rgba(37, 99, 235, 0.48);
+  box-shadow: 0 0 0 0.22rem rgba(37, 99, 235, 0.12);
+  outline: none;
+}
+
+.total-row.grand-total {
+  background: linear-gradient(135deg, #ecfdf3, #fff);
+  border: 1px solid rgba(34, 197, 94, 0.16);
+  border-radius: 18px;
+  color: #166534;
+  margin-top: 0.65rem;
+  padding: 0.9rem;
+}
+
+.total-row.grand-total span:last-child {
+  color: #16a34a;
+  font-size: 1.65rem;
+  letter-spacing: -0.05em;
+}
+
+.credit-points-section,
+.qr-payment-panel,
+.cashier-info-note,
+.qr-payment-summary {
+  border-radius: 20px;
+}
+
+.credit-points-section {
+  background: #fff7ed;
+  border: 1px solid rgba(249, 115, 22, 0.14);
+}
+
+.payment-method-grid {
+  gap: 0.75rem;
+}
+
+.payment-method-tile {
+  background: #fff;
+  border: 1px solid var(--pos-line);
+  border-radius: 20px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.055);
+  min-height: 104px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease, background 0.18s ease;
+}
+
+.payment-method-tile:hover,
+.payment-method-tile:focus-visible {
+  border-color: rgba(37, 99, 235, 0.24);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.09);
+  outline: none;
+  transform: translateY(-2px);
+}
+
+.payment-method-tile.active {
+  background: linear-gradient(135deg, #eff6ff, #fff);
+  border-color: #2563eb;
+  box-shadow: 0 18px 42px rgba(37, 99, 235, 0.14);
+}
+
+.payment-method-tile i {
+  color: #2563eb;
+  font-size: 1.45rem;
+}
+
+.checkout-quick-grid {
+  gap: 0.55rem;
+}
+
+.cashier-button-primary,
+.cashier-button-outline,
+.checkout-quick-button,
+.cashier-link-button,
+.cashier-shell .ghost {
+  border-radius: 14px;
+  font-weight: 900;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease, background 0.18s ease;
+}
+
+.cashier-button-primary {
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  border: none;
+  box-shadow: 0 16px 30px rgba(34, 197, 94, 0.22);
+  color: #fff;
+  min-height: 52px;
+}
+
+.cashier-button-primary.wide {
+  font-size: 1.05rem;
+  margin-top: 1rem;
+  position: sticky;
+  bottom: 0.75rem;
+  z-index: 5;
+}
+
+.cashier-button-primary:disabled {
+  background: #cbd5e1;
+  box-shadow: none;
+  color: #64748b;
+}
+
+.cashier-button-outline {
+  background: #fff;
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  color: #1d4ed8;
+}
+
+.cashier-button-primary:hover:not(:disabled),
+.cashier-button-outline:hover,
+.checkout-quick-button:hover {
+  filter: saturate(1.04);
+  transform: translateY(-1px);
+}
+
+.cashier-button-primary:active:not(:disabled),
+.cashier-button-outline:active,
+.checkout-quick-button:active {
+  transform: scale(0.985);
+}
+
+.qr-payment-panel {
+  background: linear-gradient(135deg, #f8fafc, #fff);
+  border: 1px solid var(--pos-line);
+  padding: 0.85rem;
+}
+
+.qr-payment-preview {
+  background: #fff;
+  border: 1px solid var(--pos-line);
+  border-radius: 22px;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+}
+
+.qr-payment-summary {
+  background: #fff;
+  border: 1px solid var(--pos-line);
+}
+
+.qr-payment-summary strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.qr-payment-reference strong {
+  color: #1d4ed8;
+}
+
+.cashier-empty-state {
+  background: linear-gradient(180deg, #fff, #f8fafc);
+  border: 1px dashed rgba(15, 23, 42, 0.14);
+  border-radius: 24px;
+  color: #94a3b8;
+  min-height: 220px;
+}
+
+.cashier-empty-state i {
+  background: #eff6ff;
+  border-radius: 999px;
+  color: #2563eb;
+  display: inline-flex;
+  height: 4.75rem;
+  justify-content: center;
+  line-height: 4.75rem;
+  width: 4.75rem;
+}
+
+.screen-message {
+  background:
+    radial-gradient(circle at top, rgba(34, 197, 94, 0.18), transparent 24rem),
+    linear-gradient(180deg, #0f172a 0%, #111827 100%);
+  color: #cbd5e1;
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  position: relative;
+  text-align: center;
+}
+
+.screen-message::after {
+  animation: posLoading 1.2s ease-in-out infinite;
+  background: linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.28), transparent);
+  border-radius: 999px;
+  content: "";
+  height: 5px;
+  margin-top: 4rem;
+  position: absolute;
+  width: min(280px, 60vw);
+}
+
+@keyframes posLoading {
+  0%, 100% { opacity: 0.35; transform: scaleX(0.65); }
+  50% { opacity: 1; transform: scaleX(1); }
+}
+
+.modal-backdrop {
+  background: rgba(2, 6, 23, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.modal-card.cashier-modal-card {
+  animation: posModalIn 0.2s ease-out;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 28px;
+  box-shadow: 0 30px 90px rgba(2, 6, 23, 0.34);
+  overflow: hidden;
+}
+
+@keyframes posModalIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.bill-meta-card,
+.bill-breakdown div {
+  border-radius: 18px;
+}
+
+.bill-breakdown div:last-child {
+  background: linear-gradient(135deg, #ecfdf3, #fff);
+  border-color: rgba(34, 197, 94, 0.18);
+}
+
+.success-box,
+.error-box {
+  border-radius: 18px;
+  box-shadow: 0 14px 32px rgba(2, 6, 23, 0.12);
+}
+
+.cashier-shell button:focus-visible,
+.cashier-shell a:focus-visible,
+.cashier-shell input:focus-visible {
+  box-shadow: 0 0 0 0.24rem rgba(37, 99, 235, 0.22);
+  outline: none;
+}
+
+@media (max-width: 1280px) {
+  .cashier-pos-grid.cash-grid {
+    grid-template-columns: minmax(280px, 0.85fr) minmax(360px, 1.15fr);
+  }
+
+  .cashier-payment-panel {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 900px) {
+  .cashier-pos-shell {
+    padding: 0.75rem;
+  }
+
+  .cashier-pos-hero.cashier-hero {
+    border-radius: 24px;
+    position: static;
+  }
+
+  .cashier-pos-grid.cash-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cashier-panel-body-scroll,
+  .table-grid {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .cashier-pos-hero .cashier-header,
+  .cashier-pos-hero .header-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cashier-pos-hero .cashier-link-button,
+  .cashier-pos-hero .ghost {
+    justify-content: center;
+    min-height: 46px;
+    width: 100%;
+  }
+
+  .cashier-button-primary.wide {
+    border-radius: 18px 18px 0 0;
+    bottom: 0;
+    box-shadow: 0 -16px 42px rgba(15, 23, 42, 0.16);
+  }
+
+  .modal-card.cashier-modal-card {
+    border-radius: 26px 26px 0 0;
+    margin: auto 0 0;
+    max-height: 92vh;
+    overflow-y: auto;
+    width: 100%;
+  }
+}
+
+@media (hover: none) {
+  .cashier-table-card.table-card:hover,
+  .payment-method-tile:hover,
+  .cashier-button-primary:hover:not(:disabled),
+  .cashier-button-outline:hover {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cashier-pos-shell *,
+  .cashier-pos-shell *::before,
+  .cashier-pos-shell *::after,
+  .modal-backdrop *,
+  .modal-backdrop *::before,
+  .modal-backdrop *::after,
+  .screen-message::after {
+    animation-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Contrast fixes for premium cashier light surfaces */
+.cashier-pos-panel,
+.cashier-pos-panel .cashier-panel-body,
+.cashier-pos-panel .cashier-panel-header,
+.modal-card.cashier-modal-card,
+.qr-payment-panel,
+.qr-payment-summary,
+.bill-meta-card,
+.bill-breakdown div,
+.cashier-empty-state,
+.payment-method-tile,
+.cashier-table-card.table-card,
+.total-section,
+.credit-points-section {
+  color: #111827;
+}
+
+.cashier-pos-panel h1,
+.cashier-pos-panel h2,
+.cashier-pos-panel h3,
+.cashier-pos-panel h4,
+.cashier-pos-panel strong,
+.modal-card.cashier-modal-card h1,
+.modal-card.cashier-modal-card h2,
+.modal-card.cashier-modal-card h3,
+.modal-card.cashier-modal-card strong {
+  color: #0f172a;
+}
+
+.cashier-pos-panel .muted,
+.cashier-pos-panel small,
+.modal-card.cashier-modal-card .muted,
+.modal-card.cashier-modal-card small,
+.qr-payment-summary span,
+.bill-meta-card span,
+.cashier-empty-state p,
+.cashier-pos-panel .cashier-info-note,
+.modal-card.cashier-modal-card .cashier-info-note,
+.cashier-pos-panel .payment-method-tile small,
+.modal-card.cashier-modal-card .payment-method-tile small {
+  color: #475569 !important;
+}
+
+.cashier-pos-panel input,
+.cashier-pos-panel textarea,
+.modal-card.cashier-modal-card input,
+.modal-card.cashier-modal-card textarea {
+  background: #fff;
+  color: #111827;
+}
+
+.cashier-pos-panel input::placeholder,
+.cashier-pos-panel textarea::placeholder,
+.modal-card.cashier-modal-card input::placeholder,
+.modal-card.cashier-modal-card textarea::placeholder {
+  color: #64748b;
+  opacity: 1;
+}
+
+.modal-card.cashier-modal-card .cashier-empty-state i[style] {
+  color: #198754 !important;
+}
+
+/* Invoice modal item-list contrast guardrails */
+.modal-card.cashier-modal-card .order-list,
+.modal-card.cashier-modal-card .compact-list,
+.modal-card.cashier-modal-card .order-line {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.modal-card.cashier-modal-card .order-line {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .72rem .85rem;
+}
+
+.modal-card.cashier-modal-card .order-line strong {
+  color: #0f172a;
+}
+
+.modal-card.cashier-modal-card .order-line span {
+  color: #475569 !important;
+}
+
+.modal-card.cashier-modal-card .cashier-button-primary {
+  color: #ffffff !important;
+}
+
+.modal-card.cashier-modal-card .cashier-button-outline {
+  background: #ffffff;
+  border-color: #94a3b8;
+  color: #0f172a !important;
+}

@@ -1,4 +1,4 @@
-import type { AdminCategoriesScreenDto, AdminCustomerDto, AdminCustomersScreenDto, AdminDishesScreenDto, AdminEmployeeDto, AdminEmployeeHistoryResponse, AdminEmployeesScreenDto, AdminIngredientBatchDto, AdminIngredientDto, AdminIngredientsScreenDto, AdminReportsScreenDto, AdminSettingsDto, AdminTablesScreenDto, ApiError, StaffSessionDto, AdminDishIngredientLineDto, AdminDashboardDto, AdminUnitsScreenDto, AdminUnitDto, CreateIngredientBatchRequest, IngredientStockMovementDto, InventoryBatchDto, InventoryMovementDto, InventoryStockInRequest, InventoryStockOutRequest, InventorySummaryDto, Paged, UpdateIngredientBatchRequest, AdminCustomerOrderHistoryItemDto } from "./types";
+import type { AdminCategoriesScreenDto, AdminCustomerDto, AdminCustomersScreenDto, AdminDishesScreenDto, AdminEmployeeDto, AdminEmployeeHistoryResponse, AdminEmployeesScreenDto, AdminIngredientBatchDto, AdminIngredientDto, AdminIngredientsScreenDto, AdminRelatedIngredientDishDto, AdminReportsScreenDto, AdminSettingsDto, AdminTablesScreenDto, ApiError, StaffSessionDto, AdminDishIngredientLineDto, AdminDashboardDto, AdminUnitsScreenDto, AdminUnitDto, CreateIngredientBatchRequest, IngredientStockMovementDto, InventoryBatchDto, InventoryMovementDto, InventoryStockInRequest, InventoryStockOutRequest, InventorySummaryDto, Paged, UpdateIngredientBatchRequest, AdminCustomerOrderHistoryItemDto } from "./types";
 
 const jsonHeaders = { "Content-Type": "application/json" };
 
@@ -65,8 +65,9 @@ export const adminApi = {
   setDishAvailability: (dishId: number, available: boolean) => request<{ success: boolean; message: string }>(`/api/gateway/admin/dishes/${dishId}/availability`, { method: "POST", body: JSON.stringify({ available }) }),
   getDishIngredients: (dishId: number) => request<AdminDishIngredientLineDto[]>(`/api/gateway/admin/dishes/${dishId}/ingredients`),
   saveDishIngredients: (dishId: number, items: { ingredientId: number; quantityPerDish: number }[]) => request<{ success: boolean; message: string }>(`/api/gateway/admin/dishes/${dishId}/ingredients`, { method: "PUT", body: JSON.stringify({ items }) }),
-  getIngredients: (search = "", page = 1, pageSize = 10, includeInactive = true) =>
-    request<AdminIngredientsScreenDto>(`/api/gateway/admin/ingredients?search=${encodeURIComponent(search)}&page=${page}&pageSize=${pageSize}&includeInactive=${includeInactive}`),
+  getIngredients: (search = "", page = 1, pageSize = 10, includeInactive = true, stockStatus = "ALL") =>
+    request<AdminIngredientsScreenDto>(`/api/gateway/admin/ingredients?search=${encodeURIComponent(search)}&page=${page}&pageSize=${pageSize}&includeInactive=${includeInactive}&stockStatus=${encodeURIComponent(stockStatus)}`),
+  getIngredientRelatedDishes: (ingredientId: number) => request<AdminRelatedIngredientDishDto[]>(`/api/gateway/admin/ingredients/${ingredientId}/related-dishes`),
   getIngredientById: (ingredientId: number) => request<AdminIngredientDto>(`/api/gateway/admin/ingredients/${ingredientId}`),
   createIngredient: (payload: unknown) => request<{ success: boolean; message: string }>("/api/gateway/admin/ingredients", { method: "POST", body: JSON.stringify(payload) }),
   updateIngredient: (ingredientId: number, payload: unknown) => request<{ success: boolean; message: string }>(`/api/gateway/admin/ingredients/${ingredientId}`, { method: "PUT", body: JSON.stringify(payload) }),
@@ -105,6 +106,7 @@ export const adminApi = {
   createTable: (payload: unknown) => request<{ success: boolean; message: string }>("/api/gateway/admin/tables", { method: "POST", body: JSON.stringify(payload) }),
   updateTable: (tableId: number, payload: unknown) => request<{ success: boolean; message: string }>(`/api/gateway/admin/tables/${tableId}`, { method: "PUT", body: JSON.stringify(payload) }),
   deactivateTable: (tableId: number) => request<{ success: boolean; message: string }>(`/api/gateway/admin/tables/${tableId}/deactivate`, { method: "POST", body: JSON.stringify({}) }),
+  deleteTable: (tableId: number) => request<{ success: boolean; message: string }>(`/api/gateway/admin/tables/${tableId}`, { method: "DELETE" }),
   getEmployees: (search = "", branchId?: number, roleId?: number, page = 1, pageSize = 10) => request<AdminEmployeesScreenDto>(`/api/gateway/admin/employees?search=${encodeURIComponent(search)}${branchId ? `&branchId=${branchId}` : ""}${roleId ? `&roleId=${roleId}` : ""}&page=${page}&pageSize=${pageSize}`),
   getEmployeeById: (employeeId: number) => request<AdminEmployeeDto>(`/api/gateway/admin/employees/${employeeId}`),
   createEmployee: (payload: unknown) => request<{ success: boolean; message: string }>("/api/gateway/admin/employees", { method: "POST", body: JSON.stringify(payload) }),

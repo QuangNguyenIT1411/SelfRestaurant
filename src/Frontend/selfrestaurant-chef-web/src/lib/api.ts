@@ -161,6 +161,13 @@ export const chefApi = {
     }),
   getDishIngredients: (dishId: number) =>
     request<ChefDishIngredientsDto>(`/api/gateway/staff/chef/dishes/${dishId}/ingredients`),
+  getOrderItemIngredients: (orderId: number, itemId: number) =>
+    request<ChefDishIngredientsDto>(`/api/gateway/staff/chef/orders/${orderId}/items/${itemId}/ingredients`),
+  saveOrderItemIngredients: (orderId: number, itemId: number, items: { ingredientId: number; ingredientName: string; unit: string; quantity: number }[], note?: string) =>
+    request<{ success: boolean; message: string }>(`/api/gateway/staff/chef/orders/${orderId}/items/${itemId}/ingredients`, {
+      method: "PUT",
+      body: JSON.stringify({ items, note }),
+    }),
   updateAccount: (payload: { name: string; phone: string; email?: string }) =>
     request<StaffSessionDto["staff"]>("/api/gateway/staff/chef/account", {
       method: "PUT",

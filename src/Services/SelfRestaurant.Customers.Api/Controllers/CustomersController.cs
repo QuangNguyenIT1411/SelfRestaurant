@@ -78,12 +78,16 @@ public sealed class CustomersController : ControllerBase
     public async Task<ActionResult<object>> ResolveReadyNotification(
         int customerId,
         long notificationId,
+        [FromQuery] int? tableId,
         CancellationToken cancellationToken)
     {
         var entity = await _db.ReadyDishNotifications
             .FirstOrDefaultAsync(
                 x => x.ReadyDishNotificationId == notificationId
-                     && (x.CustomerId == customerId || x.CustomerId == null),
+                     && (
+                         x.CustomerId == customerId
+                         || (x.CustomerId == null && tableId != null && x.TableId == tableId.Value)
+                     ),
                 cancellationToken);
 
         if (entity is null)
@@ -99,8 +103,7 @@ public sealed class CustomersController : ControllerBase
                 && x.OrderItemId == entity.OrderItemId
                 && (
                     x.CustomerId == customerId
-                    || x.CustomerId == null
-                    || (entity.TableId != null && x.TableId == entity.TableId)
+                    || (x.CustomerId == null && tableId != null && x.TableId == tableId.Value)
                 ))
             .ToListAsync(cancellationToken);
 

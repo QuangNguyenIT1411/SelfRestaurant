@@ -24,6 +24,7 @@ export type AdminEmployeeDto = { employeeId: number; name: string; username: str
 export type AdminCustomerDto = { customerId: number; name: string; username: string; password?: string | null; phoneNumber?: string | null; email?: string | null; gender?: string | null; dateOfBirth?: string | null; address?: string | null; loyaltyPoints: number; isActive: boolean };
 export type AdminDishDto = { dishId: number; name: string; price: number; categoryId: number; categoryName: string; description?: string | null; unit?: string | null; image?: string | null; isVegetarian: boolean; isDailySpecial: boolean; available: boolean; isActive: boolean; ingredientsSummary?: string | null };
 export type AdminDishIngredientLineDto = { ingredientId: number; name: string; unit: string; currentStock: number; isActive: boolean; selected: boolean; quantityPerDish: number };
+export type AdminRelatedIngredientDishDto = { dishId: number; name: string; categoryName?: string | null; quantityPerDish: number; unit: string; available: boolean; isActive: boolean };
 export type AdminIngredientDto = { ingredientId: number; name: string; unit: string; currentStock: number; reorderLevel: number; isActive: boolean; totalBatchStock: number; usableBatchStock: number; nearestExpiryDate?: string | null; expiredBatchCount: number; nearExpiryBatchCount: number };
 export type AdminIngredientBatchDto = { batchId: number; ingredientId: number; batchCode?: string | null; quantityInitial: number; quantityRemaining: number; unit: string; expiryDate: string; receivedDate: string; supplierName?: string | null; isActive: boolean; createdAt: string; updatedAt?: string | null; status: string };
 export type CreateIngredientBatchRequest = { batchCode?: string | null; quantityInitial?: number | null; quantityRemaining?: number | null; unit?: string | null; expiryDate?: string | null; receivedDate?: string | null; supplierName?: string | null };
@@ -39,6 +40,7 @@ export type AdminTableDto = { tableId: number; tableNumber: number; branchId: nu
 export type AdminRevenueReportRowDto = { date: string; branchId: number; branchName: string; totalOrders: number; totalRevenue: number };
 export type AdminTopDishReportItemDto = { dishId: number; dishName: string; categoryName: string; totalQuantity: number; totalRevenue: number };
 export type AdminChefActivityLogItemDto = { auditId: number; timestampUtc: string; actionType: string; dishId?: number | null; actorName?: string | null; afterState?: string | null };
+export type AdminStaffActivityLogItemDto = { auditId: number; timestampUtc: string; actionType: string; entityType: string; entityId: string; actorName?: string | null; actorRoleCode?: string | null; ipAddress?: string | null; userAgent?: string | null; notes?: string | null; beforeState?: string | null; afterState?: string | null };
 export type AdminChefCookingHistoryItemDto = { orderId: number; orderCode?: string | null; orderTime: string; completedTime?: string | null; tableName?: string | null; branchName?: string | null; statusCode: string; statusName: string; dishesSummary: string; notes?: string | null };
 export type AdminCustomerOrderHistoryItemDto = { orderId: number; orderCode?: string | null; orderTime: string; completedTime?: string | null; tableName?: string | null; statusCode: string; statusName: string; totalAmount: number; itemCount: number; dishesSummary: string };
 export type AdminCashierHistoryItemDto = { billId: number; billCode: string; billTime: string; orderCode?: string | null; tableName?: string | null; customerName?: string | null; subtotal: number; discount: number; pointsDiscount: number; pointsUsed?: number | null; totalAmount: number; paymentMethod: string; paymentAmount?: number | null; changeAmount?: number | null };
@@ -46,6 +48,7 @@ export type AdminEmployeeHistoryResponse = {
   employee: { employeeId: number; employeeName: string; roleCode: string; roleName: string; branchId: number; branchName: string }; 
   chefActivityLogs: { page: number; pageSize: number; totalItems: number; totalPages: number; logs: AdminChefActivityLogItemDto[] }; 
   chefItemCompletions: { page: number; pageSize: number; totalItems: number; totalPages: number; logs: AdminChefActivityLogItemDto[] }; 
+  staffActivityLogs: { page: number; pageSize: number; totalItems: number; totalPages: number; logs: AdminStaffActivityLogItemDto[] };
   chefCookingHistory: { page: number; pageSize: number; totalItems: number; totalPages: number; items: AdminChefCookingHistoryItemDto[] };
   cashierHistory: { page: number; pageSize: number; totalItems: number; totalPages: number; items: AdminCashierHistoryItemDto[] } 
 };

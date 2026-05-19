@@ -93,64 +93,35 @@ public sealed class CatalogController : ControllerBase
             return NotFound();
         }
 
-        var menuDate = date ?? DateOnly.FromDateTime(DateTime.Now);
-        var menu = await _db.Menus
+        // Always return all active dishes grouped by category (ignore menu configuration)
+        var allCategories = await _db.Categories
             .AsNoTracking()
-            .Where(x => x.BranchID == branchId && (x.IsActive ?? true) && (x.Date == null || x.Date == menuDate))
-            .OrderByDescending(x => x.Date)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (menu is null)
-        {
-            menu = await _db.Menus
-                .AsNoTracking()
-                .Where(x => x.BranchID == branchId && (x.IsActive ?? true))
-                .OrderByDescending(x => x.Date)
-                .FirstOrDefaultAsync(cancellationToken);
-        }
-
-        if (menu is null)
-        {
-            return Ok(new
-            {
-                branchId = branch.BranchID,
-                branchName = branch.Name,
-                categories = Array.Empty<object>(),
-            });
-        }
-
-        var categories = await _db.MenuCategory
-            .AsNoTracking()
-            .Where(x => x.MenuID == menu.MenuID
-                && (x.IsActive ?? true)
-                && (x.Category.IsActive ?? true))
-            .Include(x => x.Category)
-            .OrderBy(x => x.Category.DisplayOrder)
-            .ThenBy(x => x.Category.Name)
+            .Where(x => x.IsActive ?? true)
+            .OrderBy(x => x.DisplayOrder)
+            .ThenBy(x => x.Name)
             .ToListAsync(cancellationToken);
 
-        var menuCategories = new List<object>(categories.Count);
-        foreach (var mc in categories)
+        var allCategoryObjects = new List<object>();
+        foreach (var category in allCategories)
         {
-            var rawDishes = await _db.CategoryDish
+            var dishes = await _db.Dishes
                 .AsNoTracking()
-                .Where(x => x.MenuCategoryID == mc.MenuCategoryID)
-                .Include(x => x.Dish)
-                .OrderBy(x => x.DisplayOrder)
-                .ThenBy(x => x.Dish.Name)
+                .Include(x => x.DishIngredients)
+                .ThenInclude(x => x.Ingredient)
+                .Where(x => x.CategoryID == category.CategoryID && (x.IsActive ?? true))
+                .OrderBy(x => x.Name)
                 .Select(x => new
                 {
-                    dishId = x.Dish.DishID,
-                    name = x.Dish.Name,
-                    description = x.Dish.Description,
-                    price = x.Dish.Price,
-                    image = x.Dish.Image,
-                    unit = x.Dish.Unit,
-                    isVegetarian = x.Dish.IsVegetarian ?? false,
-                    isDailySpecial = x.Dish.IsDailySpecial ?? false,
-                    categoryAvailable = x.IsAvailable ?? true,
-                    dishAvailable = x.Dish.Available ?? true,
-                    ingredients = x.Dish.DishIngredients
+                    dishId = x.DishID,
+                    name = x.Name,
+                    description = x.Description,
+                    price = x.Price,
+                    image = x.Image,
+                    unit = x.Unit,
+                    isVegetarian = x.IsVegetarian ?? false,
+                    isDailySpecial = x.IsDailySpecial ?? false,
+                    available = x.Available ?? true,
+                    ingredients = x.DishIngredients
                         .Select(i => new
                         {
                             name = i.Ingredient.Name,
@@ -161,45 +132,22 @@ public sealed class CatalogController : ControllerBase
                 })
                 .ToListAsync(cancellationToken);
 
-            var orderableDishIds = await FilterOrderableDishIdsAsync(rawDishes.Select(x => x.dishId), cancellationToken);
-            // Keep dishes visible in the menu even when they are temporarily not orderable
-            // or have been paused/disabled, so the MVC-like customer flow can show
-            // "Tạm ngừng bán" instead of silently hiding them like a deletion.
-            var dishes = rawDishes
-                .Select(x => new
+            if (dishes.Count > 0)
+            {
+                allCategoryObjects.Add(new
                 {
-                    x.dishId,
-                    x.name,
-                    x.description,
-                    x.price,
-                    x.image,
-                    x.unit,
-                    x.isVegetarian,
-                    x.isDailySpecial,
-                    available = x.categoryAvailable && x.dishAvailable && orderableDishIds.Contains(x.dishId),
-                    x.ingredients,
-                })
-                .ToList();
-
-            if (dishes.Count == 0)
-            {
-                continue;
+                    categoryId = category.CategoryID,
+                    categoryName = category.Name,
+                    dishes
+                });
             }
-
-            menuCategories.Add(new
-            {
-                categoryId = mc.CategoryID,
-                categoryName = mc.Category.Name,
-                displayOrder = mc.Category.DisplayOrder ?? 0,
-                dishes,
-            });
         }
 
         return Ok(new
         {
             branchId = branch.BranchID,
             branchName = branch.Name,
-            categories = menuCategories,
+            categories = allCategoryObjects,
         });
     }
 

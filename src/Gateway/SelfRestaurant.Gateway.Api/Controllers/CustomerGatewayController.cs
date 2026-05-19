@@ -522,7 +522,8 @@ public sealed class CustomerGatewayController : ControllerBase
         var customer = RequireCustomer();
         if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
         if (notificationId <= 0) return Error("invalid_notification", "Thông báo không hợp lệ.", 400);
-        await _customersClient.ResolveReadyNotificationAsync(notificationId, customer.CustomerId, cancellationToken);
+        var tableId = HttpContext.Session.GetInt32(SessionKeys.CurrentTableId);
+        await _customersClient.ResolveReadyNotificationAsync(notificationId, customer.CustomerId, tableId, cancellationToken);
         return Ok(new { success = true });
     }
 

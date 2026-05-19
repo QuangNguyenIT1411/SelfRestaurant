@@ -17,6 +17,7 @@ public sealed class OrdersDbContext : DbContext
     public DbSet<BusinessAuditLogs> BusinessAuditLogs => Set<BusinessAuditLogs>();
     public DbSet<InboxEvents> InboxEvents => Set<InboxEvents>();
     public DbSet<OrderItems> OrderItems => Set<OrderItems>();
+    public DbSet<OrderItemIngredients> OrderItemIngredients => Set<OrderItemIngredients>();
     public DbSet<OutboxEvents> OutboxEvents => Set<OutboxEvents>();
     public DbSet<OrderStatus> OrderStatus => Set<OrderStatus>();
     public DbSet<OrderEntity> Orders => Set<OrderEntity>();
@@ -102,6 +103,19 @@ public sealed class OrdersDbContext : DbContext
             entity.Property(e => e.Note).HasMaxLength(500);
             entity.Property(e => e.StatusCode).HasMaxLength(30).IsUnicode(false).HasDefaultValue("PENDING");
             entity.Property(e => e.UnitPrice).HasColumnType("decimal(18, 2)");
+        });
+
+        modelBuilder.Entity<OrderItemIngredients>(entity =>
+        {
+            entity.HasKey(e => e.OrderItemIngredientID);
+            entity.HasIndex(e => e.OrderItemID).HasDatabaseName("IX_OrderItemIngredients_OrderItemID");
+            entity.HasIndex(e => new { e.OrderItemID, e.IngredientID }).IsUnique().HasDatabaseName("UQ_OrderItemIngredients_OrderItem_Ingredient");
+            entity.Property(e => e.IngredientName).HasMaxLength(200);
+            entity.Property(e => e.Unit).HasMaxLength(50);
+            entity.Property(e => e.Note).HasMaxLength(500);
+            entity.Property(e => e.Quantity).HasColumnType("decimal(18, 3)");
+            entity.Property(e => e.CreatedAt).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
+            entity.Property(e => e.UpdatedAt).HasColumnType("datetime");
         });
 
         modelBuilder.Entity<OutboxEvents>(entity =>

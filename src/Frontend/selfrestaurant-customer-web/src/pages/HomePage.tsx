@@ -138,7 +138,7 @@ export function HomePage() {
   }, [session]);
 
   return (
-    <div className="home-page">
+    <div className="home-page customer-entry-shell">
       <PublicNavbar />
 
       <header className="hero-section">
@@ -194,7 +194,7 @@ export function HomePage() {
       ) : null}
 
       <div className="container mt-4">
-        <div className="step-indicator" id="step-indicator">
+        <div className="step-indicator customer-step-indicator" id="step-indicator">
           <div className={`step ${currentStep === 1 ? "active" : currentStep > 1 ? "completed" : ""}`} id="step-1">
             <div className="step-number">1</div>
             <div className="step-text">{copy.selectBranch}</div>
@@ -212,7 +212,7 @@ export function HomePage() {
         </div>
       </div>
 
-      <section className={`section-container ${selectedBranchId ? "d-none" : ""}`} id="branch-selector">
+      <section className={`section-container customer-selection-panel ${selectedBranchId ? "d-none" : ""}`} id="branch-selector">
         <div className="container">
           <h2 className="section-title">{copy.step1}</h2>
 
@@ -284,7 +284,7 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className={`section-container ${selectedBranchId ? "" : "d-none"}`} id="table-selector">
+      <section className={`section-container customer-selection-panel ${selectedBranchId ? "" : "d-none"}`} id="table-selector">
         <div className="container">
           <button type="button" className="btn btn-outline-secondary back-btn" onClick={() => setSelectedBranchId(null)}>
             <i className="fas fa-arrow-left me-2" />

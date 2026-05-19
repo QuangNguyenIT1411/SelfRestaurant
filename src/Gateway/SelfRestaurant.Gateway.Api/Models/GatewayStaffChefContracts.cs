@@ -95,6 +95,8 @@ public sealed record ChefMenuDishDto(
 public sealed record ChefDishIngredientsDto(
     int DishId,
     string DishName,
+    int? OrderId,
+    int? ItemId,
     IReadOnlyList<ChefDishIngredientItemDto> Items);
 
 public sealed record ChefDishIngredientItemDto(
@@ -103,7 +105,9 @@ public sealed record ChefDishIngredientItemDto(
     string Unit,
     decimal CurrentStock,
     bool IsActive,
-    decimal QuantityPerDish);
+    decimal QuantityPerDish,
+    decimal DefaultQuantityPerDish,
+    bool IsOverridden);
 
 public sealed class ChefSaveDishIngredientItemDto
 {

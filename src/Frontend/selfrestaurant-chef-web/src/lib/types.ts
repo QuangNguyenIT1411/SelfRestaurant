@@ -107,11 +107,15 @@ export type ChefDishIngredientItemDto = {
   currentStock: number;
   isActive: boolean;
   quantityPerDish: number;
+  defaultQuantityPerDish: number;
+  isOverridden: boolean;
 };
 
 export type ChefDishIngredientsDto = {
   dishId: number;
   dishName: string;
+  orderId?: number | null;
+  itemId?: number | null;
   items: ChefDishIngredientItemDto[];
 };
 

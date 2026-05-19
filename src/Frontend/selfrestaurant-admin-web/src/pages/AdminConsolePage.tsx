@@ -35,7 +35,10 @@ const emptyDishForm = {
 };
 const DISH_PAGE_SIZE = 10;
 const TABLE_PAGE_SIZE = 10;
+const DISH_INGREDIENT_PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 const DELETE_REQUIRES_INACTIVE_MESSAGE = "Vui l\u00f2ng v\u00f4 hi\u1ec7u h\u00f3a tr\u01b0\u1edbc khi x\u00f3a.";
+const DELETE_DISH_REQUIRES_SUSPENDED_MESSAGE = "Vui l\u00f2ng t\u1ea1m ng\u01b0ng m\u00f3n \u0103n tr\u01b0\u1edbc khi x\u00f3a.";
+const DELETE_TABLE_REQUIRES_HIDDEN_MESSAGE = "Vui lòng ẩn bàn trước khi xóa";
 const HARD_DELETE_CONFIRM_MESSAGE = "B\u1ea1n c\u00f3 ch\u1eafc mu\u1ed1n x\u00f3a d\u1eef li\u1ec7u n\u00e0y kh\u1ecfi h\u1ec7 th\u1ed1ng kh\u00f4ng?";
 
 function formatDateTime(value?: string | null) {
@@ -118,6 +121,8 @@ export function AdminConsolePage({ onLogout }: Props) {
   const [dishCategoryFilter, setDishCategoryFilter] = useState("ALL");
   const [dishOnlyVegetarian, setDishOnlyVegetarian] = useState(false);
   const [dishPage, setDishPage] = useState(1);
+  const [dishIngredientPage, setDishIngredientPage] = useState(1);
+  const [dishIngredientPageSize, setDishIngredientPageSize] = useState<(typeof DISH_INGREDIENT_PAGE_SIZE_OPTIONS)[number]>(10);
   const [tableSummaryItems, setTableSummaryItems] = useState<AdminTableDto[]>([]);
   const [initialized, setInitialized] = useState(false);
   const { confirm, Dialog } = useAppDialog();
@@ -137,6 +142,7 @@ export function AdminConsolePage({ onLogout }: Props) {
   const isDishIngredientsPage = location.pathname.toLowerCase().includes("/admin/dishes/ingredients");
   const isTableEditPage = location.pathname.toLowerCase().includes("/admin/tablesqr/edit");
   const isTableQrPage = location.pathname.toLowerCase().includes("/admin/tablesqr/qr");
+  const tableQrFilterId = new URLSearchParams(location.search).get("tableId");
   const isRevenuePage = location.pathname.toLowerCase().includes("/admin/reports/revenue");
   const isTopDishesPage = location.pathname.toLowerCase().includes("/admin/reports/topdishes");
 
@@ -156,6 +162,18 @@ export function AdminConsolePage({ onLogout }: Props) {
   }, [reportBranchFilter, reports]);
 
   const filteredRevenueTotal = useMemo(() => filteredRevenueRows.reduce((sum, row) => sum + row.totalRevenue, 0), [filteredRevenueRows]);
+
+  const dishIngredientTotalItems = dishIngredientEditor?.items.length ?? 0;
+  const dishIngredientTotalPages = Math.max(1, Math.ceil(dishIngredientTotalItems / dishIngredientPageSize));
+  const dishIngredientPageStart = (dishIngredientPage - 1) * dishIngredientPageSize;
+  const pagedDishIngredientItems = useMemo(
+    () => dishIngredientEditor?.items.slice(dishIngredientPageStart, dishIngredientPageStart + dishIngredientPageSize) ?? [],
+    [dishIngredientEditor, dishIngredientPageStart, dishIngredientPageSize],
+  );
+
+  useEffect(() => {
+    setDishIngredientPage((currentPage) => Math.min(Math.max(currentPage, 1), dishIngredientTotalPages));
+  }, [dishIngredientTotalPages]);
 
   async function loadTableSummaryData(scopedBranchId?: number) {
     const firstPage = await adminApi.getTables("", scopedBranchId, 1, 100);
@@ -510,7 +528,14 @@ export function AdminConsolePage({ onLogout }: Props) {
   }
 
   async function removeDish(dish: AdminDishDto) {
-    if (!(await canHardDelete(dish.isActive))) {
+    // Chỉ cho xóa món đã tạm ngưng (available = false)
+    if (dish.available) {
+      setMessage(null);
+      setError(DELETE_DISH_REQUIRES_SUSPENDED_MESSAGE);
+      return;
+    }
+
+    if (!(await confirm({ title: "Xác nhận xóa", message: HARD_DELETE_CONFIRM_MESSAGE, variant: "danger" }))) {
       return;
     }
 
@@ -531,6 +556,20 @@ export function AdminConsolePage({ onLogout }: Props) {
     await refreshAndShow(adminApi.deleteCategory(category.categoryId));
   }
 
+  async function removeTable(table: AdminTablesScreenDto["tables"]["items"][number]) {
+    if (table.isActive) {
+      setMessage(null);
+      setError(DELETE_TABLE_REQUIRES_HIDDEN_MESSAGE);
+      return;
+    }
+
+    if (!(await confirm({ title: "Xác nhận xóa", message: HARD_DELETE_CONFIRM_MESSAGE, confirmLabel: "Xóa", cancelLabel: "Hủy", variant: "danger" }))) {
+      return;
+    }
+
+    await refreshAndShow(adminApi.deleteTable(table.tableId));
+  }
+
   async function setCategoryActive(category: AdminCategoriesScreenDto["categories"][number], isActive: boolean) {
     await refreshAndShow(
       adminApi.updateCategory(category.categoryId, categoryPayload(category, isActive)),
@@ -548,7 +587,7 @@ export function AdminConsolePage({ onLogout }: Props) {
   async function setTableActive(table: AdminTablesScreenDto["tables"]["items"][number], isActive: boolean) {
     await refreshAndShow(
       adminApi.updateTable(table.tableId, tablePayload(table, isActive)),
-      isActive ? "Đã bật lại bàn." : "Đã vô hiệu hóa bàn.",
+      isActive ? "Đã hiển thị lại bàn." : "Đã ẩn bàn.",
     );
   }
 
@@ -648,6 +687,7 @@ export function AdminConsolePage({ onLogout }: Props) {
     try {
       setError(null);
       const items = await adminApi.getDishIngredients(dishId);
+      setDishIngredientPage(1);
       setDishIngredientEditor({ dishId, dishName, items });
       navigate("/Admin/Dishes/Ingredients");
     } catch (err) {
@@ -700,6 +740,7 @@ export function AdminConsolePage({ onLogout }: Props) {
 
   const visibleDishes = dishes?.dishes.items ?? [];
   const visibleTables = tablesData?.tables.items ?? [];
+  const qrVisibleTables = tableQrFilterId ? visibleTables.filter((table) => table.tableId === Number(tableQrFilterId)) : visibleTables;
 
   if (loading) return <div className="screen-message">Đang tải khu quản trị...</div>;
   if (error && !dashboard) return <div className="screen-message error-box">{error}</div>;
@@ -1107,8 +1148,28 @@ export function AdminConsolePage({ onLogout }: Props) {
                   <div><h2>Thành phần món ăn</h2><p className="muted">{dishIngredientEditor.dishName}</p></div>
                   <button className="ghost" onClick={() => { setDishIngredientEditor(null); navigate("/Admin/Dishes/Index"); }}>Quay lại danh sách món ăn</button>
                 </div>
+                <div className="dish-ingredient-pagination-summary">
+                  <div>
+                    <strong>{dishIngredientTotalItems} nguyên liệu</strong>
+                    <span className="muted">Trang {dishIngredientPage}/{dishIngredientTotalPages}</span>
+                  </div>
+                  <label>
+                    <span>Hiển thị</span>
+                    <select
+                      value={dishIngredientPageSize}
+                      onChange={(e) => {
+                        setDishIngredientPageSize(Number(e.target.value) as (typeof DISH_INGREDIENT_PAGE_SIZE_OPTIONS)[number]);
+                        setDishIngredientPage(1);
+                      }}
+                    >
+                      {DISH_INGREDIENT_PAGE_SIZE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+                    </select>
+                  </label>
+                </div>
                 <div className="ingredient-modal-list">
-                  {dishIngredientEditor.items.map((item, index) => (
+                  {pagedDishIngredientItems.map((item, pageIndex) => {
+                    const index = dishIngredientPageStart + pageIndex;
+                    return (
                     <div key={item.ingredientId} className={`ingredient-line ${item.selected ? "selected" : ""}`}>
                       <label className="ingredient-toggle">
                         <input
@@ -1138,7 +1199,17 @@ export function AdminConsolePage({ onLogout }: Props) {
                         }}
                       />
                     </div>
-                  ))}
+                    );
+                  })}
+                </div>
+                <div className="button-row wrap admin-pagination dish-ingredient-pagination" aria-label="Phân trang nguyên liệu">
+                  <button type="button" className="ghost admin-pagination-nav" disabled={dishIngredientPage <= 1} onClick={() => setDishIngredientPage(1)}>Đầu</button>
+                  <button type="button" className="ghost admin-pagination-nav" disabled={dishIngredientPage <= 1} onClick={() => setDishIngredientPage((page) => Math.max(1, page - 1))}>Trước</button>
+                  <span className="dish-ingredient-pagination-info">
+                    {dishIngredientTotalItems === 0 ? "0" : `${dishIngredientPageStart + 1}-${Math.min(dishIngredientPageStart + dishIngredientPageSize, dishIngredientTotalItems)}`} / {dishIngredientTotalItems}
+                  </span>
+                  <button type="button" className="ghost admin-pagination-nav" disabled={dishIngredientPage >= dishIngredientTotalPages} onClick={() => setDishIngredientPage((page) => Math.min(dishIngredientTotalPages, page + 1))}>Sau</button>
+                  <button type="button" className="ghost admin-pagination-nav" disabled={dishIngredientPage >= dishIngredientTotalPages} onClick={() => setDishIngredientPage(dishIngredientTotalPages)}>Cuối</button>
                 </div>
                 <div className="button-row">
                   <button className="ghost" onClick={() => { setDishIngredientEditor(null); navigate("/Admin/Dishes/Index"); }}>Hủy</button>
@@ -1172,14 +1243,13 @@ export function AdminConsolePage({ onLogout }: Props) {
                       <td>
                         <div className="button-row wrap">
                           <button className="ghost" onClick={() => openDishEditPage(dish)}>Sửa</button>
-                          <button className="ghost" onClick={() => void refreshAndShow(adminApi.setDishAvailability(dish.dishId, !dish.available))}>{dish.available ? "Tạm ngưng" : "Mở bán"}</button>
+                          {dish.available ? (
+                            <button className="warning" onClick={() => void refreshAndShow(adminApi.setDishAvailability(dish.dishId, false), "Đã tạm ngưng món ăn.")}>Tạm ngưng</button>
+                          ) : (
+                            <button className="ghost" onClick={() => void refreshAndShow(adminApi.setDishAvailability(dish.dishId, true), "Đã tiếp tục bán món ăn.")}>Tiếp tục</button>
+                          )}
                           <button className="ghost" onClick={() => void openDishIngredients(dish.dishId, dish.name)}>Nguyên liệu</button>
                           <button className="danger" onClick={() => void removeDish(dish)}>Xóa</button>
-                          {dish.isActive ? (
-                            <button className="danger" onClick={() => void refreshAndShow(adminApi.deactivateDish(dish.dishId))}>Vô hiệu</button>
-                          ) : (
-                            <button className="ghost" onClick={() => void setDishActive(dish, true)}>Bật lại</button>
-                          )}
                         </div>
                       </td>
                     </tr>
@@ -1266,7 +1336,7 @@ export function AdminConsolePage({ onLogout }: Props) {
                   </div>
                   <div className="filter-chip-row">
                     <button type="button" className={`ghost ${tableEditForm.isActive ? "active-toggle" : ""}`} onClick={() => setTableEditForm({ ...tableEditForm, isActive: !tableEditForm.isActive })}>
-                      {tableEditForm.isActive ? "Ho\u1ea1t \u0111\u1ed9ng" : "Ng\u1eebng ho\u1ea1t \u0111\u1ed9ng"}
+                      {tableEditForm.isActive ? "Hiển thị" : "Đã ẩn"}
                     </button>
                   </div>
                   <div className="entry-form-actions">
@@ -1294,22 +1364,47 @@ export function AdminConsolePage({ onLogout }: Props) {
 
           {isTableQrPage ? (
             <>
-              <div className="panel-head"><h2>{"Danh s\u00e1ch m\u00e3 QR b\u00e0n"}</h2><span className="status-pill success">{tablesData.tables.totalItems} {"b\u00e0n"}</span></div>
-              <div className="panel-grid">
-                {visibleTables.map((table) => (
-                  <article key={`qr-${table.tableId}`} className="panel">
-                    <div className="panel-head">
-                      <h2>{"B\u00e0n"} {table.tableNumber}</h2>
-                      <span>{table.branchName}</span>
-                    </div>
-                    <div className="list-card">
-                      <img className="qr-preview" src={buildQrImageUrl(table.qrCode)} alt={`QR b\u00e0n ${table.tableNumber}`} />
-                      <p>{buildQrTargetUrl(table.qrCode)}</p>
-                    </div>
-                  </article>
-                ))}
+              <div className="panel-head">
+                <div>
+                  <h2>Danh sách mã QR bàn</h2>
+                  <p className="muted">Mã QR dẫn khách đến giao diện gọi món theo đúng bàn.</p>
+                </div>
+                <span className="status-pill success">{tableQrFilterId ? qrVisibleTables.length : tablesData.tables.totalItems} bàn</span>
               </div>
-              <AdminPagination currentPage={tablePage} totalPages={tablesData.tables.totalPages} onPageChange={setTablePage} keyPrefix="table-qr" />
+              <div className="qr-card-grid">
+                {qrVisibleTables.length > 0 ? qrVisibleTables.map((table) => {
+                  const qrUrl = buildQrTargetUrl(table.qrCode);
+                  const qrImageUrl = buildQrImageUrl(table.qrCode);
+                  return (
+                    <article key={`qr-${table.tableId}`} className="qr-table-card">
+                      <div className="qr-table-card-head">
+                        <div>
+                          <h3>Bàn {table.tableNumber}</h3>
+                          <p>{table.branchName}</p>
+                        </div>
+                        <span className="status-pill info">{table.statusName}</span>
+                      </div>
+                      <div className="qr-table-card-body">
+                        {qrImageUrl ? <img className="qr-preview" src={qrImageUrl} alt={`QR bàn ${table.tableNumber}`} /> : <div className="empty-report compact-empty">Chưa có mã QR</div>}
+                        <div className="qr-url-box">{qrUrl || "Chưa có URL QR"}</div>
+                      </div>
+                      <div className="button-row wrap">
+                        <button className="ghost" disabled={!qrUrl} onClick={() => void navigator.clipboard?.writeText(qrUrl)}>Copy URL</button>
+                        <a className="ghost button-link" href={qrImageUrl || undefined} download={`ban-${table.tableNumber}-qr.png`} aria-disabled={!qrImageUrl}>Tải QR</a>
+                        <button className="ghost" disabled={!qrImageUrl} onClick={() => window.open(qrImageUrl, "_blank", "noopener,noreferrer")}>In / mở QR</button>
+                        <button className="ghost" onClick={() => navigate(`/Admin/TablesQR/Edit/${table.tableId}`)}>Sửa bàn</button>
+                      </div>
+                    </article>
+                  );
+                }) : (
+                  <div className="empty-report history-empty-card">
+                    <i className="bi bi-qr-code" />
+                    <strong>Chưa có bàn phù hợp</strong>
+                    <div>Không tìm thấy bàn để hiển thị mã QR. Hãy kiểm tra bộ lọc hoặc danh sách bàn.</div>
+                  </div>
+                )}
+              </div>
+              {!tableQrFilterId ? <AdminPagination currentPage={tablePage} totalPages={tablesData.tables.totalPages} onPageChange={setTablePage} keyPrefix="table-qr" /> : null}
             </>
           ) : null}
 
@@ -1331,10 +1426,11 @@ export function AdminConsolePage({ onLogout }: Props) {
                           <button className="ghost" onClick={() => openTableEditPage(table)}>{"S\u1eeda"}</button>
                           <button className="ghost" onClick={() => navigate("/Admin/TablesQR/QR")}>QR</button>
                           {table.isActive ? (
-                            <button className="danger" onClick={() => void refreshAndShow(adminApi.deactivateTable(table.tableId))}>{"V\u00f4 hi\u1ec7u"}</button>
+                            <button className="danger" onClick={() => void refreshAndShow(adminApi.deactivateTable(table.tableId), "Đã ẩn bàn.")}>Ẩn bàn</button>
                           ) : (
-                            <button className="ghost" onClick={() => void setTableActive(table, true)}>{"B\u1eadt l\u1ea1i"}</button>
+                            <button className="ghost" onClick={() => void setTableActive(table, true)}>{"Hiển thị lại"}</button>
                           )}
+                          <button className="danger" onClick={() => void removeTable(table)}>Xóa</button>
                         </div>
                       </td>
                     </tr>

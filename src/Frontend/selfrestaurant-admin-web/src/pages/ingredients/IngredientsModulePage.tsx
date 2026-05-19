@@ -4,7 +4,7 @@ import { AdminLayout } from "../../components/AdminLayout";
 import { AdminPagination } from "../../components/AdminPagination";
 import { useAppDialog } from "../../components/AppDialog";
 import { adminApi } from "../../lib/api";
-import type { AdminIngredientDto, AdminIngredientsScreenDto, IngredientStockMovementDto, StaffSessionUserDto } from "../../lib/types";
+import type { AdminIngredientDto, AdminIngredientsScreenDto, AdminRelatedIngredientDishDto, IngredientStockMovementDto, StaffSessionUserDto } from "../../lib/types";
 import { useAutoDismissMessage } from "../../lib/useAutoDismissMessage";
 
 type Props = {
@@ -63,9 +63,13 @@ export function IngredientsModulePage({ mode, onLogout }: Props) {
 
   const search = searchParams.get("search") ?? "";
   const onlyActive = searchParams.get("onlyActive") === "true";
+  const stockStatus = searchParams.get("stockStatus") ?? "ALL";
   const page = Math.max(1, Number.parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const ingredientIdValue = ingredientId ? Number.parseInt(ingredientId, 10) : 0;
   const [searchInput, setSearchInput] = useState(search);
+  const [relatedDishIngredient, setRelatedDishIngredient] = useState<AdminIngredientDto | null>(null);
+  const [relatedDishes, setRelatedDishes] = useState<AdminRelatedIngredientDishDto[]>([]);
+  const [relatedDishesLoading, setRelatedDishesLoading] = useState(false);
 
   useEffect(() => {
     const flash = (location.state as { message?: string } | null)?.message;
@@ -114,7 +118,7 @@ export function IngredientsModulePage({ mode, onLogout }: Props) {
         return;
       }
 
-      setScreen(await adminApi.getIngredients(search, page, 10, !onlyActive));
+      setScreen(await adminApi.getIngredients(search, page, 10, !onlyActive, stockStatus));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tải dữ liệu nguyên liệu.");
     } finally {
@@ -124,12 +128,13 @@ export function IngredientsModulePage({ mode, onLogout }: Props) {
 
   useEffect(() => {
     void loadPage();
-  }, [mode, search, onlyActive, page, ingredientIdValue]);
+  }, [mode, search, onlyActive, stockStatus, page, ingredientIdValue]);
 
-  function buildIndexUrl(nextPage = page, nextSearch = search, nextOnlyActive = onlyActive) {
+  function buildIndexUrl(nextPage = page, nextSearch = search, nextOnlyActive = onlyActive, nextStockStatus = stockStatus) {
     const params = new URLSearchParams();
     if (nextSearch.trim()) params.set("search", nextSearch.trim());
     if (nextOnlyActive) params.set("onlyActive", "true");
+    if (nextStockStatus !== "ALL") params.set("stockStatus", nextStockStatus);
     if (nextPage > 1) params.set("page", String(nextPage));
     return `/Admin/Ingredients/Index${params.toString() ? `?${params.toString()}` : ""}`;
   }
@@ -189,6 +194,21 @@ export function IngredientsModulePage({ mode, onLogout }: Props) {
     }
   }
 
+
+  async function openRelatedDishes(ingredient: AdminIngredientDto) {
+    setRelatedDishIngredient(ingredient);
+    setRelatedDishes([]);
+    setRelatedDishesLoading(true);
+    setError(null);
+    try {
+      setRelatedDishes(await adminApi.getIngredientRelatedDishes(ingredient.ingredientId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể tải món ăn liên quan.");
+    } finally {
+      setRelatedDishesLoading(false);
+    }
+  }
+
   async function handleDelete(ingredient: AdminIngredientDto) {
     if (ingredient.isActive) {
       setMessage(null);
@@ -245,7 +265,7 @@ export function IngredientsModulePage({ mode, onLogout }: Props) {
           <div className="inline-filter-card admin-filter-card">
             <div>
               <strong>Bộ lọc nguyên liệu</strong>
-              <div className="muted">Tìm theo tên hoặc đơn vị, có thể chỉ hiện nguyên liệu còn hoạt động.</div>
+              <div className="muted">Tìm theo tên nguyên liệu, lọc tồn kho và trạng thái để quản lý nhanh hơn.</div>
             </div>
             <div className="admin-filter-form">
               <label className="admin-filter-field admin-filter-field-wide">
@@ -259,12 +279,23 @@ export function IngredientsModulePage({ mode, onLogout }: Props) {
                       applySearchNow(e.currentTarget.value);
                     }
                   }}
-                  placeholder="Tên hoặc đơn vị..."
+                  placeholder="Nhập tên nguyên liệu..."
                 />
               </label>
-              <label className="admin-filter-check">
-                <input type="checkbox" checked={onlyActive} onChange={(e) => navigate(buildIndexUrl(1, search, e.target.checked), { replace: true })} />
-                <span>Chỉ còn hoạt động</span>
+              <label className="admin-filter-field">
+                <span>Tồn kho</span>
+                <select value={stockStatus} onChange={(e) => navigate(buildIndexUrl(1, search, onlyActive, e.target.value), { replace: true })}>
+                  <option value="ALL">Tất cả tồn kho</option>
+                  <option value="LOW">Tồn thấp</option>
+                  <option value="NORMAL">Tồn bình thường</option>
+                </select>
+              </label>
+              <label className="admin-filter-field">
+                <span>Trạng thái</span>
+                <select value={onlyActive ? "ACTIVE" : "ALL"} onChange={(e) => navigate(buildIndexUrl(1, search, e.target.value === "ACTIVE", stockStatus), { replace: true })}>
+                  <option value="ALL">Tất cả trạng thái</option>
+                  <option value="ACTIVE">Đang hoạt động</option>
+                </select>
               </label>
             </div>
             <div className="admin-filter-actions">
@@ -276,7 +307,7 @@ export function IngredientsModulePage({ mode, onLogout }: Props) {
                   navigate("/Admin/Ingredients/Index");
                 }}
               >
-                Xóa bộ lọc
+                Đặt lại bộ lọc
               </button>
             </div>
           </div>
@@ -325,6 +356,7 @@ export function IngredientsModulePage({ mode, onLogout }: Props) {
                   <td>
                     <div className="button-row wrap">
                       <button className="ghost" onClick={() => navigate(`/Admin/Ingredients/Edit/${ingredient.ingredientId}`)}>Sửa</button>
+                      <button className="ghost" onClick={() => void openRelatedDishes(ingredient)}>Món ăn liên quan</button>
                       <button className="danger" onClick={() => void handleDelete(ingredient)}>Xóa</button>
                       {ingredient.isActive ? (
                         <button className="danger" onClick={() => void adminApi.deactivateIngredient(ingredient.ingredientId).then((response) => {
@@ -440,6 +472,49 @@ export function IngredientsModulePage({ mode, onLogout }: Props) {
           </table>
         </section>
       ) : null}
+
+      {relatedDishIngredient ? (
+        <section className="modal-backdrop" onClick={() => setRelatedDishIngredient(null)}>
+          <div className="modal-card ingredient-related-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="panel-head">
+              <div>
+                <h2>Món ăn liên quan</h2>
+                <p className="muted">Nguyên liệu: {relatedDishIngredient.name}</p>
+              </div>
+              <button className="ghost" onClick={() => setRelatedDishIngredient(null)}>Đóng</button>
+            </div>
+            {relatedDishesLoading ? <div className="screen-message">Đang tải món ăn liên quan...</div> : null}
+            {!relatedDishesLoading && relatedDishes.length === 0 ? (
+              <div className="empty-report history-empty-card">
+                <i className="bi bi-egg" />
+                <strong>Chưa có món ăn sử dụng nguyên liệu này</strong>
+                <div>Nguyên liệu chưa được gán vào công thức món ăn nào.</div>
+              </div>
+            ) : null}
+            {!relatedDishesLoading && relatedDishes.length > 0 ? (
+              <table className="data-table">
+                <thead><tr><th>Món ăn</th><th>Danh mục</th><th>Định lượng/phần</th><th>Trạng thái</th></tr></thead>
+                <tbody>
+                  {relatedDishes.map((dish) => (
+                    <tr key={dish.dishId}>
+                      <td><strong>{dish.name}</strong></td>
+                      <td>{dish.categoryName || "-"}</td>
+                      <td>{formatNumber(dish.quantityPerDish)} {dish.unit}</td>
+                      <td>
+                        <div className="button-row wrap">
+                          <span className={dish.available ? "status-pill success" : "status-pill warning"}>{dish.available ? "Đang bán" : "Tạm ngưng"}</span>
+                          <span className={dish.isActive ? "status-pill info" : "status-pill danger"}>{dish.isActive ? "Hoạt động" : "Ngừng hoạt động"}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
       <Dialog />
     </AdminLayout>
   );
