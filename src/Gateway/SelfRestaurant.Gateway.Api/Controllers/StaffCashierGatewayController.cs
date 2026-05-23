@@ -14,10 +14,13 @@ namespace SelfRestaurant.Gateway.Api.Controllers;
 public sealed class StaffCashierGatewayController : ControllerBase
 {
     private static readonly string[] CashierRoles = ["CASHIER", "MANAGER", "ADMIN"];
+    public sealed record CashierReservationCheckInRequest(int? TableId, IReadOnlyList<int>? TableIds);
 
     private readonly BillingClient _billingClient;
     private readonly IdentityClient _identityClient;
     private readonly CatalogClient _catalogClient;
+    private readonly CustomersClient _customersClient;
+    private readonly OrdersClient _ordersClient;
     private readonly IHubContext<CustomerNotificationsHub> _customerNotificationsHub;
     private readonly ILogger<StaffCashierGatewayController> _logger;
 
@@ -25,12 +28,16 @@ public sealed class StaffCashierGatewayController : ControllerBase
         BillingClient billingClient,
         IdentityClient identityClient,
         CatalogClient catalogClient,
+        CustomersClient customersClient,
+        OrdersClient ordersClient,
         IHubContext<CustomerNotificationsHub> customerNotificationsHub,
         ILogger<StaffCashierGatewayController> logger)
     {
         _billingClient = billingClient;
         _identityClient = identityClient;
         _catalogClient = catalogClient;
+        _customersClient = customersClient;
+        _ordersClient = ordersClient;
         _customerNotificationsHub = customerNotificationsHub;
         _logger = logger;
     }
@@ -87,6 +94,248 @@ public sealed class StaffCashierGatewayController : ControllerBase
         var staff = RequireCashier();
         if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản thu ngân.", 401);
         return Ok(await BuildDashboardAsync(staff.BranchId, staff, includeBills: false, billsDate: null, cancellationToken));
+    }
+
+    [HttpGet("/api/cashier/reservations/today")]
+    public async Task<ActionResult<IReadOnlyList<ReservationDto>>> GetTodayReservations(
+        [FromQuery] int? branchId,
+        [FromQuery] string? status,
+        [FromQuery] DateOnly? date,
+        CancellationToken cancellationToken)
+    {
+        var staff = RequireCashier();
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản thu ngân.", 401);
+
+        var targetBranchId = branchId is > 0 ? branchId : staff.BranchId;
+        try
+        {
+            var reservations = await _customersClient.GetTodayReservationsAsync(targetBranchId, status, date, cancellationToken);
+            return Ok(reservations);
+        }
+        catch (ApiClientException ex)
+        {
+            return Error(string.IsNullOrWhiteSpace(ex.Code) ? "get_reservations_failed" : ex.Code!, ex.Message, ex.StatusCode);
+        }
+    }
+
+    [HttpPost("/api/cashier/reservations/{reservationId:int}/check-in")]
+    public async Task<ActionResult<CashierReservationCheckInResultDto>> CheckInReservation(
+        int reservationId,
+        [FromBody] CashierReservationCheckInRequest? request,
+        CancellationToken cancellationToken)
+    {
+        var staff = RequireCashier();
+        if (staff is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản thu ngân.", 401);
+        if (reservationId <= 0) return Error("invalid_reservation", "Đặt bàn không hợp lệ.", 400);
+
+        try
+        {
+            var previousState = await _customersClient.GetReservationByIdAsync(reservationId, cancellationToken);
+            if (previousState is null)
+            {
+                return Error("reservation_not_found", "Kh?ng t?m th?y ??t b?n.", 404);
+            }
+            if (previousState.BranchId != staff.BranchId)
+            {
+                return Error("branch_mismatch", "??t b?n kh?ng thu?c chi nh?nh c?a thu ng?n hi?n t?i.", 403);
+            }
+
+            var wasAlreadyCheckingIn = string.Equals(previousState.Status, "CheckingIn", StringComparison.OrdinalIgnoreCase);
+            var selectedTableIds = NormalizeSelectedTableIds(request?.TableIds);
+            if (selectedTableIds.Count == 0 && request?.TableId is > 0)
+            {
+                selectedTableIds.Add(request.TableId.Value);
+            }
+            if (selectedTableIds.Count == 0 && previousState.TableId is > 0)
+            {
+                selectedTableIds.Add(previousState.TableId.Value);
+            }
+            var tableId = request?.TableId is > 0 && selectedTableIds.Contains(request.TableId.Value)
+                ? request.TableId.Value
+                : previousState.TableId is > 0
+                    ? previousState.TableId.Value
+                    : selectedTableIds.FirstOrDefault();
+            if (tableId <= 0)
+            {
+                return Error("missing_table", "Vui lòng chọn ít nhất một bàn trước khi check-in.", 400);
+            }
+            if (!selectedTableIds.Contains(tableId))
+            {
+                selectedTableIds.Insert(0, tableId);
+            }
+
+            var branchTables = await _catalogClient.GetBranchTablesAsync(previousState.BranchId, cancellationToken);
+            var branchTableList = branchTables?.Tables ?? [];
+            foreach (var selectedTableId in selectedTableIds)
+            {
+                var selectedTable = branchTableList.FirstOrDefault(x => x.TableId == selectedTableId && x.BranchId == previousState.BranchId);
+                if (selectedTable is null)
+                {
+                    return Error("table_not_found", $"Không tìm thấy bàn #{selectedTableId} trong chi nhánh.", 404);
+                }
+
+                var isExistingReservationTable = previousState.TableId == selectedTableId;
+                if (!wasAlreadyCheckingIn
+                    && !isExistingReservationTable
+                    && !selectedTable.IsAvailable
+                    && !string.Equals(selectedTable.StatusCode, "AVAILABLE", StringComparison.OrdinalIgnoreCase))
+                {
+                    var number = selectedTable.DisplayTableNumber > 0 ? selectedTable.DisplayTableNumber : selectedTable.TableId;
+                    return Error("table_unavailable", $"Bàn {number} hiện không sẵn sàng để check-in.", 409);
+                }
+            }
+
+            var reservation = await _customersClient.BeginReservationCheckInAsync(reservationId, cancellationToken);
+            if (reservation is null)
+            {
+                return Error("reservation_not_found", "Không tìm thấy đặt bàn.", 404);
+            }
+
+            if (string.Equals(reservation.Status, "CheckedIn", StringComparison.OrdinalIgnoreCase))
+            {
+                ActiveOrderResponse? existingOrder = null;
+                if (reservation.ConvertedOrderId is > 0)
+                {
+                    existingOrder = await _ordersClient.GetOrderByIdAsync(reservation.ConvertedOrderId.Value, cancellationToken);
+                }
+
+                return Ok(new CashierReservationCheckInResultDto(
+                    true,
+                    "Đặt bàn đã được check-in trước đó.",
+                    reservation,
+                    existingOrder,
+                    AlreadyCheckedIn: true));
+            }
+
+            if (!string.Equals(reservation.Status, "CheckingIn", StringComparison.OrdinalIgnoreCase))
+            {
+                return Error("invalid_check_in_state", "Đặt bàn chưa sẵn sàng để check-in.", 409);
+            }
+
+            if (reservation.BranchId != staff.BranchId)
+            {
+                await _customersClient.FailReservationCheckInAsync(reservation.ReservationId, cancellationToken);
+                return Error("branch_mismatch", "Đặt bàn không thuộc chi nhánh của thu ngân hiện tại.", 403);
+            }
+
+            var pendingItems = reservation.PreOrderItems
+                .Where(item => string.Equals(item.Status, "Pending", StringComparison.OrdinalIgnoreCase) && item.Quantity > 0)
+                .ToArray();
+
+            var idempotencyKey = string.IsNullOrWhiteSpace(reservation.CheckInIdempotencyKey)
+                ? $"reservation-checkin-{reservation.ReservationId}"
+                : reservation.CheckInIdempotencyKey;
+
+            if (pendingItems.Length == 0)
+            {
+                var checkedInWithoutOrder = await _customersClient.CompleteReservationCheckInAsync(
+                    reservation.ReservationId,
+                    new CheckInReservationRequest(null, null, staff.EmployeeId, DateTime.UtcNow, tableId, selectedTableIds),
+                    cancellationToken);
+
+                if (checkedInWithoutOrder is null)
+                {
+                    return Error("reservation_update_failed", "Không thể cập nhật trạng thái check-in.", 502);
+                }
+
+                await OccupyAssignedTablesAsync(selectedTableIds, primaryTableIdToSkip: null, cancellationToken);
+
+                return Ok(new CashierReservationCheckInResultDto(
+                    true,
+                    "Đã check-in đặt bàn. Chưa có món đặt trước nên chưa tạo đơn bếp.",
+                    checkedInWithoutOrder,
+                    null,
+                    AlreadyCheckedIn: false));
+            }
+
+            var orderItems = pendingItems
+                .Select(item => new AddOrderItemPayload(
+                    item.DishId,
+                    item.Quantity,
+                    string.IsNullOrWhiteSpace(item.Note) ? $"Đặt trước {reservation.ReservationCode}" : $"{item.Note} (Đặt trước {reservation.ReservationCode})"))
+                .ToArray();
+
+            ActiveOrderResponse? order;
+            try
+            {
+                order = await _ordersClient.SubmitOrderBatchAsync(
+                    tableId,
+                    orderItems,
+                    reservation.PhoneNumber,
+                    idempotencyKey,
+                    expectedDiningSessionCode: null,
+                    cancellationToken);
+            }
+            catch
+            {
+                await _customersClient.FailReservationCheckInAsync(reservation.ReservationId, cancellationToken);
+                throw;
+            }
+
+            if (order is null)
+            {
+                await _customersClient.FailReservationCheckInAsync(reservation.ReservationId, cancellationToken);
+                return Error("order_create_failed", "Không thể tạo đơn hàng từ đặt bàn.", 502);
+            }
+
+            if (!string.IsNullOrWhiteSpace(order.DiningSessionCode))
+            {
+                try
+                {
+                    await _ordersClient.LinkDiningSessionTablesAsync(
+                        order.DiningSessionCode,
+                        tableId,
+                        selectedTableIds,
+                        cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    await _customersClient.FailReservationCheckInAsync(reservation.ReservationId, cancellationToken);
+                    _logger.LogError(ex, "Failed to link tables to dining session {DiningSessionCode} for reservation {ReservationId}.", order.DiningSessionCode, reservation.ReservationId);
+                    throw;
+                }
+            }
+            ReservationDto? checkedInReservation;
+            try
+            {
+                checkedInReservation = await _customersClient.CompleteReservationCheckInAsync(
+                    reservation.ReservationId,
+                    new CheckInReservationRequest(order.OrderId, order.DiningSessionCode, staff.EmployeeId, DateTime.UtcNow, tableId, selectedTableIds),
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Reservation complete check-in failed after order creation for reservation {ReservationId} with key {IdempotencyKey}.", reservation.ReservationId, idempotencyKey);
+                return Error(
+                    "reservation_completion_failed",
+                    "Đã tạo đơn hàng nhưng chưa hoàn tất cập nhật đặt bàn. Bấm Nhận khách lại để hoàn tất, hệ thống sẽ dùng cùng khóa xử lý và không tạo đơn trùng.",
+                    502,
+                    new { idempotencyKey, orderId = order.OrderId, orderCode = order.OrderCode });
+            }
+
+            if (checkedInReservation is null)
+            {
+                return Error("reservation_update_failed", "Đã tạo đơn hàng nhưng không thể cập nhật trạng thái đặt bàn. Bấm Nhận khách lại để hoàn tất.", 502);
+            }
+
+            await OccupyAssignedTablesAsync(selectedTableIds, primaryTableIdToSkip: tableId, cancellationToken);
+
+            return Ok(new CashierReservationCheckInResultDto(
+                true,
+                "Đã check-in và tạo đơn hàng thành công.",
+                checkedInReservation,
+                order,
+                AlreadyCheckedIn: false));
+        }
+        catch (ApiClientException ex)
+        {
+            return Error(string.IsNullOrWhiteSpace(ex.Code) ? "check_in_failed" : ex.Code!, ex.Message, ex.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Reservation check-in failed.");
+            return Error("check_in_failed", ex.Message, 400);
+        }
     }
 
     [HttpGet("history")]
@@ -321,6 +570,40 @@ public sealed class StaffCashierGatewayController : ControllerBase
         return "OCCUPIED";
     }
 
+    private static List<int> NormalizeSelectedTableIds(IReadOnlyList<int>? tableIds)
+    {
+        var result = new List<int>();
+        if (tableIds is null)
+        {
+            return result;
+        }
+
+        foreach (var tableId in tableIds)
+        {
+            if (tableId <= 0 || result.Contains(tableId))
+            {
+                continue;
+            }
+
+            result.Add(tableId);
+        }
+
+        return result;
+    }
+
+    private async Task OccupyAssignedTablesAsync(IReadOnlyList<int> tableIds, int? primaryTableIdToSkip, CancellationToken cancellationToken)
+    {
+        foreach (var assignedTableId in tableIds)
+        {
+            if (primaryTableIdToSkip == assignedTableId)
+            {
+                continue;
+            }
+
+            await _ordersClient.OccupyTableAsync(assignedTableId, cancellationToken);
+        }
+    }
+
     private static string ResolveDishImage(string? rawImage, string? dishName)
     {
         var normalized = NormalizeImagePath(rawImage);
@@ -445,3 +728,4 @@ public sealed class StaffCashierGatewayController : ControllerBase
     private ActionResult Error(string code, string message, int statusCode, object? details = null)
         => StatusCode(statusCode, new ApiErrorResponse(false, code, message, details));
 }
+

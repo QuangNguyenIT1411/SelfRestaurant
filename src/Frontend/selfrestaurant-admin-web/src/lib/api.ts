@@ -1,4 +1,4 @@
-import type { AdminCategoriesScreenDto, AdminCustomerDto, AdminCustomersScreenDto, AdminDishesScreenDto, AdminEmployeeDto, AdminEmployeeHistoryResponse, AdminEmployeesScreenDto, AdminIngredientBatchDto, AdminIngredientDto, AdminIngredientsScreenDto, AdminRelatedIngredientDishDto, AdminReportsScreenDto, AdminSettingsDto, AdminTablesScreenDto, ApiError, StaffSessionDto, AdminDishIngredientLineDto, AdminDashboardDto, AdminUnitsScreenDto, AdminUnitDto, CreateIngredientBatchRequest, IngredientStockMovementDto, InventoryBatchDto, InventoryMovementDto, InventoryStockInRequest, InventoryStockOutRequest, InventorySummaryDto, Paged, UpdateIngredientBatchRequest, AdminCustomerOrderHistoryItemDto } from "./types";
+import type { AdminCategoriesScreenDto, AdminCustomerDto, AdminCustomersScreenDto, AdminDishesScreenDto, AdminEmployeeDto, AdminEmployeeHistoryResponse, AdminEmployeesScreenDto, AdminIngredientBatchDto, AdminIngredientDto, AdminIngredientsScreenDto, AdminRelatedIngredientDishDto, AdminReportsScreenDto, AdminSettingsDto, AdminTablesScreenDto, ApiError, StaffSessionDto, AdminDishIngredientsDto, AdminDishIngredientLineDto, AdminDashboardDto, AdminUnitsScreenDto, AdminUnitDto, CreateIngredientBatchRequest, IngredientStockMovementDto, InventoryBatchDto, InventoryMovementDto, InventoryStockInRequest, InventoryStockOutRequest, InventorySummaryDto, Paged, UpdateIngredientBatchRequest, AdminCustomerOrderHistoryItemDto } from "./types";
 
 const jsonHeaders = { "Content-Type": "application/json" };
 
@@ -63,7 +63,7 @@ export const adminApi = {
   deleteDish: (dishId: number) => request<{ success: boolean; message: string }>(`/api/gateway/admin/dishes/${dishId}`, { method: "DELETE" }),
   deactivateDish: (dishId: number) => request<{ success: boolean; message: string }>(`/api/gateway/admin/dishes/${dishId}/deactivate`, { method: "POST", body: JSON.stringify({}) }),
   setDishAvailability: (dishId: number, available: boolean) => request<{ success: boolean; message: string }>(`/api/gateway/admin/dishes/${dishId}/availability`, { method: "POST", body: JSON.stringify({ available }) }),
-  getDishIngredients: (dishId: number) => request<AdminDishIngredientLineDto[]>(`/api/gateway/admin/dishes/${dishId}/ingredients`),
+  getDishIngredients: (dishId: number) => request<AdminDishIngredientsDto>(`/api/gateway/admin/dishes/${dishId}/ingredients`),
   saveDishIngredients: (dishId: number, items: { ingredientId: number; quantityPerDish: number }[]) => request<{ success: boolean; message: string }>(`/api/gateway/admin/dishes/${dishId}/ingredients`, { method: "PUT", body: JSON.stringify({ items }) }),
   getIngredients: (search = "", page = 1, pageSize = 10, includeInactive = true, stockStatus = "ALL") =>
     request<AdminIngredientsScreenDto>(`/api/gateway/admin/ingredients?search=${encodeURIComponent(search)}&page=${page}&pageSize=${pageSize}&includeInactive=${includeInactive}&stockStatus=${encodeURIComponent(stockStatus)}`),

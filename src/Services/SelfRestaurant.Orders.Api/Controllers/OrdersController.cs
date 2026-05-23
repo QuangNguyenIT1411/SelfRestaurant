@@ -130,6 +130,60 @@ public sealed class OrdersController : ControllerBase
         });
     }
 
+    [HttpPost("api/internal/orders/dining-sessions/{diningSessionCode}/tables")]
+    [HttpPost("internal/orders/dining-sessions/{diningSessionCode}/tables")]
+    public async Task<ActionResult<object>> LinkDiningSessionTables(
+        string diningSessionCode,
+        [FromBody] LinkDiningSessionTablesRequest request,
+        CancellationToken cancellationToken)
+    {
+        var sessionCode = NormalizeSessionCode(diningSessionCode);
+        if (string.IsNullOrWhiteSpace(sessionCode))
+        {
+            return BadRequest(new { message = "Phiên phục vụ không hợp lệ." });
+        }
+        if (request is null)
+        {
+            return BadRequest(new { message = "Thiếu danh sách bàn cần ghép phiên." });
+        }
+
+        var tableIds = NormalizeTableIds(request.TableIds);
+        var primaryTableId = request.PrimaryTableId is > 0
+            ? request.PrimaryTableId.Value
+            : tableIds.FirstOrDefault();
+        tableIds = NormalizeTableIds([.. tableIds, primaryTableId]);
+        if (primaryTableId <= 0)
+        {
+            return BadRequest(new { message = "Cần chọn ít nhất một bàn để ghép phiên." });
+        }
+
+        if (!await _db.Orders.AnyAsync(x => x.DiningSessionCode == sessionCode && (x.IsActive ?? true), cancellationToken))
+        {
+            return NotFound(new { message = "Không tìm thấy phiên phục vụ đang hoạt động." });
+        }
+
+        await LinkTablesToSessionAsync(sessionCode, primaryTableId, tableIds, cancellationToken);
+        foreach (var tableId in tableIds)
+        {
+            await _catalogApi.OccupyTableAsync(tableId, currentOrderId: null, cancellationToken);
+        }
+
+        var linkedTables = await _db.DiningSessionTables
+            .Where(x => x.DiningSessionCode == sessionCode)
+            .OrderByDescending(x => x.IsPrimary)
+            .ThenBy(x => x.TableID)
+            .Select(x => new { tableId = x.TableID, isPrimary = x.IsPrimary })
+            .ToListAsync(cancellationToken);
+
+        return Ok(new
+        {
+            diningSessionCode = sessionCode,
+            primaryTableId,
+            tableIds = linkedTables.Select(x => x.tableId).ToArray(),
+            tables = linkedTables
+        });
+    }
+
     [HttpPost("api/dev/reset-test-state")]
     public async Task<ActionResult<object>> ResetDevTestState(CancellationToken cancellationToken)
     {
@@ -1022,6 +1076,7 @@ public sealed class OrdersController : ControllerBase
         {
             order.DiningSessionCode = GenerateDiningSessionCode();
         }
+        await LinkTablesToSessionAsync(order.DiningSessionCode, tableId, [tableId], cancellationToken);
 
         var pendingItems = await _db.OrderItems
             .Where(x => x.OrderID == order.OrderID && x.StatusCode == "PENDING")
@@ -1419,7 +1474,7 @@ public sealed class OrdersController : ControllerBase
             : await _db.Orders
                 .AsNoTracking()
                 .Include(o => o.Status)
-                .Where(o => (o.IsActive ?? false) && o.DiningSessionCode == order.diningSessionCode && o.TableID == order.tableId)
+                .Where(o => (o.IsActive ?? false) && o.DiningSessionCode == order.diningSessionCode)
                 .ToListAsync(cancellationToken);
 
         CatalogApiClient.TableSnapshotResponse? table = null;
@@ -2486,8 +2541,70 @@ public sealed class OrdersController : ControllerBase
         _db.Orders.Add(order);
         await _db.SaveChangesAsync(cancellationToken);
         await _catalogApi.OccupyTableAsync(tableId, order.OrderID, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(order.DiningSessionCode))
+        {
+            await LinkTablesToSessionAsync(order.DiningSessionCode, tableId, [tableId], cancellationToken);
+        }
         return order;
     }
+
+    private async Task LinkTablesToSessionAsync(string? diningSessionCode, int primaryTableId, IReadOnlyList<int> tableIds, CancellationToken cancellationToken)
+    {
+        var sessionCode = NormalizeSessionCode(diningSessionCode);
+        if (string.IsNullOrWhiteSpace(sessionCode))
+        {
+            return;
+        }
+
+        var normalizedTableIds = NormalizeTableIds([.. tableIds, primaryTableId]);
+        if (primaryTableId <= 0 || normalizedTableIds.Count == 0)
+        {
+            return;
+        }
+
+        var existingRows = await _db.DiningSessionTables
+            .Where(x => x.DiningSessionCode == sessionCode)
+            .ToListAsync(cancellationToken);
+
+        var effectivePrimaryTableId = existingRows.FirstOrDefault(x => x.IsPrimary)?.TableID ?? primaryTableId;
+        if (normalizedTableIds.Count > 1 || !existingRows.Any(x => x.IsPrimary))
+        {
+            effectivePrimaryTableId = primaryTableId;
+        }
+
+        foreach (var tableId in normalizedTableIds)
+        {
+            var row = existingRows.FirstOrDefault(x => x.TableID == tableId);
+            if (row is null)
+            {
+                row = new DiningSessionTables
+                {
+                    DiningSessionCode = sessionCode,
+                    TableID = tableId,
+                    CreatedAtUtc = DateTime.UtcNow
+                };
+                _db.DiningSessionTables.Add(row);
+                existingRows.Add(row);
+            }
+
+            row.IsPrimary = tableId == effectivePrimaryTableId;
+        }
+
+        foreach (var row in existingRows)
+        {
+            row.IsPrimary = row.TableID == effectivePrimaryTableId;
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static IReadOnlyList<int> NormalizeTableIds(IEnumerable<int>? tableIds)
+        => tableIds?
+            .Where(x => x > 0)
+            .Distinct()
+            .OrderBy(x => x)
+            .ToArray()
+            ?? Array.Empty<int>();
 
     private async Task<string> GenerateOrderCodeAsync(CancellationToken cancellationToken)
     {
@@ -3260,6 +3377,21 @@ public sealed class OrdersController : ControllerBase
 
     private async Task<string?> GetLatestActiveSessionCodeAsync(int tableId, CancellationToken cancellationToken)
     {
+        var linkedSessionCode = await _db.DiningSessionTables
+            .Join(_db.Orders, dst => dst.DiningSessionCode, o => o.DiningSessionCode, (dst, o) => new { dst, o })
+            .Join(_db.OrderStatus, x => x.o.StatusID, s => s.StatusID, (x, s) => new { x.dst, x.o, s })
+            .Where(x =>
+                x.dst.TableID == tableId
+                && (x.o.IsActive ?? true)
+                && ActiveDiningStatuses.Contains(x.s.StatusCode))
+            .OrderByDescending(x => x.o.OrderTime)
+            .Select(x => x.dst.DiningSessionCode)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(linkedSessionCode))
+        {
+            return linkedSessionCode;
+        }
+
         return await _db.Orders
             .Join(_db.OrderStatus, o => o.StatusID, s => s.StatusID, (o, s) => new { o, s })
             .Where(x =>
@@ -3279,8 +3411,7 @@ public sealed class OrdersController : ControllerBase
             var pendingInSession = await _db.Orders
                 .Join(_db.OrderStatus, o => o.StatusID, s => s.StatusID, (o, s) => new { o, s })
                 .Where(x =>
-                    x.o.TableID == tableId
-                    && (x.o.IsActive ?? true)
+                    (x.o.IsActive ?? true)
                     && x.o.DiningSessionCode == activeSessionCode
                     && x.s.StatusCode == "PENDING")
                 .OrderByDescending(x => x.o.OrderTime)
@@ -3559,8 +3690,7 @@ public sealed class OrdersController : ControllerBase
             return await _db.Orders
                 .AsNoTracking()
                 .Where(x =>
-                    x.TableID == order.TableID
-                    && (x.IsActive ?? true)
+                    (x.IsActive ?? true)
                     && x.DiningSessionCode == order.DiningSessionCode)
                 .OrderBy(x => x.OrderTime)
                 .ToListAsync(cancellationToken);
@@ -3623,6 +3753,7 @@ public sealed class OrdersController : ControllerBase
     public sealed record ScanLoyaltyCardRequest(string? PhoneNumber);
     public sealed record UpdateOrderStatusRequest(string? StatusCode);
     public sealed record SubmitOrderBatchRequest(IReadOnlyList<AddItemRequest>? Items, string? CustomerPhoneNumber, string? IdempotencyKey, string? ExpectedDiningSessionCode = null);
+    public sealed record LinkDiningSessionTablesRequest(int? PrimaryTableId, IReadOnlyList<int>? TableIds);
     public sealed record CancelOrderRequest(string? Reason);
     private sealed record StatusRow(int StatusID, string StatusCode, string StatusName);
     public sealed record AdminRevenueRowResponse(

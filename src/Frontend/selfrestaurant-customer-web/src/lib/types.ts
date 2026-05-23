@@ -50,6 +50,66 @@ export type CustomerOrderHistoryDto = { orderId: number; orderCode?: string | nu
 export type ReadyDishNotificationDto = { notificationId: number; orderId?: number | null; orderItemId?: number | null; dishName?: string | null; message: string; createdAt: string; status?: string | null };
 export type CustomerReadyNotificationsDto = { tableId?: number | null; items: ReadyDishNotificationDto[] };
 export type CustomerForgotPasswordResultDto = { message: string; resetToken?: string | null; expiresAt?: string | null; resetPath?: string | null };
+export type CreateReservationPayload = {
+  customerName: string;
+  phoneNumber: string;
+  customerId?: number | null;
+  branchId: number;
+  tableId?: number | null;
+  partySize: number;
+  reservedAt: string;
+  note?: string | null;
+  idempotencyKey?: string | null;
+};
+export type ReservationPreOrderItemDto = {
+  reservationItemId: number;
+  reservationId: number;
+  dishId: number;
+  dishNameSnapshot: string;
+  unitPriceSnapshot: number;
+  quantity: number;
+  note?: string | null;
+  status: string;
+  createdAtUtc: string;
+  updatedAtUtc?: string | null;
+  convertedAtUtc?: string | null;
+};
+export type ReservationAssignedTableDto = {
+  tableId: number;
+  isPrimary: boolean;
+};
+export type ReservationDto = {
+  reservationId: number;
+  reservationCode: string;
+  customerId?: number | null;
+  customerName: string;
+  phoneNumber: string;
+  branchId: number;
+  tableId?: number | null;
+  partySize: number;
+  reservedAt: string;
+  arrivalWindowMinutes: number;
+  status: string;
+  note?: string | null;
+  convertedOrderId?: number | null;
+  diningSessionCode?: string | null;
+  checkedInAtUtc?: string | null;
+  checkedInByEmployeeId?: number | null;
+  cancelledAtUtc?: string | null;
+  createdAtUtc: string;
+  updatedAtUtc?: string | null;
+  assignedTables?: ReservationAssignedTableDto[] | null;
+  preOrderItems: ReservationPreOrderItemDto[];
+};
+export type ReplaceReservationPreOrderItemsPayload = {
+  items: Array<{
+    dishId: number;
+    dishNameSnapshot: string;
+    unitPriceSnapshot: number;
+    quantity: number;
+    note?: string | null;
+  }>;
+};
 export type ApiErrorResponse = { success: false; code: string; message: string; details?: unknown };
 export type LoyaltyScanResponse = { success: boolean; message: string; customer?: { name: string; phone: string; currentPoints: number; cardPoints: number } | null };
 export type DevResetResponse = { success: true; message: string; nextPath: string };

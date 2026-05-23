@@ -22,6 +22,7 @@ public sealed class OrdersDbContext : DbContext
     public DbSet<OrderStatus> OrderStatus => Set<OrderStatus>();
     public DbSet<OrderEntity> Orders => Set<OrderEntity>();
     public DbSet<SubmitCommands> SubmitCommands => Set<SubmitCommands>();
+    public DbSet<DiningSessionTables> DiningSessionTables => Set<DiningSessionTables>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -173,6 +174,15 @@ public sealed class OrdersDbContext : DbContext
             entity.Property(e => e.CreatedAtUtc).HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");
             entity.Property(e => e.CompletedAtUtc).HasColumnType("datetime2");
             entity.Property(e => e.Error).HasColumnType("nvarchar(max)");
+        });
+
+        modelBuilder.Entity<DiningSessionTables>(entity =>
+        {
+            entity.HasKey(e => e.DiningSessionTableID);
+            entity.HasIndex(e => new { e.DiningSessionCode, e.TableID }).IsUnique().HasDatabaseName("UX_DiningSessionTables_Session_Table");
+            entity.HasIndex(e => e.TableID).HasDatabaseName("IX_DiningSessionTables_TableID");
+            entity.Property(e => e.DiningSessionCode).HasMaxLength(64).IsUnicode(false);
+            entity.Property(e => e.CreatedAtUtc).HasColumnType("datetime2").HasDefaultValueSql("SYSUTCDATETIME()");
         });
     }
 }

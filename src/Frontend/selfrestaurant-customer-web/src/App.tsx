@@ -13,7 +13,12 @@ import { MenuIndexPage } from "./pages/MenuIndexPage";
 import { OrderIndexPage } from "./pages/OrderIndexPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { OrdersPage } from "./pages/OrdersPage";
+import { ReservationPage } from "./pages/ReservationPage";
+import { ReservationHistoryPage } from "./pages/ReservationHistoryPage";
+import { ReservationPreOrderPage } from "./pages/ReservationPreOrderPage";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+
+const reservationLoginMessage = "Vui lòng đăng nhập để đặt bàn trước.";
 
 export default function App() {
   return (
@@ -31,6 +36,14 @@ export default function App() {
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/home/contact" element={<ContactPage />} />
           <Route path="/Home/Contact" element={<ContactPage />} />
+          <Route path="/reservation" element={<RequireAuth loginMessage={reservationLoginMessage}><ReservationPage /></RequireAuth>} />
+          <Route path="/Reservation" element={<RequireAuth loginMessage={reservationLoginMessage}><ReservationPage /></RequireAuth>} />
+          <Route path="/Reservation/Index" element={<RequireAuth loginMessage={reservationLoginMessage}><ReservationPage /></RequireAuth>} />
+          <Route path="/reservation/my" element={<RequireAuth loginMessage={reservationLoginMessage}><ReservationHistoryPage /></RequireAuth>} />
+          <Route path="/Reservation/My" element={<RequireAuth loginMessage={reservationLoginMessage}><ReservationHistoryPage /></RequireAuth>} />
+          <Route path="/Reservation/History" element={<RequireAuth loginMessage={reservationLoginMessage}><ReservationHistoryPage /></RequireAuth>} />
+          <Route path="/reservation/:code/preorder" element={<RequireAuth loginMessage={reservationLoginMessage}><ReservationPreOrderPage /></RequireAuth>} />
+          <Route path="/Reservation/:code/PreOrder" element={<RequireAuth loginMessage={reservationLoginMessage}><ReservationPreOrderPage /></RequireAuth>} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/customer/login" element={<LoginPage />} />
           <Route path="/Customer/Login" element={<LoginPage />} />

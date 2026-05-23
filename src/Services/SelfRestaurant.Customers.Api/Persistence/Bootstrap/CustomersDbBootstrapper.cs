@@ -19,6 +19,7 @@ public static class CustomersDbBootstrapper
         await WaitForDatabaseAsync(db, logger, cancellationToken);
         await EnsureInboxTableAsync(db, cancellationToken);
         await EnsureReadyNotificationsTableAsync(db, cancellationToken);
+        await EnsureReservationTablesAsync(db, cancellationToken);
     }
 
     private static async Task WaitForDatabaseAsync(CustomersDbContext db, ILogger logger, CancellationToken cancellationToken)
@@ -145,6 +146,133 @@ public static class CustomersDbBootstrapper
                                CREATE INDEX IX_ReadyDishNotifications_Order_Item_Event
                                    ON dbo.ReadyDishNotifications(OrderId, OrderItemId, EventName);
                            END
+                           """;
+        await db.Database.ExecuteSqlRawAsync(sql, cancellationToken);
+    }
+
+    private static async Task EnsureReservationTablesAsync(CustomersDbContext db, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           IF OBJECT_ID(N'dbo.Reservations', N'U') IS NULL
+                           BEGIN
+                               CREATE TABLE dbo.Reservations
+                               (
+                                   ReservationId INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                                   ReservationCode VARCHAR(40) NOT NULL,
+                                   CustomerId INT NULL,
+                                   CustomerName NVARCHAR(200) NOT NULL,
+                                   PhoneNumber NVARCHAR(30) NOT NULL,
+                                   BranchId INT NOT NULL,
+                                   TableId INT NULL,
+                                   PartySize INT NOT NULL,
+                                   ReservedAt DATETIME2 NOT NULL,
+                                   ArrivalWindowMinutes INT NOT NULL CONSTRAINT DF_Reservations_ArrivalWindowMinutes DEFAULT (30),
+                                   Status VARCHAR(30) NOT NULL CONSTRAINT DF_Reservations_Status DEFAULT ('Pending'),
+                                   Note NVARCHAR(1000) NULL,
+                                   ConvertedOrderId INT NULL,
+                                   DiningSessionCode VARCHAR(64) NULL,
+                                   CheckInStartedAtUtc DATETIME2 NULL,
+                                   CheckInIdempotencyKey VARCHAR(100) NULL,
+                                   CheckedInAtUtc DATETIME2 NULL,
+                                   CheckedInByEmployeeId INT NULL,
+                                   CancelledAtUtc DATETIME2 NULL,
+                                   CreatedAtUtc DATETIME2 NOT NULL CONSTRAINT DF_Reservations_CreatedAtUtc DEFAULT (SYSUTCDATETIME()),
+                                   UpdatedAtUtc DATETIME2 NULL,
+                                   IdempotencyKey VARCHAR(100) NULL
+                               );
+                           END
+
+                           IF OBJECT_ID(N'dbo.ReservationPreOrderItems', N'U') IS NULL
+                           BEGIN
+                               CREATE TABLE dbo.ReservationPreOrderItems
+                               (
+                                   ReservationItemId INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                                   ReservationId INT NOT NULL,
+                                   DishId INT NOT NULL,
+                                   DishNameSnapshot NVARCHAR(200) NOT NULL,
+                                   UnitPriceSnapshot DECIMAL(18,2) NOT NULL,
+                                   Quantity INT NOT NULL,
+                                   Note NVARCHAR(1000) NULL,
+                                   Status VARCHAR(30) NOT NULL CONSTRAINT DF_ReservationPreOrderItems_Status DEFAULT ('Pending'),
+                                   CreatedAtUtc DATETIME2 NOT NULL CONSTRAINT DF_ReservationPreOrderItems_CreatedAtUtc DEFAULT (SYSUTCDATETIME()),
+                                   UpdatedAtUtc DATETIME2 NULL,
+                                   ConvertedAtUtc DATETIME2 NULL,
+                                   CONSTRAINT FK_ReservationPreOrderItems_Reservations_ReservationId
+                                       FOREIGN KEY (ReservationId) REFERENCES dbo.Reservations(ReservationId) ON DELETE CASCADE
+                               );
+                           END
+
+                           IF OBJECT_ID(N'dbo.ReservationTables', N'U') IS NULL
+                           BEGIN
+                               CREATE TABLE dbo.ReservationTables
+                               (
+                                   ReservationTableId INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                                   ReservationId INT NOT NULL,
+                                   TableId INT NOT NULL,
+                                   IsPrimary BIT NOT NULL,
+                                   CreatedAtUtc DATETIME2 NOT NULL CONSTRAINT DF_ReservationTables_CreatedAtUtc DEFAULT (SYSUTCDATETIME()),
+                                   CONSTRAINT FK_ReservationTables_Reservations_ReservationId
+                                       FOREIGN KEY (ReservationId) REFERENCES dbo.Reservations(ReservationId) ON DELETE CASCADE
+                               );
+                           END
+
+                           IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.Reservations') AND name = N'UX_Reservations_ReservationCode')
+                           BEGIN
+                               CREATE UNIQUE INDEX UX_Reservations_ReservationCode ON dbo.Reservations(ReservationCode);
+                           END
+
+                           IF COL_LENGTH('dbo.Reservations', 'CheckInStartedAtUtc') IS NULL
+                           BEGIN
+                               ALTER TABLE dbo.Reservations ADD CheckInStartedAtUtc DATETIME2 NULL;
+                           END
+
+                           IF COL_LENGTH('dbo.Reservations', 'CheckInIdempotencyKey') IS NULL
+                           BEGIN
+                               ALTER TABLE dbo.Reservations ADD CheckInIdempotencyKey VARCHAR(100) NULL;
+                           END
+
+                           IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.Reservations') AND name = N'IX_Reservations_Branch_ReservedAt_Status')
+                           BEGIN
+                               CREATE INDEX IX_Reservations_Branch_ReservedAt_Status ON dbo.Reservations(BranchId, ReservedAt, Status);
+                           END
+
+                           IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.Reservations') AND name = N'IX_Reservations_PhoneNumber')
+                           BEGIN
+                               CREATE INDEX IX_Reservations_PhoneNumber ON dbo.Reservations(PhoneNumber);
+                           END
+
+                           IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.Reservations') AND name = N'UX_Reservations_IdempotencyKey')
+                           BEGIN
+                               CREATE UNIQUE INDEX UX_Reservations_IdempotencyKey ON dbo.Reservations(IdempotencyKey) WHERE IdempotencyKey IS NOT NULL;
+                           END
+
+                           IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.ReservationPreOrderItems') AND name = N'IX_ReservationPreOrderItems_Reservation_Status')
+                           BEGIN
+                               CREATE INDEX IX_ReservationPreOrderItems_Reservation_Status ON dbo.ReservationPreOrderItems(ReservationId, Status);
+                           END
+
+                           IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.ReservationTables') AND name = N'UX_ReservationTables_Reservation_Table')
+                           BEGIN
+                               CREATE UNIQUE INDEX UX_ReservationTables_Reservation_Table ON dbo.ReservationTables(ReservationId, TableId);
+                           END
+
+                           IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.ReservationTables') AND name = N'IX_ReservationTables_TableId')
+                           BEGIN
+                               CREATE INDEX IX_ReservationTables_TableId ON dbo.ReservationTables(TableId);
+                           END
+
+                           INSERT INTO dbo.ReservationTables (ReservationId, TableId, IsPrimary, CreatedAtUtc)
+                           SELECT r.ReservationId, r.TableId, CAST(1 AS bit), SYSUTCDATETIME()
+                           FROM dbo.Reservations r
+                           WHERE r.TableId IS NOT NULL
+                             AND r.TableId > 0
+                             AND NOT EXISTS
+                             (
+                                 SELECT 1
+                                 FROM dbo.ReservationTables rt
+                                 WHERE rt.ReservationId = r.ReservationId
+                                   AND rt.TableId = r.TableId
+                             );
                            """;
         await db.Database.ExecuteSqlRawAsync(sql, cancellationToken);
     }

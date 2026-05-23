@@ -14,6 +14,89 @@ public sealed class CustomersClient : ApiClientBase
     public Task<CustomerProfileResponse?> GetCustomerAsync(int customerId, CancellationToken cancellationToken) =>
         GetAsync<CustomerProfileResponse>($"/api/customers/{customerId}", cancellationToken);
 
+    public Task<ReservationDto?> CreateReservationAsync(
+        CreateReservationApiRequest request,
+        CancellationToken cancellationToken) =>
+        PostForAsync<CreateReservationApiRequest, ReservationDto>(
+            "/api/customers/reservations",
+            request,
+            cancellationToken);
+
+    public Task<ReservationDto?> GetReservationByCodeAsync(string reservationCode, CancellationToken cancellationToken) =>
+        GetAsync<ReservationDto>($"/api/customers/reservations/{Uri.EscapeDataString(reservationCode)}", cancellationToken);
+
+    public Task<ReservationDto?> GetReservationByIdAsync(int reservationId, CancellationToken cancellationToken) =>
+        GetAsync<ReservationDto>($"/api/customers/reservations/by-id/{reservationId}", cancellationToken);
+
+    public async Task<IReadOnlyList<ReservationDto>> GetCustomerReservationsAsync(
+        int customerId,
+        CancellationToken cancellationToken)
+    {
+        var list = await GetAsync<IReadOnlyList<ReservationDto>>($"/api/customers/{customerId}/reservations", cancellationToken);
+        return list ?? Array.Empty<ReservationDto>();
+    }
+
+    public async Task<IReadOnlyList<ReservationDto>> GetTodayReservationsAsync(
+        int? branchId,
+        string? status,
+        DateOnly? date,
+        CancellationToken cancellationToken)
+    {
+        var qs = new List<string>();
+        if (branchId is > 0)
+        {
+            qs.Add($"branchId={branchId.Value}");
+        }
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            qs.Add($"status={Uri.EscapeDataString(status.Trim())}");
+        }
+        if (date.HasValue)
+        {
+            qs.Add($"date={date.Value:yyyy-MM-dd}");
+        }
+
+        var suffix = qs.Count == 0 ? string.Empty : $"?{string.Join("&", qs)}";
+        var list = await GetAsync<IReadOnlyList<ReservationDto>>($"/api/customers/reservations/today{suffix}", cancellationToken);
+        return list ?? Array.Empty<ReservationDto>();
+    }
+
+    public Task<ReservationDto?> ReplaceReservationPreOrderItemsAsync(
+        int reservationId,
+        ReplaceReservationPreOrderItemsApiRequest request,
+        CancellationToken cancellationToken) =>
+        PostForAsync<ReplaceReservationPreOrderItemsApiRequest, ReservationDto>(
+            $"/api/customers/reservations/{reservationId}/preorder-items",
+            request,
+            cancellationToken);
+
+    public Task<ReservationDto?> CancelReservationAsync(int reservationId, CancellationToken cancellationToken) =>
+        PostForAsync<object, ReservationDto>(
+            $"/api/customers/reservations/{reservationId}/cancel",
+            new { },
+            cancellationToken);
+
+    public Task<ReservationDto?> BeginReservationCheckInAsync(int reservationId, CancellationToken cancellationToken) =>
+        PostForAsync<object, ReservationDto>(
+            $"/api/customers/reservations/{reservationId}/begin-check-in",
+            new { },
+            cancellationToken);
+
+    public Task<ReservationDto?> CompleteReservationCheckInAsync(
+        int reservationId,
+        CheckInReservationRequest request,
+        CancellationToken cancellationToken) =>
+        PostForAsync<CheckInReservationRequest, ReservationDto>(
+            $"/api/customers/reservations/{reservationId}/complete-check-in",
+            request,
+            cancellationToken);
+
+    public Task<ReservationDto?> FailReservationCheckInAsync(int reservationId, CancellationToken cancellationToken) =>
+        PostForAsync<object, ReservationDto>(
+            $"/api/customers/reservations/{reservationId}/fail-check-in",
+            new { },
+            cancellationToken);
+
     public async Task<IReadOnlyList<ReadyDishNotificationDto>> GetReadyNotificationsAsync(
         int customerId,
         int? tableId,

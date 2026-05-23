@@ -35,6 +35,21 @@
 - **Development**: Visual Studio 2022
 - **Version Control**: Git
 
+### 1.4. Chú thích các ký tự viết tắt
+
+- **API (Application Programming Interface)**: Giao diện lập trình ứng dụng, dùng để các thành phần hoặc dịch vụ trao đổi dữ liệu với nhau.
+- **BFF (Backend for Frontend)**: Lớp backend phục vụ riêng cho frontend, gom dữ liệu và điều phối request theo nhu cầu giao diện.
+- **CRUD (Create, Read, Update, Delete)**: Bốn thao tác cơ bản với dữ liệu: tạo mới, đọc/xem, cập nhật và xóa.
+- **DTO (Data Transfer Object)**: Đối tượng truyền dữ liệu giữa các lớp hoặc giữa các service, thường chỉ chứa dữ liệu cần thiết cho request/response.
+- **HTTP (HyperText Transfer Protocol)**: Giao thức truyền tải request/response giữa client và server.
+- **JWT (JSON Web Token)**: Chuỗi token dùng để xác thực và truyền thông tin người dùng trong mô hình stateless authentication.
+- **MVC (Model - View - Controller)**: Mô hình kiến trúc tách dữ liệu, giao diện và xử lý nghiệp vụ thành ba phần Model, View và Controller.
+- **ORM (Object-Relational Mapping)**: Kỹ thuật ánh xạ giữa đối tượng trong code và bảng dữ liệu trong database.
+- **QR (Quick Response)**: Mã phản hồi nhanh, trong hệ thống dùng để khách hàng quét bàn và bắt đầu đặt món.
+- **REST (Representational State Transfer)**: Kiểu thiết kế API dùng các phương thức HTTP để thao tác tài nguyên.
+- **SPA (Single Page Application)**: Ứng dụng web một trang, tải giao diện một lần và cập nhật nội dung bằng JavaScript.
+- **SMTP (Simple Mail Transfer Protocol)**: Giao thức gửi email, dùng cho các tính năng gửi thông báo hoặc xác thực qua email.
+
 ---
 
 ## 2. KIẾN TRÚC HỆ THỐNG

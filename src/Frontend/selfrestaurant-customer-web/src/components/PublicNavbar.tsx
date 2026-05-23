@@ -9,6 +9,8 @@ const labels = {
   home: "Trang Chủ",
   about: "Về Chúng Tôi",
   contact: "Liên Hệ",
+  reservation: "Đặt bàn trước",
+  reservationHistory: "Lịch sử đặt bàn",
   currentTable: "Bàn hiện tại",
   dashboard: "Dashboard",
   profile: "Hồ Sơ Cá Nhân",
@@ -29,6 +31,7 @@ export function PublicNavbar() {
   const isHomeRoute = path === "/" || path === "/home" || path === "/home/index";
   const isAboutRoute = path === "/about" || path === "/home/about";
   const isContactRoute = path === "/contact" || path === "/home/contact";
+  const isReservationRoute = path === "/reservation" || path === "/reservation/index";
 
   const logout = useMutation({
     mutationFn: api.logout,
@@ -99,6 +102,18 @@ export function PublicNavbar() {
             <li className="nav-item">
               <NavLink to="/Home/Contact" className={() => `nav-link${isContactRoute ? " active" : ""}`}>
                 {labels.contact}
+              </NavLink>
+            </li>
+            <li className="nav-item">
+              <NavLink to="/Reservation/Index" className={() => `nav-link${isReservationRoute ? " active" : ""}`}>
+                <i className="fas fa-calendar-check me-1" />
+                {labels.reservation}
+              </NavLink>
+            </li>
+            <li className="nav-item">
+              <NavLink to="/Reservation/My" className="nav-link">
+                <i className="fas fa-clock-rotate-left me-1" />
+                {labels.reservationHistory}
               </NavLink>
             </li>
 

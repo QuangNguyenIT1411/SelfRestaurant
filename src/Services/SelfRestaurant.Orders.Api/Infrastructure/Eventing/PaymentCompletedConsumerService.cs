@@ -110,7 +110,7 @@ public sealed class PaymentCompletedConsumerService : BackgroundService
                     throw new InvalidOperationException($"Unable to deserialize payload for outbox event {item.OutboxEventId}.");
                 }
 
-                await ReconcileAsync(db, payload, catalogApi, auditLogger, item.CorrelationId, cancellationToken);
+                await ReconcileAsync(db, payload, catalogApi, auditLogger, _logger, item.CorrelationId, cancellationToken);
 
                 var inbox = existingInbox ?? new InboxEvents
                 {
@@ -166,6 +166,7 @@ public sealed class PaymentCompletedConsumerService : BackgroundService
         PaymentCompletedPayload payload,
         ICatalogReadModel catalogApi,
         BusinessAuditLogger auditLogger,
+        ILogger logger,
         string? correlationId,
         CancellationToken cancellationToken)
     {
@@ -184,8 +185,7 @@ public sealed class PaymentCompletedConsumerService : BackgroundService
             ? [order]
             : await db.Orders
                 .Where(x =>
-                    x.TableID == order.TableID
-                    && (x.IsActive ?? true)
+                    (x.IsActive ?? true)
                     && x.DiningSessionCode == order.DiningSessionCode)
                 .ToListAsync(cancellationToken);
 
@@ -209,9 +209,29 @@ public sealed class PaymentCompletedConsumerService : BackgroundService
             }
         }
 
-        if (order.TableID is int tableId)
+        var tableIdsToRelease = string.IsNullOrWhiteSpace(order.DiningSessionCode)
+            ? Array.Empty<int>()
+            : await db.DiningSessionTables
+                .Where(x => x.DiningSessionCode == order.DiningSessionCode)
+                .Select(x => x.TableID)
+                .Distinct()
+                .ToArrayAsync(cancellationToken);
+
+        if (tableIdsToRelease.Length == 0 && order.TableID is int tableId)
         {
-            await catalogApi.ReleaseTableAsync(tableId, cancellationToken);
+            tableIdsToRelease = [tableId];
+        }
+
+        foreach (var linkedTableId in tableIdsToRelease)
+        {
+            try
+            {
+                await catalogApi.ReleaseTableAsync(linkedTableId, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to release linked table {TableId} for dining session {DiningSessionCode}; continuing payment completion.", linkedTableId, order.DiningSessionCode);
+            }
         }
 
         auditLogger.Add(

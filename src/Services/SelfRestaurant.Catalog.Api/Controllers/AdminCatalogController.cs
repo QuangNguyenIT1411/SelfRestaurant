@@ -688,33 +688,34 @@ public sealed class AdminCatalogController : ControllerBase
     }
 
     [HttpGet("dishes/{dishId:int}/ingredients")]
-    public async Task<ActionResult<IReadOnlyList<AdminDishIngredientLineResponse>>> GetDishIngredients(int dishId, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<AdminDishIngredientsResponse>> GetDishIngredients(int dishId, CancellationToken cancellationToken = default)
     {
-        var dishExists = await _db.Dishes.AnyAsync(d => d.DishID == dishId, cancellationToken);
-        if (!dishExists)
+        var dish = await _db.Dishes
+            .AsNoTracking()
+            .Where(d => d.DishID == dishId)
+            .Select(d => new { d.DishID, d.Name })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (dish is null)
         {
-            return NotFound(new { message = "Không tìm thấy món ăn." });
+            return NotFound(new { message = "Kh?ng t?m th?y m?n ?n." });
         }
 
-        var selected = await _db.DishIngredients
+        var ingredients = await _db.DishIngredients
             .AsNoTracking()
             .Where(di => di.DishID == dishId)
-            .ToDictionaryAsync(di => di.IngredientID, di => di.QuantityPerDish, cancellationToken);
-
-        var ingredients = await _db.Ingredients
-            .AsNoTracking()
-            .OrderBy(i => i.Name)
-            .Select(i => new AdminDishIngredientLineResponse(
-                i.IngredientID,
-                i.Name,
-                i.Unit,
-                i.CurrentStock,
-                i.IsActive,
-                selected.ContainsKey(i.IngredientID),
-                selected.ContainsKey(i.IngredientID) ? selected[i.IngredientID] : 0))
+            .Include(di => di.Ingredient)
+            .OrderBy(di => di.Ingredient.Name)
+            .Select(di => new AdminDishIngredientLineResponse(
+                di.IngredientID,
+                di.Ingredient.Name,
+                di.Ingredient.Unit,
+                di.Ingredient.CurrentStock,
+                di.Ingredient.IsActive,
+                true,
+                di.QuantityPerDish))
             .ToListAsync(cancellationToken);
 
-        return Ok(ingredients);
+        return Ok(new AdminDishIngredientsResponse(dish.DishID, dish.Name, ingredients));
     }
 
     [HttpPut("dishes/{dishId:int}/ingredients")]
@@ -830,6 +831,7 @@ public sealed class AdminCatalogController : ControllerBase
                     i.Unit,
                     i.CurrentStock,
                     i.ReorderLevel,
+                    i.IssueMethod,
                     i.IsActive,
                     summary.TotalBatchStock,
                     summary.UsableBatchStock,
@@ -892,6 +894,7 @@ public sealed class AdminCatalogController : ControllerBase
             ingredient.Unit,
             ingredient.CurrentStock,
             ingredient.ReorderLevel,
+            ingredient.IssueMethod,
             ingredient.IsActive,
             summary.TotalBatchStock,
             summary.UsableBatchStock,
@@ -915,6 +918,7 @@ public sealed class AdminCatalogController : ControllerBase
             Unit = request.Unit!.Trim(),
             CurrentStock = request.CurrentStock!.Value,
             ReorderLevel = request.ReorderLevel!.Value,
+            IssueMethod = NormalizeIssueMethod(request.IssueMethod),
             IsActive = request.IsActive ?? true
         };
 
@@ -931,6 +935,7 @@ public sealed class AdminCatalogController : ControllerBase
                 entity.Unit,
                 entity.CurrentStock,
                 entity.ReorderLevel,
+                entity.IssueMethod,
                 entity.IsActive
             });
         await _db.SaveChangesAsync(cancellationToken);
@@ -961,6 +966,7 @@ public sealed class AdminCatalogController : ControllerBase
             entity.Unit,
             entity.CurrentStock,
             entity.ReorderLevel,
+            entity.IssueMethod,
             entity.IsActive
         };
 
@@ -968,6 +974,7 @@ public sealed class AdminCatalogController : ControllerBase
         entity.Unit = request.Unit!.Trim();
         entity.CurrentStock = request.CurrentStock!.Value;
         entity.ReorderLevel = request.ReorderLevel!.Value;
+        entity.IssueMethod = NormalizeIssueMethod(request.IssueMethod);
         entity.IsActive = request.IsActive ?? true;
 
         _auditLogger.Add(
@@ -981,6 +988,7 @@ public sealed class AdminCatalogController : ControllerBase
                 entity.Unit,
                 entity.CurrentStock,
                 entity.ReorderLevel,
+                entity.IssueMethod,
                 entity.IsActive
             });
         await _db.SaveChangesAsync(cancellationToken);
@@ -2401,6 +2409,9 @@ public sealed class AdminCatalogController : ControllerBase
         return null;
     }
 
+    private static string NormalizeIssueMethod(string? issueMethod)
+        => string.Equals(issueMethod, "FIFO", StringComparison.OrdinalIgnoreCase) ? "FIFO" : "FEFO";
+
     private async Task<ActionResult?> ValidateTableRequest(AdminUpsertTableRequest request, CancellationToken cancellationToken)
     {
         if (request.BranchId is null || request.BranchId <= 0)
@@ -2759,6 +2770,10 @@ public sealed class AdminCatalogController : ControllerBase
         bool? Available,
         bool? IsActive);
     public sealed record ChefDishMutationResponse(int DishId, string Message);
+    public sealed record AdminDishIngredientsResponse(
+        int DishId,
+        string DishName,
+        IReadOnlyList<AdminDishIngredientLineResponse> Ingredients);
     public sealed record AdminDishIngredientLineResponse(
         int IngredientId,
         string Name,
@@ -2787,6 +2802,7 @@ public sealed class AdminCatalogController : ControllerBase
         string Unit,
         decimal CurrentStock,
         decimal ReorderLevel,
+        string IssueMethod,
         bool IsActive,
         decimal TotalBatchStock,
         decimal UsableBatchStock,
@@ -2798,6 +2814,7 @@ public sealed class AdminCatalogController : ControllerBase
         string? Unit,
         decimal? CurrentStock,
         decimal? ReorderLevel,
+        string? IssueMethod,
         bool? IsActive);
     public sealed record AdminIngredientBatchResponse(
         int BatchId,

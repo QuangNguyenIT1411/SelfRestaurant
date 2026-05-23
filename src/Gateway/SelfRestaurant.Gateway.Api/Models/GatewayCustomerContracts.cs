@@ -51,6 +51,82 @@ public sealed record UpdateOrderItemQuantityApiRequest(int Quantity);
 public sealed record UpdateOrderItemNoteApiRequest(string? Note);
 public sealed record ScanLoyaltyApiRequest(string PhoneNumber);
 
+public sealed record CreateReservationApiRequest(
+    string? CustomerName,
+    string? PhoneNumber,
+    int? CustomerId,
+    int BranchId,
+    int? TableId,
+    int PartySize,
+    DateTime ReservedAt,
+    string? Note,
+    string? IdempotencyKey);
+
+public sealed record ReplaceReservationPreOrderItemsApiRequest(
+    IReadOnlyList<ReservationPreOrderItemRequest>? Items);
+
+public sealed record ReservationPreOrderItemRequest(
+    int DishId,
+    string? DishNameSnapshot,
+    decimal UnitPriceSnapshot,
+    int Quantity,
+    string? Note);
+
+public sealed record ReservationDto(
+    int ReservationId,
+    string ReservationCode,
+    int? CustomerId,
+    string CustomerName,
+    string PhoneNumber,
+    int BranchId,
+    int? TableId,
+    int PartySize,
+    DateTime ReservedAt,
+    int ArrivalWindowMinutes,
+    string Status,
+    string? Note,
+    int? ConvertedOrderId,
+    string? DiningSessionCode,
+    DateTime? CheckInStartedAtUtc,
+    string? CheckInIdempotencyKey,
+    DateTime? CheckedInAtUtc,
+    int? CheckedInByEmployeeId,
+    DateTime? CancelledAtUtc,
+    DateTime CreatedAtUtc,
+    DateTime? UpdatedAtUtc,
+    IReadOnlyList<ReservationAssignedTableDto>? AssignedTables,
+    IReadOnlyList<ReservationPreOrderItemDto> PreOrderItems);
+
+public sealed record ReservationAssignedTableDto(int TableId, bool IsPrimary);
+
+public sealed record ReservationPreOrderItemDto(
+    int ReservationItemId,
+    int ReservationId,
+    int DishId,
+    string DishNameSnapshot,
+    decimal UnitPriceSnapshot,
+    int Quantity,
+    string? Note,
+    string Status,
+    DateTime CreatedAtUtc,
+    DateTime? UpdatedAtUtc,
+    DateTime? ConvertedAtUtc);
+
+public sealed record CheckInReservationRequest(
+    int? ConvertedOrderId,
+    string? DiningSessionCode,
+    int? CheckedInByEmployeeId,
+    DateTime? ConvertedAtUtc,
+    int? TableId = null,
+    IReadOnlyList<int>? TableIds = null);
+
+public sealed record CashierReservationCheckInResultDto(
+    bool Success,
+    string Message,
+    ReservationDto Reservation,
+    ActiveOrderResponse? Order,
+    bool AlreadyCheckedIn);
+
 public sealed record CustomerMenuScreenDto(
     CustomerTableContextDto TableContext,
     CustomerSessionUserDto? Customer,

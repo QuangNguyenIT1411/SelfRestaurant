@@ -15,6 +15,8 @@ public partial class Ingredients
 
     public decimal ReorderLevel { get; set; }
 
+    public string IssueMethod { get; set; } = "FEFO";
+
     public bool IsActive { get; set; }
 
     public virtual ICollection<IngredientBatches> IngredientBatches { get; set; } = new List<IngredientBatches>();

@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Net;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace SelfRestaurant.Orders.Api.Infrastructure;
@@ -31,9 +32,16 @@ public sealed class CustomersApiClient : ICustomerLoyaltyReadModel
         return _cache.GetOrCreateAsync($"identity:customer-loyalty-by-phone:{normalizedPhone}", async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = LoyaltyLookupCacheTtl;
-            return await _http.GetFromJsonAsync<CustomerLoyaltySnapshot>(
+            var response = await _http.GetAsync(
                 $"/api/internal/customers/loyalty/by-phone?phoneNumber={Uri.EscapeDataString(normalizedPhone)}",
                 cancellationToken);
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                return null;
+            }
+
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<CustomerLoyaltySnapshot>(cancellationToken);
         })!;
     }
 

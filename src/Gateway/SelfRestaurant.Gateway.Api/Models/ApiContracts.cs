@@ -516,6 +516,11 @@ public sealed record ChefSetCatalogDishAvailabilityResponse(
     string Message,
     bool Available);
 
+public sealed record AdminDishIngredientsDto(
+    int DishId,
+    string DishName,
+    IReadOnlyList<AdminDishIngredientLineDto> Ingredients);
+
 public sealed record AdminDishIngredientLineDto(
     int IngredientId,
     string Name,

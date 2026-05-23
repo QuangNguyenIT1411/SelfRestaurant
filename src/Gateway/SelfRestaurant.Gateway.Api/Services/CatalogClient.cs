@@ -97,11 +97,8 @@ public sealed class CatalogClient : ApiClientBase
     public Task DeleteAdminDishAsync(int dishId, CancellationToken cancellationToken) =>
         DeleteAsync($"/api/admin/dishes/{dishId}", cancellationToken);
 
-    public async Task<IReadOnlyList<AdminDishIngredientLineDto>> GetDishIngredientsAsync(int dishId, CancellationToken cancellationToken)
-    {
-        var list = await GetAsync<IReadOnlyList<AdminDishIngredientLineDto>>($"/api/admin/dishes/{dishId}/ingredients", cancellationToken);
-        return list ?? Array.Empty<AdminDishIngredientLineDto>();
-    }
+    public Task<AdminDishIngredientsDto?> GetDishIngredientsAsync(int dishId, CancellationToken cancellationToken) =>
+        GetAsync<AdminDishIngredientsDto>($"/api/admin/dishes/{dishId}/ingredients", cancellationToken);
 
     public Task UpdateDishIngredientsAsync(int dishId, IReadOnlyList<AdminDishIngredientItemRequest> items, CancellationToken cancellationToken) =>
         PutAsync($"/api/admin/dishes/{dishId}/ingredients", new AdminUpdateDishIngredientsRequest(items), cancellationToken);

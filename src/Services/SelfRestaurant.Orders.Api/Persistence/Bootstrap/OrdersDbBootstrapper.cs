@@ -16,6 +16,7 @@ public static class OrdersDbBootstrapper
         "OrderStatus",
         "BusinessAuditLogs",
         "SubmitCommands",
+        "DiningSessionTables",
         "InboxEvents",
         "OutboxEvents"
     ];
@@ -40,6 +41,7 @@ public static class OrdersDbBootstrapper
         await EnsureInboxTableAsync(db, cancellationToken);
         await EnsureCatalogSnapshotTablesAsync(db, cancellationToken);
         await EnsureOrdersDiningSessionColumnsAsync(db, cancellationToken);
+        await EnsureDiningSessionTablesAsync(db, cancellationToken);
         await EnsureOrderItemStatusColumnAsync(db, cancellationToken);
         await EnsureOrderItemChefIdColumnAsync(db, cancellationToken);
         await EnsureOrderItemIngredientsTableAsync(db, logger, cancellationToken);
@@ -717,6 +719,54 @@ public static class OrdersDbBootstrapper
         await db.Database.ExecuteSqlRawAsync("""
             IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.Orders') AND name = N'UX_Orders_SubmitIdempotencyKey')
                 CREATE UNIQUE INDEX UX_Orders_SubmitIdempotencyKey ON dbo.Orders(SubmitIdempotencyKey) WHERE SubmitIdempotencyKey IS NOT NULL;
+            """, cancellationToken);
+    }
+
+    private static async Task EnsureDiningSessionTablesAsync(OrdersDbContext db, CancellationToken cancellationToken)
+    {
+        await db.Database.ExecuteSqlRawAsync("""
+            IF OBJECT_ID(N'dbo.DiningSessionTables', N'U') IS NULL
+            BEGIN
+                CREATE TABLE dbo.DiningSessionTables
+                (
+                    DiningSessionTableID INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                    DiningSessionCode VARCHAR(64) NOT NULL,
+                    TableID INT NOT NULL,
+                    IsPrimary BIT NOT NULL,
+                    CreatedAtUtc DATETIME2 NOT NULL CONSTRAINT DF_DiningSessionTables_CreatedAtUtc DEFAULT (SYSUTCDATETIME())
+                );
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.DiningSessionTables') AND name = N'UX_DiningSessionTables_Session_Table')
+                CREATE UNIQUE INDEX UX_DiningSessionTables_Session_Table ON dbo.DiningSessionTables(DiningSessionCode, TableID);
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.DiningSessionTables') AND name = N'IX_DiningSessionTables_TableID')
+                CREATE INDEX IX_DiningSessionTables_TableID ON dbo.DiningSessionTables(TableID);
+
+            ;WITH sessionTables AS
+            (
+                SELECT
+                    o.DiningSessionCode,
+                    o.TableID,
+                    IsPrimary = CASE
+                        WHEN ROW_NUMBER() OVER (PARTITION BY o.DiningSessionCode ORDER BY MIN(o.OrderTime), o.TableID) = 1 THEN CAST(1 AS bit)
+                        ELSE CAST(0 AS bit)
+                    END
+                FROM dbo.Orders o
+                WHERE o.DiningSessionCode IS NOT NULL
+                  AND o.TableID IS NOT NULL
+                GROUP BY o.DiningSessionCode, o.TableID
+            )
+            INSERT INTO dbo.DiningSessionTables (DiningSessionCode, TableID, IsPrimary, CreatedAtUtc)
+            SELECT st.DiningSessionCode, st.TableID, st.IsPrimary, SYSUTCDATETIME()
+            FROM sessionTables st
+            WHERE NOT EXISTS
+            (
+                SELECT 1
+                FROM dbo.DiningSessionTables dst
+                WHERE dst.DiningSessionCode = st.DiningSessionCode
+                  AND dst.TableID = st.TableID
+            );
             """, cancellationToken);
     }
 

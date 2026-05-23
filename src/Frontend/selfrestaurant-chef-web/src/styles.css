@@ -362,35 +362,105 @@ label { display: grid; gap: 0.35rem; font-size: 0.95rem; }
   color: #6c757d;
   font-size: .84rem;
 }
-.order-item { display: flex; justify-content: space-between; gap: 1rem; align-items: start; padding: 0.55rem 0; border-bottom: 1px solid #f1f5f9; }
-.order-item:last-child { border-bottom: none; }
-.order-item-layout { display: flex; gap: .6rem; flex: 1; min-width: 0; }
-.order-item-content { display: grid; gap: .2rem; min-width: 0; }
+.order-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: .75rem;
+  align-items: stretch;
+  padding: .7rem;
+  border: 1px solid #e2e8f0;
+  border-radius: .75rem;
+  background: #f8fafc;
+}
+.order-item:last-child { border-bottom: 1px solid #e2e8f0; }
+.order-item-main {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: .65rem;
+  min-width: 0;
+}
+.order-item-content {
+  display: grid;
+  align-content: start;
+  gap: .35rem;
+  min-width: 0;
+}
 .item-qty {
-  width: 24px;
-  height: 24px;
-  border-radius: 999px;
-  background: #e9ecef;
+  width: 42px;
+  min-height: 42px;
+  border-radius: .65rem;
+  background: #e7f3ff;
+  color: #0d6efd;
+  border: 1px solid #bfdbfe;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: .8rem;
-  font-weight: 700;
+  font-size: .95rem;
+  font-weight: 800;
   flex-shrink: 0;
 }
-.item-name { font-weight: 600; color: #212529; }
+.item-name {
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.item-status-row {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  flex-wrap: wrap;
+}
+.item-status-row .chef-history-status,
+.item-status-row .soft-badge {
+  margin-top: 0;
+}
 .item-note {
-  color: #dc3545 !important;
-  font-size: .8rem;
-  font-style: italic;
+  display: flex !important;
+  align-items: flex-start;
+  gap: .4rem;
+  color: #92400e !important;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: .6rem;
+  padding: .45rem .55rem;
+  font-size: .78rem;
+  line-height: 1.35;
+  font-style: normal;
+  overflow-wrap: anywhere;
+}
+.item-note i { margin-top: .08rem; flex-shrink: 0; }
+.item-action-panel {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-content: start;
+  justify-items: stretch;
+  gap: .45rem;
+  min-width: 132px;
+}
+.item-status-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: .4rem;
 }
 .note-action-button {
-  border-radius: 999px !important;
-  padding: 0 .55rem !important;
-  font-size: .76rem;
-  line-height: 1.8;
+  min-height: 32px;
+  border-radius: .55rem !important;
+  padding: .35rem .6rem !important;
+  font-size: .74rem;
+  line-height: 1.2;
   white-space: nowrap;
-  align-self: center;
+  width: 100%;
+}
+.order-item .btn-action-primary,
+.order-item .btn-action-danger,
+.order-item .btn-action-secondary {
+  width: 100%;
+  min-height: 34px;
+  padding: .42rem .6rem;
+  border-radius: .55rem;
+  font-size: .74rem;
+  letter-spacing: .01em;
 }
 .order-action-stack { display: grid; gap: .55rem; margin-top: .85rem; }
 .order-ready-alert {
@@ -2067,6 +2137,275 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: .5rem 0; }
   background: #f8fafc !important;
   border-color: #64748b !important;
   color: #0f172a !important;
+}
+
+/* Compact professional KDS item cards */
+.chef-kds-order-card .order-item {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 136px;
+  align-items: stretch !important;
+  gap: .75rem !important;
+  padding: .72rem !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 16px !important;
+  background: linear-gradient(180deg, #ffffff, #f8fafc) !important;
+}
+
+.chef-kds-order-card .order-item-main {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: .65rem;
+  min-width: 0;
+}
+
+.chef-kds-order-card .item-qty {
+  width: 42px !important;
+  height: auto !important;
+  min-height: 42px !important;
+  min-width: 42px !important;
+  border-radius: 13px !important;
+  background: #e0f2fe !important;
+  box-shadow: none !important;
+  color: #075985 !important;
+  font-size: .95rem !important;
+  font-weight: 950 !important;
+}
+
+.chef-kds-order-card .order-item-content {
+  display: grid;
+  align-content: start;
+  gap: .34rem;
+  min-width: 0;
+}
+
+.chef-kds-order-card .item-name {
+  color: #0f172a !important;
+  font-size: .98rem;
+  line-height: 1.22;
+}
+
+.chef-kds-order-card .item-status-row {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  flex-wrap: wrap;
+}
+
+.chef-kds-order-card .item-note {
+  display: flex !important;
+  align-items: flex-start;
+  gap: .4rem;
+  margin-top: .05rem;
+  padding: .42rem .52rem;
+  border: 1px solid #fde68a;
+  border-radius: 11px;
+  background: #fffbeb;
+  color: #92400e !important;
+  font-size: .78rem;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+.chef-kds-order-card .item-note i {
+  flex-shrink: 0;
+  margin-top: .08rem;
+}
+
+.chef-kds-order-card .item-action-panel {
+  display: grid;
+  align-content: start;
+  gap: .42rem;
+  min-width: 0;
+}
+
+.chef-kds-order-card .item-status-actions {
+  display: grid;
+  gap: .38rem;
+}
+
+.chef-kds-order-card .note-action-button.ghost,
+.chef-kds-order-card .order-item .btn-action-primary,
+.chef-kds-order-card .order-item .btn-action-danger,
+.chef-kds-order-card .order-item .btn-action-secondary {
+  width: 100%;
+  min-height: 34px;
+  border-radius: 10px !important;
+  padding: .42rem .55rem !important;
+  font-size: .74rem;
+  font-weight: 850;
+  line-height: 1.15;
+  letter-spacing: .01em;
+  text-align: center;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .chef-kds-order-card .order-item {
+    grid-template-columns: 1fr;
+  }
+
+  .chef-kds-order-card .item-action-panel,
+  .chef-kds-order-card .item-status-actions {
+    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  }
+
+  .chef-kds-order-card .note-action-button.ghost {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Chef ingredient edit modal: compact connected form layout */
+.modal-card.chef-modal-card.chef-ingredients-modal {
+  width: min(680px, calc(100vw - 2rem)) !important;
+  max-height: 90vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+
+.chef-ingredients-modal .chef-modal-head {
+  flex: 0 0 auto;
+  padding: .9rem 1rem !important;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.chef-ingredients-modal .chef-modal-head h2 {
+  font-size: 1.1rem;
+  line-height: 1.25;
+}
+
+.chef-ingredients-modal .chef-modal-head p {
+  font-size: .84rem;
+  line-height: 1.35;
+}
+
+.chef-ingredients-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: .85rem 1rem;
+  display: grid;
+  gap: .75rem;
+  background: #f8fafc;
+}
+
+.chef-ingredients-modal .chef-modal-section,
+.chef-ingredients-modal .inline-filter-card {
+  margin: 0 !important;
+  padding: .75rem .85rem !important;
+  border-radius: 14px;
+}
+
+.chef-ingredients-modal .ingredient-editor {
+  display: grid;
+  gap: .5rem !important;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: .1rem .2rem .1rem 0 !important;
+}
+
+.chef-ingredients-modal .ingredient-line {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 110px !important;
+  align-items: center !important;
+  gap: .75rem !important;
+  min-height: 58px;
+  margin: 0 !important;
+  padding: .65rem .75rem !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 13px !important;
+  background: #ffffff !important;
+}
+
+.chef-ingredients-modal .ingredient-meta {
+  display: grid;
+  gap: .18rem;
+  min-width: 0;
+}
+
+.chef-ingredients-modal .ingredient-meta span {
+  font-size: .92rem;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.chef-ingredients-modal .ingredient-meta small {
+  font-size: .76rem;
+  line-height: 1.25;
+}
+
+.chef-ingredients-modal .ingredient-line input {
+  width: 110px !important;
+  min-width: 0;
+  justify-self: end;
+  padding: .45rem .55rem !important;
+  border-radius: 10px;
+  text-align: right;
+  font-size: .9rem;
+}
+
+.chef-ingredients-modal .ingredient-line .soft-badge {
+  justify-self: end;
+  min-width: 96px;
+  text-align: center;
+}
+
+.chef-ingredients-modal .stack.compact {
+  margin: 0 !important;
+  padding: .75rem .85rem !important;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff !important;
+}
+
+.chef-ingredients-modal .stack.compact textarea {
+  min-height: 72px;
+  max-height: 120px;
+  resize: vertical;
+}
+
+.chef-ingredients-modal .chef-modal-actions {
+  flex: 0 0 auto;
+  position: sticky;
+  bottom: 0;
+  margin: 0 !important;
+  padding: .75rem 1rem !important;
+  border-top: 1px solid #e2e8f0;
+  background: #ffffff;
+  display: flex;
+  justify-content: flex-end;
+  gap: .6rem;
+  z-index: 1;
+}
+
+.chef-ingredients-modal .chef-modal-actions button {
+  min-height: 36px;
+  padding: .45rem .85rem;
+  border-radius: 10px;
+}
+
+@media (max-width: 640px) {
+  .modal-card.chef-modal-card.chef-ingredients-modal {
+    width: calc(100vw - 1rem) !important;
+  }
+
+  .chef-ingredients-modal .ingredient-line {
+    grid-template-columns: minmax(0, 1fr) 96px !important;
+  }
+
+  .chef-ingredients-modal .ingredient-line input {
+    width: 96px !important;
+  }
+
+  .chef-ingredients-modal .chef-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .chef-ingredients-modal .chef-modal-actions button {
+    width: 100%;
+  }
 }
 
 .chef-kds-order-card .btn-action-primary,

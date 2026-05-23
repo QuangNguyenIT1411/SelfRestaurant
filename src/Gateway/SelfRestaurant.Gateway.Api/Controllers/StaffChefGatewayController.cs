@@ -346,8 +346,8 @@ public sealed class StaffChefGatewayController : ControllerBase
         var dish = await _catalogClient.GetAdminDishByIdAsync(dishId, cancellationToken);
         if (dish is null) return Error("dish_not_found", "Không tìm thấy món ăn.", 404);
 
-        var lines = await _catalogClient.GetDishIngredientsAsync(dishId, cancellationToken);
-        var items = lines
+        var recipe = await _catalogClient.GetDishIngredientsAsync(dishId, cancellationToken);
+        var items = (recipe?.Ingredients ?? Array.Empty<AdminDishIngredientLineDto>())
             .Where(x => x.Selected)
             .Select(x => new ChefDishIngredientItemDto(x.IngredientId, x.Name, x.Unit, x.CurrentStock, x.IsActive, x.QuantityPerDish, x.QuantityPerDish, false))
             .ToArray();
@@ -367,8 +367,8 @@ public sealed class StaffChefGatewayController : ControllerBase
         var dish = await _catalogClient.GetAdminDishByIdAsync(overrides.DishId, cancellationToken);
         if (dish is null) return Error("dish_not_found", "Không tìm thấy món ăn.", 404);
         var overrideMap = overrides.Items.ToDictionary(x => x.IngredientId, x => x.Quantity);
-        var lines = await _catalogClient.GetDishIngredientsAsync(overrides.DishId, cancellationToken);
-        var items = lines
+        var recipe = await _catalogClient.GetDishIngredientsAsync(overrides.DishId, cancellationToken);
+        var items = (recipe?.Ingredients ?? Array.Empty<AdminDishIngredientLineDto>())
             .Where(x => x.Selected)
             .Select(x =>
             {
@@ -393,7 +393,7 @@ public sealed class StaffChefGatewayController : ControllerBase
         await EnsureDishInTodayMenuAsync(staff.BranchId, current.DishId, cancellationToken);
 
         var recipe = await _catalogClient.GetDishIngredientsAsync(current.DishId, cancellationToken);
-        var recipeMap = recipe
+        var recipeMap = (recipe?.Ingredients ?? Array.Empty<AdminDishIngredientLineDto>())
             .Where(x => x.Selected)
             .GroupBy(x => x.IngredientId)
             .ToDictionary(x => x.Key, x => x.Last());

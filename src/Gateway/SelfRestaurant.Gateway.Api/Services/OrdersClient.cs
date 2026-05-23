@@ -76,6 +76,16 @@ public sealed class OrdersClient : ApiClientBase
             },
             cancellationToken);
 
+    public Task<LinkDiningSessionTablesResponse?> LinkDiningSessionTablesAsync(
+        string diningSessionCode,
+        int primaryTableId,
+        IReadOnlyList<int> tableIds,
+        CancellationToken cancellationToken) =>
+        PostForAsync<object, LinkDiningSessionTablesResponse>(
+            $"/internal/orders/dining-sessions/{Uri.EscapeDataString(diningSessionCode)}/tables",
+            new { primaryTableId, tableIds },
+            cancellationToken);
+
     public Task ConfirmOrderReceivedAsync(int orderId, CancellationToken cancellationToken) =>
         PostAsync<object>($"/api/orders/{orderId}/confirm-received", new { }, cancellationToken);
 
@@ -183,6 +193,14 @@ public sealed record AddOrderItemPayload(
     int DishId,
     int Quantity,
     string? Note);
+
+public sealed record LinkDiningSessionTablesResponse(
+    string DiningSessionCode,
+    int PrimaryTableId,
+    IReadOnlyList<int> TableIds,
+    IReadOnlyList<LinkDiningSessionTableResponse>? Tables);
+
+public sealed record LinkDiningSessionTableResponse(int TableId, bool IsPrimary);
 
 public sealed record DishReferenceStatusDto(
     int DishId,

@@ -48,6 +48,163 @@ public sealed class CustomerGatewayController : ControllerBase
     [HttpGet("session")]
     public ActionResult<CustomerSessionDto> GetSession() => Ok(BuildSessionDto());
 
+    [HttpPost("/api/customer/reservations")]
+    public async Task<ActionResult<ReservationDto>> CreateReservation(
+        [FromBody] CreateReservationApiRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var customer = RequireCustomer();
+            var enrichedRequest = customer is null
+                ? request
+                : request with
+                {
+                    CustomerId = request.CustomerId is > 0 ? request.CustomerId : customer.CustomerId,
+                    CustomerName = string.IsNullOrWhiteSpace(request.CustomerName) ? customer.Name : request.CustomerName,
+                    PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber) ? customer.PhoneNumber : request.PhoneNumber
+                };
+
+            var reservation = await _customersClient.CreateReservationAsync(enrichedRequest, cancellationToken);
+            return reservation is null
+                ? Error("create_reservation_failed", "Không thể tạo đặt bàn.", 400)
+                : Ok(reservation);
+        }
+        catch (ApiClientException ex)
+        {
+            return Error(string.IsNullOrWhiteSpace(ex.Code) ? "create_reservation_failed" : ex.Code!, ex.Message, ex.StatusCode);
+        }
+    }
+
+    [HttpGet("/api/customer/reservations/{code}")]
+    public async Task<ActionResult<ReservationDto>> GetReservation(string code, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return Error("invalid_reservation_code", "Mã đặt bàn không hợp lệ.", 400);
+        }
+
+        try
+        {
+            var customer = RequireCustomer();
+            if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
+            var reservation = await _customersClient.GetReservationByCodeAsync(code.Trim(), cancellationToken);
+            if (reservation is null) return Error("reservation_not_found", "Không tìm thấy đặt bàn.", 404);
+            if (!IsOwnedByCustomer(reservation, customer)) return Error("forbidden", "Bạn không có quyền xem đặt bàn này.", 403);
+            return Ok(reservation);
+        }
+        catch (ApiClientException ex)
+        {
+            return Error(string.IsNullOrWhiteSpace(ex.Code) ? "get_reservation_failed" : ex.Code!, ex.Message, ex.StatusCode);
+        }
+    }
+
+    [HttpGet("/api/customer/reservations/my")]
+    public async Task<ActionResult<IReadOnlyList<ReservationDto>>> GetMyReservations(CancellationToken cancellationToken)
+    {
+        var customer = RequireCustomer();
+        if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
+
+        try
+        {
+            var reservations = await _customersClient.GetCustomerReservationsAsync(customer.CustomerId, cancellationToken);
+            return Ok(reservations);
+        }
+        catch (ApiClientException ex)
+        {
+            return Error(string.IsNullOrWhiteSpace(ex.Code) ? "get_reservations_failed" : ex.Code!, ex.Message, ex.StatusCode);
+        }
+    }
+
+    [HttpPost("/api/customer/reservations/{reservationId:int}/preorder-items")]
+    public async Task<ActionResult<ReservationDto>> ReplaceReservationPreOrderItems(
+        int reservationId,
+        [FromBody] ReplaceReservationPreOrderItemsApiRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (reservationId <= 0)
+        {
+            return Error("invalid_reservation", "Đặt bàn không hợp lệ.", 400);
+        }
+
+        try
+        {
+            var customer = RequireCustomer();
+            if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
+            var existing = await _customersClient.GetReservationByIdAsync(reservationId, cancellationToken);
+            if (existing is null) return Error("reservation_not_found", "Không tìm thấy đặt bàn.", 404);
+            if (!IsOwnedByCustomer(existing, customer)) return Error("forbidden", "Bạn không có quyền cập nhật đặt bàn này.", 403);
+            var reservation = await _customersClient.ReplaceReservationPreOrderItemsAsync(reservationId, request, cancellationToken);
+            return reservation is null
+                ? Error("reservation_not_found", "Không tìm thấy đặt bàn.", 404)
+                : Ok(reservation);
+        }
+        catch (ApiClientException ex)
+        {
+            return Error(string.IsNullOrWhiteSpace(ex.Code) ? "update_preorder_failed" : ex.Code!, ex.Message, ex.StatusCode);
+        }
+    }
+
+    [HttpPost("/api/customer/reservations/{reservationId:int}/cancel")]
+    public async Task<ActionResult<ReservationDto>> CancelReservation(int reservationId, CancellationToken cancellationToken)
+    {
+        if (reservationId <= 0)
+        {
+            return Error("invalid_reservation", "Đặt bàn không hợp lệ.", 400);
+        }
+
+        try
+        {
+            var customer = RequireCustomer();
+            if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
+            var existing = await _customersClient.GetReservationByIdAsync(reservationId, cancellationToken);
+            if (existing is null) return Error("reservation_not_found", "Không tìm thấy đặt bàn.", 404);
+            if (!IsOwnedByCustomer(existing, customer)) return Error("forbidden", "Bạn không có quyền hủy đặt bàn này.", 403);
+            var reservation = await _customersClient.CancelReservationAsync(reservationId, cancellationToken);
+            return reservation is null
+                ? Error("reservation_not_found", "Không tìm thấy đặt bàn.", 404)
+                : Ok(reservation);
+        }
+        catch (ApiClientException ex)
+        {
+            return Error(string.IsNullOrWhiteSpace(ex.Code) ? "cancel_reservation_failed" : ex.Code!, ex.Message, ex.StatusCode);
+        }
+    }
+
+    [HttpGet("/api/customer/reservations/{code}/menu")]
+    public async Task<ActionResult<MenuResponse>> GetReservationMenu(string code, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return Error("invalid_reservation_code", "Mã đặt bàn không hợp lệ.", 400);
+        }
+
+        try
+        {
+            var customer = RequireCustomer();
+            if (customer is null) return Error("unauthorized", "Bạn cần đăng nhập.", 401);
+            var reservation = await _customersClient.GetReservationByCodeAsync(code.Trim(), cancellationToken);
+            if (reservation is null)
+            {
+                return Error("reservation_not_found", "Không tìm thấy đặt bàn.", 404);
+            }
+            if (!IsOwnedByCustomer(reservation, customer)) return Error("forbidden", "Bạn không có quyền xem đặt bàn này.", 403);
+            if (reservation.BranchId <= 0)
+            {
+                return Error("missing_branch", "Không tìm thấy chi nhánh của đặt bàn.", 400);
+            }
+
+            var menu = await _catalogClient.GetMenuAsync(reservation.BranchId, cancellationToken: cancellationToken);
+            return menu is null
+                ? Error("menu_not_found", "Không tìm thấy thực đơn cho chi nhánh của đặt bàn.", 404)
+                : Ok(menu);
+        }
+        catch (ApiClientException ex)
+        {
+            return Error(string.IsNullOrWhiteSpace(ex.Code) ? "get_reservation_menu_failed" : ex.Code!, ex.Message, ex.StatusCode);
+        }
+    }
+
     [HttpPost("session/sync-active-order")]
     public async Task<ActionResult<CustomerSessionDto>> SyncSessionFromActiveOrder(CancellationToken cancellationToken)
     {
@@ -755,6 +912,9 @@ public sealed class CustomerGatewayController : ControllerBase
         else HttpContext.Session.Remove(SessionKeys.CustomerEmail);
         RestoreSavedTableContextForCustomer(login.CustomerId, currentTableContext);
     }
+
+
+    private static bool IsOwnedByCustomer(ReservationDto reservation, CustomerSessionUserDto customer) => reservation.CustomerId == customer.CustomerId;
 
     private CustomerProfileDto MapProfile(CustomerProfileResponse profile) => new(
         profile.CustomerId,

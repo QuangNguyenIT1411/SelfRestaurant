@@ -1404,8 +1404,18 @@ button:disabled { opacity: 0.65; cursor: not-allowed; }
   color: var(--primary-hover);
   text-decoration: underline;
 }
-.menu-dish-modal { width: min(640px, 100%); }
-.menu-dish-modal-image { border-radius: 0; max-height: 260px; object-fit: cover; }
+.menu-dish-modal {
+  max-width: min(720px, calc(100vw - 32px));
+  width: 100%;
+}
+.menu-dish-modal-image {
+  border-radius: 0;
+  display: block;
+  height: clamp(220px, 30vh, 260px);
+  max-height: 260px;
+  object-fit: cover;
+  width: 100%;
+}
 .menu-static-modal {
   background: rgba(0, 0, 0, 0.5);
   align-items: center;
@@ -1452,6 +1462,95 @@ button:disabled { opacity: 0.65; cursor: not-allowed; }
   padding: 0.75rem;
   margin-bottom: 1rem;
   background: #f8f9fa;
+}
+
+.dish-detail-overlay {
+  backdrop-filter: blur(6px);
+}
+
+.dish-detail-overlay .menu-dish-modal {
+  max-height: 90vh;
+}
+
+.dish-detail-overlay .modal-content {
+  background: #fff;
+  border-radius: 24px;
+  color: #111827;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+.dish-detail-overlay .modal-header,
+.dish-detail-overlay .modal-footer {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
+}
+
+.dish-detail-overlay .modal-header {
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.dish-detail-overlay .btn-close {
+  flex: 0 0 auto;
+  margin-top: .15rem;
+}
+
+.dish-detail-overlay .dish-detail-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 1rem 1.25rem;
+}
+
+.dish-detail-overlay .dish-detail-media {
+  margin-bottom: .85rem !important;
+}
+
+.dish-detail-overlay .dish-detail-description {
+  font-size: .95rem;
+  line-height: 1.55;
+  margin-bottom: .75rem;
+}
+
+.dish-detail-overlay .dish-detail-body hr {
+  margin: .85rem 0;
+}
+
+.dish-detail-overlay .dish-detail-ingredients {
+  border: 1px solid #f1f5f9;
+  border-radius: 16px;
+  list-style: none;
+  margin: 0;
+  max-height: min(190px, 24vh);
+  overflow-y: auto;
+  padding: .35rem;
+}
+
+.dish-detail-overlay .dish-detail-ingredients li {
+  background: #fff7ed;
+  border-radius: 12px;
+  color: #374151;
+  font-size: .9rem;
+  line-height: 1.35;
+  margin: .25rem 0;
+  padding: .55rem .65rem;
+}
+
+.dish-detail-overlay .dish-detail-ingredients strong {
+  font-size: .88rem;
+}
+
+.dish-detail-overlay .modal-footer {
+  background: #fff;
+  box-shadow: 0 -10px 24px rgba(15, 23, 42, 0.08);
+  margin-top: 0;
+  position: sticky;
+  bottom: 0;
 }
 
 @media (max-width: 900px) {
@@ -2637,14 +2736,13 @@ button:disabled { opacity: 0.65; cursor: not-allowed; }
   }
 
   .menu-static-modal .modal-dialog {
-    margin: 0;
-    max-height: calc(100vh - 1.5rem);
+    margin: 0 auto;
+    max-height: min(90vh, calc(100vh - 1.5rem));
   }
 
   .menu-static-modal .modal-content {
-    border-radius: 26px 26px 0 0;
-    max-height: calc(100vh - 1.5rem);
-    overflow-y: auto;
+    border-radius: 24px;
+    max-height: min(90vh, calc(100vh - 1.5rem));
   }
 
   .dish-detail-body {
@@ -2653,7 +2751,24 @@ button:disabled { opacity: 0.65; cursor: not-allowed; }
 
   .menu-dish-modal-image {
     aspect-ratio: 4 / 3;
-    max-height: 320px;
+    height: clamp(180px, 28vh, 220px);
+    max-height: 220px;
+  }
+
+  .dish-detail-overlay .menu-dish-modal {
+    max-width: calc(100vw - 24px);
+  }
+
+  .dish-detail-overlay .modal-content {
+    max-height: 88vh;
+  }
+
+  .dish-detail-overlay .dish-detail-body {
+    padding: .85rem;
+  }
+
+  .dish-detail-overlay .dish-detail-ingredients {
+    max-height: 150px;
   }
 
   .menu-static-modal .modal-footer {
@@ -3935,4 +4050,1330 @@ button:disabled { opacity: 0.65; cursor: not-allowed; }
 .menu-toast-host .toast,
 .order-page-shell .toast {
   color: #fff;
+}
+
+.reservation-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(217, 83, 79, 0.14), transparent 34rem),
+    linear-gradient(180deg, #fff7f6 0%, #f8f9fa 42%, #ffffff 100%);
+}
+.reservation-hero { padding: 4.5rem 0 3rem; }
+.reservation-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 2rem;
+  align-items: center;
+}
+.reservation-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #d9534f;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.78rem;
+}
+.reservation-hero h1 {
+  margin: 0.75rem 0 1rem;
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  line-height: 1.05;
+  font-weight: 800;
+  color: #111827;
+}
+.reservation-hero p,
+.reservation-info-card p,
+.reservation-success-copy p {
+  color: #64748b;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  margin: 0;
+}
+.reservation-hero-card {
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(217, 83, 79, 0.14);
+  border-radius: 28px;
+  padding: 2rem;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.12);
+  display: grid;
+  gap: 0.75rem;
+}
+.reservation-hero-card i {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #d9534f;
+  color: #fff;
+  font-size: 1.35rem;
+}
+.reservation-hero-card strong { font-size: 1.2rem; color: #111827; }
+.reservation-hero-card span { color: #64748b; }
+.reservation-content { padding-bottom: 4rem; }
+.reservation-form-shell {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.2fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+.reservation-card {
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 26px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+  padding: clamp(1.4rem, 3vw, 2.25rem);
+}
+.reservation-info-card h2,
+.reservation-success-copy h2 {
+  color: #111827;
+  font-size: clamp(1.7rem, 3vw, 2.35rem);
+  font-weight: 800;
+  margin: 0.75rem 0 1rem;
+}
+.reservation-info-card ul {
+  display: grid;
+  gap: 0.8rem;
+  color: #475569;
+  margin: 1.5rem 0 0;
+  padding-left: 1.25rem;
+}
+.reservation-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.reservation-form label {
+  display: grid;
+  gap: 0.45rem;
+  font-weight: 700;
+  color: #334155;
+}
+.reservation-form .form-control,
+.reservation-form .form-select {
+  border-radius: 14px;
+  border: 1px solid #dbe3ef;
+  padding: 0.85rem 1rem;
+}
+.reservation-form .form-control:focus,
+.reservation-form .form-select:focus {
+  border-color: #d9534f;
+  box-shadow: 0 0 0 0.2rem rgba(217, 83, 79, 0.16);
+}
+.reservation-note-field { grid-column: 1 / -1; }
+.reservation-submit {
+  width: 100%;
+  margin-top: 1.25rem;
+  border-radius: 16px;
+  padding: 0.9rem 1rem;
+  font-weight: 800;
+}
+.reservation-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 18px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1rem;
+  font-weight: 700;
+}
+.reservation-alert-error {
+  color: #991b1b;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+}
+.reservation-success-card {
+  max-width: 920px;
+  margin: 0 auto;
+  display: grid;
+  gap: 1.5rem;
+}
+.reservation-success-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  font-size: 1.8rem;
+}
+.reservation-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+.reservation-detail {
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 1rem;
+  display: grid;
+  gap: 0.35rem;
+}
+.reservation-detail-wide { grid-column: 1 / -1; }
+.reservation-detail span { color: #64748b; font-size: 0.9rem; }
+.reservation-detail strong { color: #111827; font-size: 1rem; }
+.reservation-field-helper,
+.reservation-large-group-note {
+  color: #9a3412;
+  font-weight: 700;
+  line-height: 1.45;
+}
+.reservation-field-helper {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  padding: 0.65rem 0.75rem;
+}
+.reservation-large-group-note {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 16px;
+  margin: 0;
+  padding: 0.9rem 1rem;
+}
+.reservation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.reservation-actions .btn {
+  border-radius: 14px;
+  font-weight: 800;
+  padding: 0.8rem 1rem;
+}
+.reservation-cancel-btn {
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+.reservation-next-note {
+  margin: -0.5rem 0 0;
+  color: #64748b;
+  font-size: 0.95rem;
+}
+@media (max-width: 900px) {
+  .reservation-hero-grid,
+  .reservation-form-shell { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .reservation-hero { padding: 3rem 0 2rem; }
+  .reservation-form-grid,
+  .reservation-detail-grid { grid-template-columns: 1fr; }
+  .reservation-actions { flex-direction: column; }
+  .reservation-actions .btn { width: 100%; }
+}
+
+.preorder-shell { padding: 3rem 1rem 4rem; }
+.preorder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.preorder-header h1 {
+  font-size: clamp(2rem, 4vw, 3.35rem);
+  font-weight: 800;
+  margin: 0.5rem 0 0.5rem;
+  color: #111827;
+}
+.preorder-header p { color: #64748b; margin: 0; max-width: 720px; }
+.preorder-summary {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.preorder-summary-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.3rem;
+}
+.preorder-summary-item span { color: #64748b; font-size: 0.85rem; }
+.preorder-summary-item strong { color: #111827; font-size: 0.95rem; }
+.preorder-alert-success {
+  color: #166534;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+}
+.preorder-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 390px);
+  gap: 1.25rem;
+  align-items: start;
+}
+.preorder-menu-column { display: grid; gap: 1rem; }
+.preorder-search-card label {
+  display: grid;
+  gap: 0.5rem;
+  font-weight: 700;
+  color: #334155;
+}
+.preorder-search-card .form-control {
+  border-radius: 14px;
+  border: 1px solid #dbe3ef;
+  padding: 0.85rem 1rem;
+}
+.preorder-recommendations h2,
+.preorder-cart-title h2 {
+  color: #111827;
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin: 0 0 1rem;
+}
+.preorder-recommendation-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.preorder-recommendation-grid button {
+  border: 1px solid #fee2e2;
+  background: #fff7f6;
+  color: #111827;
+  border-radius: 16px;
+  padding: 0.9rem;
+  text-align: left;
+  display: grid;
+  gap: 0.25rem;
+}
+.preorder-recommendation-grid button span { color: #d9534f; font-weight: 800; }
+.preorder-dish-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.preorder-dish-card {
+  display: grid;
+  gap: 1rem;
+}
+.preorder-dish-card h3 {
+  margin: 0 0 0.45rem;
+  color: #111827;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+.preorder-dish-card p {
+  color: #64748b;
+  line-height: 1.55;
+  margin: 0;
+}
+.preorder-dish-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.preorder-dish-footer strong { color: #d9534f; font-size: 1.05rem; }
+.preorder-dish-footer .btn { border-radius: 12px; font-weight: 800; }
+.preorder-cart {
+  position: sticky;
+  top: 86px;
+  display: grid;
+  gap: 1rem;
+}
+.preorder-cart-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+.preorder-cart-title h2 { margin: 0; }
+.preorder-cart-title span {
+  background: #fee2e2;
+  color: #991b1b;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+}
+.preorder-empty,
+.preorder-empty-text { color: #64748b; }
+.preorder-cart-list { display: grid; gap: 0.9rem; }
+.preorder-cart-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.75rem;
+}
+.preorder-cart-row,
+.preorder-quantity-row,
+.preorder-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.preorder-cart-row button {
+  border: 0;
+  background: transparent;
+  color: #d9534f;
+  font-weight: 800;
+}
+.preorder-quantity-row button {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid #fecaca;
+  background: #fff;
+  color: #d9534f;
+  font-weight: 900;
+}
+.preorder-quantity-row input {
+  width: 64px;
+  text-align: center;
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  padding: 0.35rem;
+}
+.preorder-quantity-row span {
+  margin-left: auto;
+  color: #111827;
+  font-weight: 800;
+}
+.preorder-cart-item label {
+  display: grid;
+  gap: 0.35rem;
+  color: #64748b;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.preorder-cart-item textarea {
+  min-height: 70px;
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  padding: 0.75rem;
+  resize: vertical;
+}
+.preorder-total {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 1rem;
+  color: #111827;
+}
+.preorder-total strong { color: #d9534f; font-size: 1.35rem; }
+.preorder-save-btn {
+  width: 100%;
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  font-weight: 900;
+}
+@media (max-width: 1100px) {
+  .preorder-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .preorder-layout { grid-template-columns: 1fr; }
+  .preorder-cart { position: static; }
+}
+@media (max-width: 700px) {
+  .preorder-header { align-items: stretch; flex-direction: column; }
+  .preorder-summary,
+  .preorder-dish-grid,
+  .preorder-recommendation-grid { grid-template-columns: 1fr; }
+  .preorder-dish-footer { align-items: stretch; flex-direction: column; }
+}
+
+.preorder-page {
+  background:
+    radial-gradient(circle at top left, rgba(249, 115, 22, 0.12), transparent 32rem),
+    linear-gradient(180deg, #fff7ed 0%, #fff 26rem);
+}
+
+.preorder-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.preorder-hero h1 {
+  color: #111827;
+  font-size: clamp(2rem, 4vw, 3.35rem);
+  font-weight: 950;
+  letter-spacing: -0.055em;
+  margin: 0.35rem 0;
+}
+
+.preorder-hero p {
+  color: #64748b;
+  margin: 0;
+  max-width: 760px;
+}
+
+.preorder-summary-card {
+  margin-bottom: 1rem;
+}
+
+.preorder-summary-heading {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.preorder-summary-heading h2 {
+  color: #111827;
+  font-weight: 950;
+  letter-spacing: -0.035em;
+  margin: 0.15rem 0 0;
+}
+
+.preorder-status {
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  color: #3730a3;
+  font-size: 0.8rem;
+  font-weight: 900;
+  padding: 0.45rem 0.8rem;
+}
+
+.preorder-status-cancelled,
+.preorder-status-noshow {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.preorder-status-checkedin,
+.preorder-status-completed {
+  background: #dcfce7;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.preorder-search-row {
+  align-items: end;
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.preorder-search-row .btn {
+  border-radius: 999px;
+  font-weight: 850;
+  min-height: 44px;
+  padding-inline: 1rem;
+}
+
+.preorder-category-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.9rem;
+}
+
+.preorder-category-pills button {
+  background: #fff;
+  border: 1px solid rgba(249, 115, 22, 0.2);
+  border-radius: 999px;
+  color: #9a3412;
+  font-weight: 850;
+  padding: 0.55rem 0.9rem;
+}
+
+.preorder-category-pills button.active,
+.preorder-category-pills button:hover {
+  background: linear-gradient(135deg, #ef4444, #f97316);
+  border-color: transparent;
+  box-shadow: 0 14px 24px rgba(239, 68, 68, 0.2);
+  color: #fff;
+}
+
+.preorder-section-title {
+  align-items: end;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.preorder-section-title h2 {
+  color: #111827;
+  font-size: 1.35rem;
+  font-weight: 950;
+  letter-spacing: -0.025em;
+  margin: 0.15rem 0 0;
+}
+
+.preorder-section-title small {
+  color: #64748b;
+}
+
+.preorder-recommendation-grid button {
+  overflow: hidden;
+  padding: 0;
+}
+
+.preorder-recommendation-grid button img {
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  width: 100%;
+}
+
+.preorder-recommendation-grid button strong,
+.preorder-recommendation-grid button span {
+  padding-inline: 0.85rem;
+}
+
+.preorder-recommendation-grid button span {
+  padding-bottom: 0.85rem;
+}
+
+.preorder-dish-grid.row {
+  display: flex;
+}
+
+.preorder-dish-card.card {
+  min-height: 100%;
+}
+
+.preorder-dish-media {
+  background: transparent;
+  border: 0;
+  display: block;
+  overflow: hidden;
+  padding: 0;
+  position: relative;
+  text-align: left;
+  width: 100%;
+}
+
+.preorder-dish-actions {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  margin-top: auto;
+}
+
+.preorder-detail-meta {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.preorder-detail-meta span {
+  background: #fff7ed;
+  border: 1px solid rgba(249, 115, 22, 0.18);
+  border-radius: 999px;
+  color: #9a3412;
+  font-weight: 850;
+  padding: 0.4rem 0.75rem;
+}
+
+.preorder-detail-meta strong {
+  color: #dc2626;
+  font-size: 1.25rem;
+  font-weight: 950;
+}
+
+.preorder-modal-controls {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.preorder-modal-controls label {
+  color: #475467;
+  display: grid;
+  font-weight: 800;
+  gap: 0.4rem;
+}
+
+.preorder-modal-controls textarea {
+  border: 1px solid #dbe3ef;
+  border-radius: 14px;
+  min-height: 82px;
+  padding: 0.8rem;
+  resize: vertical;
+}
+
+.preorder-cart {
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.09);
+}
+
+@media (max-width: 700px) {
+  .preorder-hero,
+  .preorder-summary-heading,
+  .preorder-section-title {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .preorder-search-row {
+    grid-template-columns: 1fr;
+  }
+
+  .preorder-dish-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .preorder-save-btn {
+    bottom: 0.75rem;
+    box-shadow: 0 18px 34px rgba(239, 68, 68, 0.28);
+    position: sticky;
+    z-index: 5;
+  }
+}
+
+.preorder-page .preorder-shell {
+  max-width: 1560px;
+}
+
+.preorder-page .preorder-layout {
+  grid-template-columns: minmax(0, 1fr) 360px;
+}
+
+.preorder-page .preorder-hero {
+  align-items: stretch;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.92), rgba(255,247,237,.78)),
+    radial-gradient(circle at 18% 18%, rgba(249,115,22,.18), transparent 28rem);
+  border: 1px solid rgba(249,115,22,.14);
+  border-radius: 34px;
+  box-shadow: 0 26px 80px rgba(15,23,42,.12);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 500px);
+  overflow: hidden;
+  padding: clamp(1.4rem, 3vw, 2.4rem);
+  position: relative;
+}
+
+.preorder-page .preorder-hero::after {
+  background: linear-gradient(135deg, rgba(239,68,68,.13), rgba(249,115,22,.2));
+  border-radius: 999px;
+  content: "";
+  height: 240px;
+  position: absolute;
+  right: -80px;
+  top: -90px;
+  width: 240px;
+}
+
+.preorder-hero-copy {
+  align-self: center;
+  max-width: 760px;
+  position: relative;
+  z-index: 1;
+}
+
+.preorder-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+  margin-top: 1.25rem;
+}
+
+.preorder-hero-actions .btn,
+.preorder-page .preorder-hero > .btn {
+  border-radius: 999px;
+  font-weight: 900;
+  padding: .75rem 1.15rem;
+}
+
+.preorder-hero-card {
+  backdrop-filter: blur(18px);
+  background: rgba(255,255,255,.82);
+  border: 1px solid rgba(255,255,255,.72);
+  border-radius: 28px;
+  box-shadow: 0 22px 58px rgba(15,23,42,.13);
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  position: relative;
+  z-index: 1;
+}
+
+.preorder-hero-card-top,
+.preorder-hero-card-status {
+  align-items: center;
+  display: flex;
+  gap: .75rem;
+  justify-content: space-between;
+}
+
+.preorder-hero-card-top span,
+.preorder-hero-card-status small {
+  color: #64748b;
+  font-weight: 750;
+}
+
+.preorder-hero-card-top strong {
+  color: #111827;
+  font-size: 1.35rem;
+  font-weight: 950;
+  letter-spacing: -.035em;
+}
+
+.preorder-hero-card-grid {
+  display: grid;
+  gap: .7rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.preorder-page .preorder-summary-item {
+  background: linear-gradient(180deg, #fff, #f8fafc);
+  border-color: rgba(15,23,42,.07);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+}
+
+.preorder-filter-heading {
+  align-items: end;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.preorder-filter-heading h2 {
+  color: #111827;
+  font-size: 1.45rem;
+  font-weight: 950;
+  letter-spacing: -.03em;
+  margin: .1rem 0 0;
+}
+
+.preorder-filter-heading > span {
+  background: #fff7ed;
+  border: 1px solid rgba(249,115,22,.2);
+  border-radius: 999px;
+  color: #9a3412;
+  font-weight: 900;
+  padding: .4rem .75rem;
+}
+
+.preorder-availability-toggle {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  display: inline-flex;
+  gap: .25rem;
+  margin-top: .85rem;
+  padding: .25rem;
+}
+
+.preorder-availability-toggle button {
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  color: #475569;
+  font-weight: 900;
+  padding: .5rem .85rem;
+}
+
+.preorder-availability-toggle button.active {
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(15,23,42,.1);
+  color: #dc2626;
+}
+
+.preorder-page .preorder-recommendations {
+  background:
+    linear-gradient(135deg, rgba(17,24,39,.96), rgba(127,29,29,.92)),
+    radial-gradient(circle at top left, rgba(249,115,22,.38), transparent 24rem);
+  color: #fff;
+  overflow: hidden;
+}
+
+.preorder-page .preorder-recommendations .reservation-kicker,
+.preorder-page .preorder-recommendations h2,
+.preorder-page .preorder-recommendations small {
+  color: #fff;
+}
+
+.preorder-page .preorder-recommendations .preorder-section-title small {
+  opacity: .78;
+}
+
+.preorder-page .preorder-recommendation-grid {
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+}
+
+.preorder-recommendation-card {
+  background: rgba(255,255,255,.1) !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  box-shadow: 0 18px 44px rgba(0,0,0,.18);
+  color: #fff !important;
+  display: grid !important;
+  grid-template-columns: 92px minmax(0, 1fr);
+  min-height: 124px;
+  position: relative;
+  transition: transform .18s ease, background .18s ease;
+}
+
+.preorder-recommendation-card:hover {
+  background: rgba(255,255,255,.16) !important;
+  transform: translateY(-3px);
+}
+
+.preorder-recommendation-card img {
+  aspect-ratio: auto !important;
+  height: 100%;
+  min-height: 124px;
+}
+
+.preorder-recommendation-card div {
+  display: grid;
+  gap: .18rem;
+  padding: .85rem .8rem 2.25rem;
+}
+
+.preorder-recommendation-card small {
+  background: rgba(249,115,22,.28);
+  border: 1px solid rgba(251,146,60,.35);
+  border-radius: 999px;
+  font-size: .7rem;
+  font-weight: 900;
+  justify-self: start;
+  padding: .22rem .5rem;
+}
+
+.preorder-recommendation-card strong,
+.preorder-recommendation-card span {
+  color: #fff !important;
+  padding: 0 !important;
+}
+
+.preorder-recommendation-card strong {
+  font-size: .98rem;
+  line-height: 1.25;
+}
+
+.preorder-recommendation-card span {
+  color: #fed7aa !important;
+  font-size: 1rem;
+}
+
+.preorder-recommendation-card em {
+  bottom: .65rem;
+  color: #fed7aa;
+  font-style: normal;
+  font-weight: 950;
+  position: absolute;
+  right: .8rem;
+}
+
+.preorder-page .preorder-dish-grid {
+  row-gap: 1.2rem;
+}
+
+.reservation-preorder-dish-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+}
+
+.reservation-preorder-dish-grid > * {
+  min-width: 0;
+}
+
+.preorder-page .preorder-dish-card.card {
+  border-radius: 28px;
+  box-shadow: 0 20px 50px rgba(15,23,42,.09);
+}
+
+.preorder-page .preorder-dish-card .dish-image {
+  aspect-ratio: 5 / 3.6;
+}
+
+.preorder-page .preorder-dish-card .card-body {
+  gap: .55rem;
+  padding: 1.05rem;
+}
+
+.preorder-card-status span {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: .74rem;
+  font-weight: 900;
+  padding: .28rem .55rem;
+}
+
+.preorder-card-status .is-available {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.preorder-card-status .is-unavailable {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.preorder-page .preorder-cart {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,247,237,.78));
+  border-color: rgba(249,115,22,.16);
+  border-radius: 30px;
+  max-height: calc(100vh - 108px);
+  overflow: auto;
+  top: 96px;
+}
+
+.preorder-cart-empty {
+  align-items: center;
+  background: #fff;
+  border: 1px dashed rgba(249,115,22,.3);
+  border-radius: 22px;
+  color: #64748b;
+  display: grid;
+  gap: .4rem;
+  justify-items: center;
+  padding: 1.4rem 1rem;
+  text-align: center;
+}
+
+.preorder-cart-empty i {
+  align-items: center;
+  background: #fff7ed;
+  border-radius: 18px;
+  color: #ea580c;
+  display: inline-flex;
+  font-size: 1.45rem;
+  height: 52px;
+  justify-content: center;
+  width: 52px;
+}
+
+.preorder-cart-empty strong {
+  color: #111827;
+}
+
+.preorder-page .preorder-cart-item {
+  background: #fff;
+  border-color: rgba(15,23,42,.08);
+  box-shadow: 0 12px 28px rgba(15,23,42,.06);
+}
+
+.preorder-page .preorder-save-btn {
+  background: linear-gradient(135deg, #ef4444, #f97316);
+  border: 0;
+  box-shadow: 0 16px 30px rgba(239,68,68,.28);
+}
+
+.preorder-detail-modal {
+  max-width: min(980px, calc(100vw - 2rem));
+}
+
+.preorder-detail-content {
+  border: 0;
+  border-radius: 30px;
+  box-shadow: 0 28px 90px rgba(15,23,42,.28);
+  overflow: hidden;
+}
+
+.preorder-detail-body {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(280px, .95fr) minmax(320px, 1.05fr);
+  max-height: min(70vh, 680px);
+  overflow: auto;
+  padding: 1.25rem;
+}
+
+.preorder-detail-media {
+  border-radius: 24px;
+  margin: 0 !important;
+  overflow: hidden;
+  position: sticky;
+  top: 0;
+}
+
+.preorder-detail-media .menu-dish-modal-image {
+  aspect-ratio: 4 / 3;
+  border-radius: 24px !important;
+  height: auto;
+  max-height: 440px;
+  width: 100%;
+}
+
+.preorder-detail-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.preorder-ingredients-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 1rem;
+}
+
+.preorder-ingredients-box h6 {
+  color: #111827;
+  font-weight: 950;
+  margin-bottom: .65rem;
+}
+
+.preorder-detail-footer {
+  align-items: center;
+  background: rgba(255,255,255,.94);
+  border-top: 1px solid rgba(15,23,42,.08);
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+}
+
+.preorder-detail-footer > div:first-child {
+  display: grid;
+}
+
+.preorder-detail-footer span {
+  color: #64748b;
+  font-size: .82rem;
+  font-weight: 800;
+}
+
+.preorder-detail-footer strong {
+  color: #dc2626;
+  font-size: 1.35rem;
+  font-weight: 950;
+}
+
+.preorder-detail-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .6rem;
+  justify-content: flex-end;
+}
+
+.preorder-detail-footer-actions .btn {
+  border-radius: 999px;
+  font-weight: 900;
+  padding-inline: 1rem;
+}
+
+@media (max-width: 1180px) {
+  .preorder-page .preorder-hero,
+  .preorder-detail-body {
+    grid-template-columns: 1fr;
+  }
+
+  .preorder-page .preorder-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .reservation-preorder-dish-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .preorder-detail-media {
+    position: static;
+  }
+}
+
+@media (max-width: 760px) {
+  .preorder-page .preorder-hero {
+    border-radius: 26px;
+    padding: 1.2rem;
+  }
+
+  .preorder-hero-card-grid,
+  .preorder-page .preorder-recommendation-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .reservation-preorder-dish-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .preorder-filter-heading,
+  .preorder-hero-card-top,
+  .preorder-hero-card-status,
+  .preorder-detail-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .preorder-detail-body {
+    max-height: 72vh;
+    padding: .9rem;
+  }
+
+  .preorder-detail-footer-actions,
+  .preorder-detail-footer-actions .btn {
+    width: 100%;
+  }
+}
+
+.reservation-history-shell {
+  max-width: 1180px;
+  padding: 3rem 1rem 4rem;
+}
+
+.reservation-history-hero {
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.94), rgba(255,247,237,.82)),
+    radial-gradient(circle at top left, rgba(249,115,22,.18), transparent 28rem);
+  border: 1px solid rgba(249,115,22,.14);
+  border-radius: 32px;
+  box-shadow: 0 24px 70px rgba(15,23,42,.1);
+  margin-bottom: 1.25rem;
+  padding: clamp(1.5rem, 3vw, 2.25rem);
+}
+
+.reservation-history-hero h1 {
+  color: #111827;
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  font-weight: 950;
+  letter-spacing: -.05em;
+  margin: .35rem 0;
+}
+
+.reservation-history-hero p {
+  color: #64748b;
+  max-width: 720px;
+}
+
+.reservation-history-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.reservation-history-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.reservation-history-main,
+.reservation-history-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .8rem;
+  justify-content: space-between;
+}
+
+.reservation-history-main h2 {
+  color: #111827;
+  font-size: 1.45rem;
+  font-weight: 950;
+  letter-spacing: -.03em;
+  margin: .15rem 0 0;
+}
+
+.reservation-history-status {
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  color: #3730a3;
+  font-size: .8rem;
+  font-weight: 900;
+  padding: .45rem .8rem;
+}
+
+.reservation-history-status-cancelled,
+.reservation-history-status-noshow {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.reservation-history-status-checkedin,
+.reservation-history-status-completed {
+  background: #dcfce7;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.reservation-history-grid {
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.reservation-history-info {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  display: grid;
+  gap: .25rem;
+  padding: .85rem;
+}
+
+.reservation-history-info span {
+  color: #64748b;
+  font-size: .84rem;
+  font-weight: 750;
+}
+
+.reservation-history-info strong {
+  color: #111827;
+}
+
+.reservation-history-note {
+  background: #fff7ed;
+  border: 1px solid rgba(249,115,22,.18);
+  border-radius: 16px;
+  color: #475569;
+  margin: 0;
+  padding: .85rem;
+}
+
+.reservation-enter-table {
+  align-items: center;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .85rem;
+  justify-content: space-between;
+  padding: .9rem 1rem;
+}
+
+.reservation-enter-table-copy {
+  color: #166534;
+  display: grid;
+  gap: .2rem;
+}
+
+.reservation-enter-table-copy strong {
+  color: #14532d;
+}
+
+.reservation-enter-table-copy span {
+  font-size: .92rem;
+  font-weight: 750;
+}
+
+.reservation-history-empty {
+  align-items: center;
+  color: #64748b;
+  display: grid;
+  gap: .6rem;
+  justify-items: center;
+  text-align: center;
+}
+
+.reservation-history-empty i {
+  color: #ef4444;
+  font-size: 2rem;
+}
+
+.reservation-history-empty strong {
+  color: #111827;
+  font-size: 1.15rem;
+}
+
+@media (max-width: 900px) {
+  .reservation-history-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .reservation-history-grid {
+    grid-template-columns: 1fr;
+  }
 }

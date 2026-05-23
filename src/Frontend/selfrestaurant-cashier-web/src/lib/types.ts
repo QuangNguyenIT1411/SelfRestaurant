@@ -116,3 +116,84 @@ export type CashierCheckoutResultDto = {
   pointsBefore: number;
   message: string;
 };
+
+export type ActiveOrderItemDto = {
+  itemId: number;
+  orderId: number;
+  dishId: number;
+  dishName: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  note?: string | null;
+  unit?: string | null;
+  image?: string | null;
+  status?: string | null;
+};
+
+export type ActiveOrderResponse = {
+  orderId: number;
+  orderCode?: string | null;
+  tableId?: number | null;
+  statusCode: string;
+  orderStatus: string;
+  subtotal: number;
+  totalItems: number;
+  items: ActiveOrderItemDto[];
+  diningSessionCode?: string | null;
+  hasActiveDiningSession?: boolean;
+  activeOrderIds?: number[];
+  hasPendingRound?: boolean;
+  pendingOrderId?: number | null;
+};
+
+export type ReservationPreOrderItemDto = {
+  reservationItemId: number;
+  reservationId: number;
+  dishId: number;
+  dishNameSnapshot: string;
+  unitPriceSnapshot: number;
+  quantity: number;
+  note?: string | null;
+  status: string;
+  createdAtUtc: string;
+  updatedAtUtc?: string | null;
+  convertedAtUtc?: string | null;
+};
+
+export type ReservationDto = {
+  reservationId: number;
+  reservationCode: string;
+  customerId?: number | null;
+  customerName: string;
+  phoneNumber: string;
+  branchId: number;
+  tableId?: number | null;
+  partySize: number;
+  reservedAt: string;
+  arrivalWindowMinutes: number;
+  status: string;
+  note?: string | null;
+  convertedOrderId?: number | null;
+  diningSessionCode?: string | null;
+  checkedInAtUtc?: string | null;
+  checkedInByEmployeeId?: number | null;
+  cancelledAtUtc?: string | null;
+  createdAtUtc: string;
+  updatedAtUtc?: string | null;
+  assignedTables?: ReservationAssignedTableDto[] | null;
+  preOrderItems: ReservationPreOrderItemDto[];
+};
+
+export type ReservationAssignedTableDto = {
+  tableId: number;
+  isPrimary: boolean;
+};
+
+export type CashierReservationCheckInResultDto = {
+  success: boolean;
+  message: string;
+  reservation: ReservationDto;
+  order?: ActiveOrderResponse | null;
+  alreadyCheckedIn: boolean;
+};

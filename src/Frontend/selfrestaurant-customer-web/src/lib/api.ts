@@ -13,8 +13,12 @@ import type {
   CustomerProfileDto,
   CustomerReadyNotificationsDto,
   CustomerSessionDto,
+  CreateReservationPayload,
   DevResetResponse,
   LoyaltyScanResponse,
+  MenuResponse,
+  ReplaceReservationPreOrderItemsPayload,
+  ReservationDto,
 } from "./types";
 
 type RawBranchPayload =
@@ -160,4 +164,11 @@ export const api = {
   confirmReceived: (orderId: number) => request<{ success: true; message: string }>(`/api/gateway/customer/order/confirm-received?orderId=${orderId}`, { method: "POST" }),
   scanLoyalty: (phoneNumber: string) => request<LoyaltyScanResponse>("/api/gateway/customer/order/scan-loyalty", { method: "POST", body: JSON.stringify({ phoneNumber }) }),
   getDashboard: () => request<CustomerDashboardDto>("/api/gateway/customer/dashboard"),
+  createReservation: (payload: CreateReservationPayload) => request<ReservationDto>("/api/customer/reservations", { method: "POST", body: JSON.stringify(payload) }),
+  getMyReservations: () => request<ReservationDto[]>("/api/customer/reservations/my"),
+  getReservation: (code: string) => request<ReservationDto>(`/api/customer/reservations/${encodeURIComponent(code)}`),
+  getReservationMenu: (code: string) => request<MenuResponse>(`/api/customer/reservations/${encodeURIComponent(code)}/menu`),
+  cancelReservation: (reservationId: number) => request<ReservationDto>(`/api/customer/reservations/${reservationId}/cancel`, { method: "POST" }),
+  replaceReservationPreOrderItems: (reservationId: number, payload: ReplaceReservationPreOrderItemsPayload) =>
+    request<ReservationDto>(`/api/customer/reservations/${reservationId}/preorder-items`, { method: "POST", body: JSON.stringify(payload) }),
 };

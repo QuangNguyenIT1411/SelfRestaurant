@@ -142,7 +142,9 @@ export function AdminConsolePage({ onLogout }: Props) {
   const isDishIngredientsPage = location.pathname.toLowerCase().includes("/admin/dishes/ingredients");
   const isTableEditPage = location.pathname.toLowerCase().includes("/admin/tablesqr/edit");
   const isTableQrPage = location.pathname.toLowerCase().includes("/admin/tablesqr/qr");
-  const tableQrFilterId = new URLSearchParams(location.search).get("tableId");
+  const queryParams = new URLSearchParams(location.search);
+  const tableQrFilterId = queryParams.get("tableId");
+  const dishIngredientQueryId = Number(queryParams.get("dishId") || "0");
   const isRevenuePage = location.pathname.toLowerCase().includes("/admin/reports/revenue");
   const isTopDishesPage = location.pathname.toLowerCase().includes("/admin/reports/topdishes");
 
@@ -174,6 +176,26 @@ export function AdminConsolePage({ onLogout }: Props) {
   useEffect(() => {
     setDishIngredientPage((currentPage) => Math.min(Math.max(currentPage, 1), dishIngredientTotalPages));
   }, [dishIngredientTotalPages]);
+
+  useEffect(() => {
+    if (!isDishIngredientsPage || dishIngredientEditor || dishIngredientQueryId <= 0) return;
+
+    let cancelled = false;
+    adminApi.getDishIngredients(dishIngredientQueryId)
+      .then((recipe) => {
+        if (cancelled) return;
+        setDishIngredientPage(1);
+        setDishIngredientEditor({ dishId: recipe.dishId, dishName: recipe.dishName, items: recipe.ingredients });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Kh?ng th? t?i nguy?n li?u m?n ?n.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dishIngredientEditor, dishIngredientQueryId, isDishIngredientsPage]);
 
   async function loadTableSummaryData(scopedBranchId?: number) {
     const firstPage = await adminApi.getTables("", scopedBranchId, 1, 100);
@@ -686,10 +708,10 @@ export function AdminConsolePage({ onLogout }: Props) {
   async function openDishIngredients(dishId: number, dishName: string) {
     try {
       setError(null);
-      const items = await adminApi.getDishIngredients(dishId);
+      const recipe = await adminApi.getDishIngredients(dishId);
       setDishIngredientPage(1);
-      setDishIngredientEditor({ dishId, dishName, items });
-      navigate("/Admin/Dishes/Ingredients");
+      setDishIngredientEditor({ dishId: recipe.dishId, dishName: recipe.dishName || dishName, items: recipe.ingredients });
+      navigate(`/Admin/Dishes/Ingredients?dishId=${recipe.dishId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tải nguyên liệu món ăn.");
     }
@@ -1166,6 +1188,12 @@ export function AdminConsolePage({ onLogout }: Props) {
                     </select>
                   </label>
                 </div>
+                {dishIngredientTotalItems === 0 ? (
+                  <div className="empty-report history-empty-card">
+                    <i className="bi bi-basket3-fill" />
+                    <strong>Ch?a c? nguy?n li?u cho m?n n?y.</strong>
+                  </div>
+                ) : (
                 <div className="ingredient-modal-list">
                   {pagedDishIngredientItems.map((item, pageIndex) => {
                     const index = dishIngredientPageStart + pageIndex;
@@ -1202,6 +1230,7 @@ export function AdminConsolePage({ onLogout }: Props) {
                     );
                   })}
                 </div>
+                )}
                 <div className="button-row wrap admin-pagination dish-ingredient-pagination" aria-label="Phân trang nguyên liệu">
                   <button type="button" className="ghost admin-pagination-nav" disabled={dishIngredientPage <= 1} onClick={() => setDishIngredientPage(1)}>Đầu</button>
                   <button type="button" className="ghost admin-pagination-nav" disabled={dishIngredientPage <= 1} onClick={() => setDishIngredientPage((page) => Math.max(1, page - 1))}>Trước</button>

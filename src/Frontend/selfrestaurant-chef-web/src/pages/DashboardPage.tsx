@@ -997,24 +997,29 @@ function OrderColumn({
             <div className="order-items">
               {order.items.map((item) => (
                 <div key={item.itemId} className="order-item">
-                  <div className="order-item-layout">
-                    <span className="item-qty">{item.quantity}</span>
+                  <div className="order-item-main">
+                    <span className="item-qty">x{item.quantity}</span>
                     <div className="order-item-content">
                       <strong className="item-name">{item.dishName}</strong>
-                      {item.note?.trim() ? <small className="item-note">Ghi chú khách: {item.note}</small> : null}
-                      <div className="mt-1">
+                      <div className="item-status-row">
                         <span className={getItemStatusClass(item.statusCode)}>{getItemStatusLabel(item.statusCode)}</span>
                       </div>
+                      {item.note?.trim() ? (
+                        <small className="item-note">
+                          <i className="bi bi-chat-left-text" />
+                          Ghi chú khách: {item.note}
+                        </small>
+                      ) : null}
                     </div>
                   </div>
-                  <div className="d-flex flex-column align-items-end gap-2">
+                  <div className="item-action-panel">
                     <button
                       className="ghost note-action-button"
                       onClick={() => onOpenIngredients(item.dishId, item.note || "", order.orderId, item.itemId)}
                     >
                       Xem thành phần
                     </button>
-                    <div className="d-flex flex-wrap justify-content-end gap-2">
+                    <div className="item-status-actions">
                       {onStartItem && ["PENDING", "CONFIRMED"].includes(normalizeItemStatusCode(item.statusCode)) ? (
                         <button className="btn-action-primary" onClick={() => void onStartItem(order.orderId, item.itemId)}>
                           Bắt đầu

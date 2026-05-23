@@ -117,6 +117,28 @@ public sealed class AdminGatewayController : ControllerBase
             BuildSettingsDto(admin)));
     }
 
+    [HttpGet("/api/admin/reservations/today")]
+    public async Task<ActionResult<IReadOnlyList<ReservationDto>>> GetTodayReservations(
+        [FromQuery] int? branchId,
+        [FromQuery] string? status,
+        [FromQuery] DateOnly? date,
+        CancellationToken cancellationToken)
+    {
+        var admin = RequireAdmin();
+        if (admin is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
+
+        var targetBranchId = branchId is > 0 ? branchId : admin.BranchId;
+        try
+        {
+            var reservations = await _customersClient.GetTodayReservationsAsync(targetBranchId, status, date, cancellationToken);
+            return Ok(reservations);
+        }
+        catch (ApiClientException ex)
+        {
+            return HandleApiClientException("get_reservations_failed", ex);
+        }
+    }
+
     [HttpGet("categories")]
     public async Task<ActionResult<AdminCategoriesScreenDto>> GetCategories(CancellationToken cancellationToken)
     {
@@ -318,10 +340,11 @@ public sealed class AdminGatewayController : ControllerBase
     }
 
     [HttpGet("dishes/{dishId:int}/ingredients")]
-    public async Task<ActionResult<IReadOnlyList<AdminDishIngredientLineDto>>> GetDishIngredients(int dishId, CancellationToken cancellationToken)
+    public async Task<ActionResult<AdminDishIngredientsDto>> GetDishIngredients(int dishId, CancellationToken cancellationToken)
     {
-        if (RequireAdmin() is null) return Error("unauthorized", "Bạn cần đăng nhập bằng tài khoản quản trị.", 401);
-        return Ok(await _catalogClient.GetDishIngredientsAsync(dishId, cancellationToken));
+        if (RequireAdmin() is null) return Error("unauthorized", "B?n c?n ??ng nh?p b?ng t?i kho?n qu?n tr?.", 401);
+        var response = await _catalogClient.GetDishIngredientsAsync(dishId, cancellationToken);
+        return response is null ? Error("dish_not_found", "Kh?ng t?m th?y m?n ?n.", 404) : Ok(response);
     }
 
     [HttpPut("dishes/{dishId:int}/ingredients")]

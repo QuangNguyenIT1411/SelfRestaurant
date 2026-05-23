@@ -567,14 +567,22 @@ public sealed class CatalogController : ControllerBase
         var ingredientIds = requirements.Select(x => x.Ingredient.IngredientID).Distinct().ToArray();
         var activeBatches = await _db.IngredientBatches
             .Where(b => ingredientIds.Contains(b.IngredientID) && b.IsActive)
-            .OrderBy(b => b.ExpiryDate)
-            .ThenBy(b => b.ReceivedDate)
-            .ThenBy(b => b.BatchID)
             .ToListAsync(cancellationToken);
         var today = DateOnly.FromDateTime(DateTime.Today);
+        var issueMethodLookup = requirements.ToDictionary(
+            x => x.Ingredient.IngredientID,
+            x => NormalizeIssueMethod(x.Ingredient.IssueMethod));
         var batchLookup = activeBatches
             .GroupBy(b => b.IngredientID)
-            .ToDictionary(g => g.Key, g => g.ToList());
+            .ToDictionary(
+                g => g.Key,
+                g =>
+                {
+                    var issueMethod = issueMethodLookup.TryGetValue(g.Key, out var foundIssueMethod) ? foundIssueMethod : "FEFO";
+                    return issueMethod == "FIFO"
+                        ? g.OrderBy(b => b.ReceivedDate).ThenBy(b => b.BatchID).ToList()
+                        : g.OrderBy(b => b.ExpiryDate).ThenBy(b => b.ReceivedDate).ThenBy(b => b.BatchID).ToList();
+                });
 
         var insufficient = new List<IngredientConsumptionIssue>();
         foreach (var requirement in requirements)
@@ -607,6 +615,7 @@ public sealed class CatalogController : ControllerBase
         var consumedAt = DateTime.UtcNow;
         foreach (var requirement in requirements)
         {
+            var issueMethod = NormalizeIssueMethod(requirement.Ingredient.IssueMethod);
             var ingredientLines = recipeLines
                 .Where(x => x.Ingredient.IngredientID == requirement.Ingredient.IngredientID)
                 .ToList();
@@ -638,7 +647,7 @@ public sealed class CatalogController : ControllerBase
                         batch.QuantityRemaining -= deducted;
                         batch.UpdatedAt = consumedAt;
                         remainingLineQuantity -= deducted;
-                        AddConsumptionMovement(requirement.Ingredient.IngredientID, batch.BatchID, deducted, line, request.OrderId, consumedAt);
+                        AddConsumptionMovement(requirement.Ingredient.IngredientID, batch.BatchID, deducted, line, request.OrderId, consumedAt, issueMethod);
                     }
 
                     if (remainingLineQuantity > 0)
@@ -686,7 +695,7 @@ public sealed class CatalogController : ControllerBase
 
                 foreach (var line in ingredientLines)
                 {
-                    AddConsumptionMovement(requirement.Ingredient.IngredientID, null, line.RequiredQuantity, line, request.OrderId, consumedAt);
+                    AddConsumptionMovement(requirement.Ingredient.IngredientID, null, line.RequiredQuantity, line, request.OrderId, consumedAt, issueMethod);
                 }
             }
         }
@@ -906,7 +915,8 @@ public sealed class CatalogController : ControllerBase
         decimal quantity,
         ConsumptionRecipeLine line,
         int orderId,
-        DateTime consumedAt)
+        DateTime consumedAt,
+        string issueMethod)
     {
         _db.IngredientStockMovements.Add(new IngredientStockMovements
         {
@@ -920,9 +930,12 @@ public sealed class CatalogController : ControllerBase
             OrderItemID = line.OrderItemId,
             DishID = line.DishId,
             CreatedAt = consumedAt,
-            Note = batchId is null ? "Trừ kho nguyên liệu từ tồn hiện tại" : "Trừ kho nguyên liệu theo FEFO"
+            Note = batchId is null ? "Consumed from CurrentStock fallback" : $"Consumed by {NormalizeIssueMethod(issueMethod)}"
         });
     }
+
+    private static string NormalizeIssueMethod(string? issueMethod)
+        => string.Equals(issueMethod, "FIFO", StringComparison.OrdinalIgnoreCase) ? "FIFO" : "FEFO";
 
     private async Task<int> TryDecreaseIngredientCurrentStockAsync(int ingredientId, decimal quantity, CancellationToken cancellationToken)
     {

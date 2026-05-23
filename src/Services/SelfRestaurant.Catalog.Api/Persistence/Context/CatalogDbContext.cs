@@ -164,6 +164,7 @@ public sealed class CatalogDbContext : DbContext
             entity.HasKey(e => e.IngredientID);
             entity.HasIndex(e => e.Name).HasDatabaseName("idx_ingredients_name");
             entity.Property(e => e.CurrentStock).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.IssueMethod).HasMaxLength(10).IsUnicode(false).HasDefaultValue("FEFO");
             entity.Property(e => e.Name).HasMaxLength(200);
             entity.Property(e => e.ReorderLevel).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.Unit).HasMaxLength(50);

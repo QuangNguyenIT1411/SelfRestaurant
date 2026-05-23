@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { useAppDialog } from "../components/AppDialog";
 import { cashierApi } from "../lib/api";
 import { buildCashierTransferReference, buildCashierVietQrUrl, cashierQrBankInfo } from "../lib/vietQr";
-import type { CashierCheckoutResultDto, CashierDashboardDto } from "../lib/types";
+import type { CashierCheckoutResultDto, CashierDashboardDto, CashierReservationCheckInResultDto, ReservationDto } from "../lib/types";
 
 type Props = {
   onLogout: () => Promise<void>;
@@ -27,6 +27,26 @@ type CheckoutResultView = CashierCheckoutResultDto & {
 };
 
 const CHECKOUT_KEY_PREFIX = "selfrestaurant.cashier.checkoutIntent:";
+const reservationStatusLabels: Record<string, string> = {
+  Pending: "Chờ xác nhận",
+  Confirmed: "Đã xác nhận",
+  CheckingIn: "Đang check-in",
+  CheckedIn: "Đã check-in",
+  Cancelled: "Đã hủy",
+  NoShow: "Không đến",
+  Completed: "Hoàn tất",
+};
+
+const reservationStatuses = [
+  { value: "ALL", label: "Tất cả trạng thái" },
+  { value: "Pending", label: "Chờ xác nhận" },
+  { value: "Confirmed", label: "Đã xác nhận" },
+  { value: "CheckingIn", label: "Đang check-in" },
+  { value: "CheckedIn", label: "Đã check-in" },
+  { value: "Cancelled", label: "Đã hủy" },
+  { value: "NoShow", label: "Không đến" },
+  { value: "Completed", label: "Hoàn tất" },
+];
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -55,9 +75,47 @@ function itemStatusBadgeClass(statusCode?: string | null) {
   return "soft-badge secondary";
 }
 
+function reservationStatusBadgeClass(status?: string | null) {
+  const normalized = (status ?? "").toUpperCase();
+  if (normalized === "CONFIRMED") return "soft-badge success";
+  if (normalized === "CHECKEDIN" || normalized === "COMPLETED") return "soft-badge info";
+  if (normalized === "CANCELLED" || normalized === "NOSHOW") return "soft-badge danger";
+  return "soft-badge warning";
+}
+
+function formatReservationTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }).format(date);
+}
+
+function summarizePreOrderItems(reservation: ReservationDto) {
+  const items = reservation.preOrderItems?.filter((item) => item.status !== "Cancelled") ?? [];
+  if (items.length === 0) return "Chưa chọn món trước";
+  return items
+    .slice(0, 3)
+    .map((item) => `${item.dishNameSnapshot} x${item.quantity}`)
+    .join(", ") + (items.length > 3 ? ` +${items.length - 3} món` : "");
+}
+
+function getReservationTableIds(reservation: ReservationDto) {
+  const assignedIds = reservation.assignedTables?.map((table) => table.tableId).filter((tableId) => tableId > 0) ?? [];
+  if (assignedIds.length > 0) return Array.from(new Set(assignedIds));
+  return reservation.tableId ? [reservation.tableId] : [];
+}
+
 export function DashboardPage({ onLogout }: Props) {
   const { alert, prompt, Dialog } = useAppDialog();
   const [dashboard, setDashboard] = useState<CashierDashboardDto | null>(null);
+  const [reservations, setReservations] = useState<ReservationDto[]>([]);
+  const [reservationsLoading, setReservationsLoading] = useState(false);
+  const [reservationsError, setReservationsError] = useState<string | null>(null);
+  const [reservationSearch, setReservationSearch] = useState("");
+  const [reservationStatus, setReservationStatus] = useState("ALL");
+  const [checkInTarget, setCheckInTarget] = useState<ReservationDto | null>(null);
+  const [selectedCheckInTableIds, setSelectedCheckInTableIds] = useState<number[]>([]);
+  const [checkInResult, setCheckInResult] = useState<CashierReservationCheckInResultDto | null>(null);
+  const [checkInSubmitting, setCheckInSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -123,9 +181,27 @@ export function DashboardPage({ onLogout }: Props) {
     }
   }
 
+  async function loadReservations(branchId: number, status = reservationStatus) {
+    setReservationsLoading(true);
+    setReservationsError(null);
+    try {
+      setReservations(await cashierApi.getTodayReservations(branchId, status));
+    } catch (err) {
+      setReservationsError(err instanceof Error ? err.message : "Không thể tải danh sách đặt bàn hôm nay.");
+    } finally {
+      setReservationsLoading(false);
+    }
+  }
+
   useEffect(() => {
     void loadDashboard();
   }, []);
+
+  useEffect(() => {
+    const branchId = dashboard?.staff.branchId;
+    if (!branchId) return;
+    void loadReservations(branchId, reservationStatus);
+  }, [dashboard?.staff.branchId, reservationStatus]);
 
   useEffect(() => {
     const branchId = dashboard?.staff.branchId;
@@ -167,6 +243,10 @@ export function DashboardPage({ onLogout }: Props) {
     setActiveTableId(null);
   }, [activeTableId, dashboard]);
 
+  useEffect(() => {
+    setSelectedCheckInTableIds(checkInTarget ? getReservationTableIds(checkInTarget) : []);
+  }, [checkInTarget]);
+
   const visibleTables = useMemo(() => {
     const keyword = tableSearch.trim().toLowerCase();
     return dashboard?.tables.filter((table) => keyword.length === 0 || table.number.toLowerCase().includes(keyword)) ?? [];
@@ -181,6 +261,26 @@ export function DashboardPage({ onLogout }: Props) {
     if (!dashboard || !selectedTable?.orderId) return null;
     return dashboard.orders.find((order) => order.orderId === selectedTable.orderId) ?? null;
   }, [dashboard, selectedTable]);
+
+  const visibleReservations = useMemo(() => {
+    const keyword = reservationSearch.trim().toLowerCase();
+    return reservations.filter((reservation) => {
+      if (!keyword) return true;
+      return [
+        reservation.reservationCode,
+        reservation.customerName,
+        reservation.phoneNumber,
+        reservation.note ?? "",
+      ].some((value) => value.toLowerCase().includes(keyword));
+    });
+  }, [reservationSearch, reservations]);
+
+  const availableCheckInTables = useMemo(
+    () => dashboard?.tables.filter((table) => table.status === "AVAILABLE" || selectedCheckInTableIds.includes(table.tableId)) ?? [],
+    [dashboard, selectedCheckInTableIds],
+  );
+
+  const primaryCheckInTableId = selectedCheckInTableIds[0] ?? null;
 
   const subtotal = activeOrder?.subtotal ?? 0;
   const pointsAvailable = activeOrder?.customerCreditPoints ?? 0;
@@ -358,6 +458,40 @@ export function DashboardPage({ onLogout }: Props) {
     }
   }
 
+  function toggleCheckInTable(tableId: number) {
+    setSelectedCheckInTableIds((current) => current.includes(tableId) ? current.filter((id) => id !== tableId) : [...current, tableId]);
+  }
+
+  function removeCheckInTable(tableId: number) {
+    setSelectedCheckInTableIds((current) => current.filter((id) => id !== tableId));
+  }
+
+  async function confirmReservationCheckIn() {
+    if (!checkInTarget || checkInSubmitting) return;
+    const primaryTableId = selectedCheckInTableIds[0] ?? null;
+    if (!primaryTableId) {
+      setError("Vui lòng chọn ít nhất một bàn trước khi check-in.");
+      return;
+    }
+    setCheckInSubmitting(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const result = await cashierApi.checkInReservation(checkInTarget.reservationId, { tableId: primaryTableId, tableIds: selectedCheckInTableIds });
+      setCheckInResult(result);
+      setCheckInTarget(null);
+      setMessage(result.message || "Đã check-in và tạo đơn hàng thành công.");
+      await loadDashboard(true);
+      if (dashboard?.staff.branchId) {
+        await loadReservations(dashboard.staff.branchId, reservationStatus);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể check-in đặt bàn.");
+    } finally {
+      setCheckInSubmitting(false);
+    }
+  }
+
   async function closeCheckoutResult() {
     setCheckoutResult(null);
     setActiveTableId(null);
@@ -415,6 +549,131 @@ export function DashboardPage({ onLogout }: Props) {
 
       {message ? <div className="success-box">{message}</div> : null}
       {error ? <div className="error-box">{error}</div> : null}
+
+      <section className="panel cashier-panel-card cashier-reservation-panel">
+        <div className="cashier-panel-header">
+          <div>
+            <h2>
+              <i className="bi bi-calendar-check me-2" />
+              Đặt bàn hôm nay
+            </h2>
+            <p className="muted">Theo dõi khách đã đặt bàn và món đặt trước trong ngày.</p>
+          </div>
+          <button
+            type="button"
+            className="cashier-link-button cashier-link-button-outline"
+            onClick={() => void loadReservations(dashboard.staff.branchId, reservationStatus)}
+            disabled={reservationsLoading}
+          >
+            <i className="bi bi-arrow-clockwise me-1" />
+            Làm mới
+          </button>
+        </div>
+
+        <div className="cashier-panel-body">
+          <div className="reservation-filter-bar">
+            <div className="table-search-group">
+              <i className="bi bi-search" />
+              <input
+                type="text"
+                value={reservationSearch}
+                onChange={(event) => setReservationSearch(event.target.value)}
+                placeholder="Tìm mã đặt bàn, tên khách hoặc số điện thoại..."
+              />
+            </div>
+            <select value={reservationStatus} onChange={(event) => setReservationStatus(event.target.value)}>
+              {reservationStatuses.map((status) => (
+                <option key={status.value} value={status.value}>{status.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {reservationsLoading ? (
+            <div className="cashier-empty-state reservation-empty-state">
+              <i className="bi bi-hourglass-split" />
+              <p>Đang tải đặt bàn hôm nay...</p>
+            </div>
+          ) : null}
+
+          {reservationsError ? <div className="error-box">{reservationsError}</div> : null}
+
+          {!reservationsLoading && !reservationsError && visibleReservations.length === 0 ? (
+            <div className="cashier-empty-state reservation-empty-state">
+              <i className="bi bi-calendar2-x" />
+              <p>Chưa có đặt bàn nào hôm nay.</p>
+            </div>
+          ) : null}
+
+          {!reservationsLoading && !reservationsError && visibleReservations.length > 0 ? (
+            <div className="cashier-reservation-grid">
+              {visibleReservations.map((reservation) => {
+                const itemCount = reservation.preOrderItems?.filter((item) => item.status !== "Cancelled").length ?? 0;
+                const tableIds = getReservationTableIds(reservation);
+                const primaryAssignedTable = reservation.assignedTables?.find((assignedTable) => assignedTable.isPrimary)?.tableId ?? reservation.tableId ?? tableIds[0];
+                const tableText = tableIds.length > 0
+                  ? tableIds
+                      .map((tableId) => {
+                        const table = dashboard.tables.find((candidate) => candidate.tableId === tableId);
+                        const label = table?.number ?? `Bàn #${tableId}`;
+                        return tableId === primaryAssignedTable ? `${label} (bàn chính)` : label;
+                      })
+                      .join(", ")
+                  : "Chưa gán bàn";
+
+                return (
+                  <article key={reservation.reservationId} className="cashier-reservation-card">
+                    <div className="reservation-card-topline">
+                      <strong>{reservation.reservationCode}</strong>
+                      <span className={reservationStatusBadgeClass(reservation.status)}>
+                        {reservationStatusLabels[reservation.status] ?? reservation.status}
+                      </span>
+                    </div>
+                    <div className="reservation-main-info">
+                      <div>
+                        <span>Khách hàng</span>
+                        <strong>{reservation.customerName}</strong>
+                      </div>
+                      <div>
+                        <span>Điện thoại</span>
+                        <strong>{reservation.phoneNumber}</strong>
+                      </div>
+                      <div>
+                        <span>Số khách</span>
+                        <strong>{reservation.partySize} khách</strong>
+                      </div>
+                      <div>
+                        <span>Thời gian</span>
+                        <strong>{formatReservationTime(reservation.reservedAt)}</strong>
+                      </div>
+                    </div>
+                    <div className="reservation-meta-row">
+                      <span><i className="bi bi-shop me-1" />{dashboard.staff.branchName}</span>
+                      <span><i className="bi bi-table me-1" />{tableText}</span>
+                      {reservation.partySize > 4 ? <span className="soft-badge warning"><i className="bi bi-people me-1" />Cần sắp xếp/ghép bàn</span> : null}
+                    </div>
+                    {reservation.note ? <p className="reservation-note">Ghi chú: {reservation.note}</p> : null}
+                    <div className="reservation-preorder-summary">
+                      <span className="soft-badge info">{itemCount} món đặt trước</span>
+                      <p>{summarizePreOrderItems(reservation)}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="cashier-button-primary reservation-checkin-placeholder"
+                      disabled={!["Pending", "Confirmed"].includes(reservation.status) || checkInSubmitting}
+                      onClick={() => setCheckInTarget(reservation)}
+                      title={["Pending", "Confirmed"].includes(reservation.status) ? "Check-in đặt bàn" : "Đặt bàn không còn ở trạng thái nhận khách"}
+                    >
+                      <i className="bi bi-person-check me-1" />
+                      Nhận khách
+                    </button>
+                    <small className="muted">Check-in sẽ tạo đơn bếp từ món đặt trước nếu có.</small>
+                  </article>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      </section>
 
       <section className="split-grid cash-grid cashier-pos-grid">
         <div className="panel cashier-panel-card cashier-pos-panel cashier-table-panel">
@@ -699,6 +958,121 @@ export function DashboardPage({ onLogout }: Props) {
           </div>
         </div>
       </section>
+
+      {checkInTarget ? (
+        <div className="modal-backdrop">
+          <div className="modal-card cashier-modal-card reservation-checkin-modal">
+            <div className="cashier-panel-header">
+              <h2>
+                <i className="bi bi-person-check-fill me-2" />
+                Xác nhận nhận khách
+              </h2>
+              <button className="ghost" onClick={() => setCheckInTarget(null)} disabled={checkInSubmitting}>
+                Đóng
+              </button>
+            </div>
+            <div className="cashier-panel-body">
+              <div className="bill-meta-grid">
+                <div className="bill-meta-card">
+                  <span>Mã đặt bàn</span>
+                  <strong>{checkInTarget.reservationCode}</strong>
+                </div>
+                <div className="bill-meta-card">
+                  <span>Khách hàng</span>
+                  <strong>{checkInTarget.customerName}</strong>
+                </div>
+                <div className="bill-meta-card">
+                  <span>Số khách</span>
+                  <strong>{checkInTarget.partySize} khách</strong>
+                </div>
+                <div className="bill-meta-card">
+                  <span>Thời gian</span>
+                  <strong>{formatReservationTime(checkInTarget.reservedAt)}</strong>
+                </div>
+                <div className="bill-meta-card">
+                  <span>Bàn</span>
+                  <strong>
+                    {selectedCheckInTableIds.length > 0
+                      ? selectedCheckInTableIds.map((tableId) => dashboard.tables.find((table) => table.tableId === tableId)?.number ?? `Bàn #${tableId}`).join(", ")
+                      : "Chưa gán bàn"}
+                  </strong>
+                </div>
+                <div className="bill-meta-card">
+                  <span>Trạng thái</span>
+                  <strong>{reservationStatusLabels[checkInTarget.status] ?? checkInTarget.status}</strong>
+                </div>
+              </div>
+
+              <div className="reservation-modal-preorder">
+                <h3>Món đặt trước</h3>
+                {checkInTarget.preOrderItems.filter((item) => item.status === "Pending").length > 0 ? (
+                  <div className="order-list compact-list">
+                    {checkInTarget.preOrderItems.filter((item) => item.status === "Pending").map((item) => (
+                      <div className="order-line" key={item.reservationItemId}>
+                        <div>
+                          <strong>{item.dishNameSnapshot}</strong>
+                          <span>{item.quantity} x {item.unitPriceSnapshot.toLocaleString("vi-VN")} đ{item.note ? ` • ${item.note}` : ""}</span>
+                        </div>
+                        <strong>{(item.quantity * item.unitPriceSnapshot).toLocaleString("vi-VN")} đ</strong>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="cashier-info-note">Đặt bàn chưa có món đặt trước. Hệ thống sẽ chỉ đánh dấu đã check-in.</div>
+                )}
+              </div>
+
+              <div className="reservation-table-picker">
+                  <h3>Chọn bàn ghép</h3>
+                  <p className="cashier-info-note">Nhóm đông người có thể được ghép nhiều bàn. Bàn chính sẽ dùng để tạo đơn và hóa đơn.</p>
+                  {selectedCheckInTableIds.length > 0 ? (
+                    <div className="reservation-selected-table-row">
+                      {selectedCheckInTableIds.map((tableId, index) => (
+                        <span className="reservation-selected-table-chip" key={tableId}>
+                          {dashboard.tables.find((table) => table.tableId === tableId)?.number ?? `Bàn #${tableId}`}
+                          {index === 0 ? <em>Bàn chính</em> : null}
+                          <button type="button" onClick={() => removeCheckInTable(tableId)} disabled={checkInSubmitting} aria-label="Bỏ chọn bàn">×</button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {availableCheckInTables.length > 0 ? (
+                    <div className="reservation-table-grid">
+                      {availableCheckInTables.map((table) => (
+                        <button
+                          type="button"
+                          key={table.tableId}
+                          className={`reservation-table-option ${selectedCheckInTableIds.includes(table.tableId) ? "selected" : ""}`}
+                          onClick={() => toggleCheckInTable(table.tableId)}
+                          disabled={checkInSubmitting}
+                        >
+                          <strong>{table.number}</strong>
+                          <span>{table.seats} chỗ</span>
+                          {primaryCheckInTableId === table.tableId ? <small>Bàn chính</small> : null}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="cashier-info-note danger">Không bàn nào đang xử lý.</div>
+                  )}
+                </div>
+
+              <div className="cashier-info-note">
+                Sau khi xác nhận, món đặt trước sẽ trở thành đơn hàng thật và hiển thị cho bếp.
+              </div>
+
+              <div className="modal-actions">
+                <button className="cashier-button-outline" onClick={() => setCheckInTarget(null)} disabled={checkInSubmitting}>
+                  Hủy
+                </button>
+                <button className="cashier-button-primary" onClick={() => void confirmReservationCheckIn()} disabled={checkInSubmitting || selectedCheckInTableIds.length === 0}>
+                  {checkInSubmitting ? "Đang check-in..." : "Xác nhận nhận khách"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {checkoutResult ? (
         <div className="modal-backdrop">

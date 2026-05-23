@@ -5,6 +5,8 @@ import type {
   CashierDashboardDto,
   CashierHistoryDto,
   CashierReportScreenDto,
+  CashierReservationCheckInResultDto,
+  ReservationDto,
   StaffSessionDto,
 } from "./types";
 
@@ -37,6 +39,15 @@ export const cashierApi = {
   getDashboard: () => request<CashierDashboardDto>("/api/gateway/staff/cashier/dashboard"),
   getHistory: () => request<CashierHistoryDto>("/api/gateway/staff/cashier/history"),
   getReport: (date?: string) => request<CashierReportScreenDto>(`/api/gateway/staff/cashier/report${date ? `?date=${date}` : ""}`),
+  getTodayReservations: (branchId?: number | null, status?: string) => {
+    const params = new URLSearchParams();
+    if (branchId && branchId > 0) params.set("branchId", String(branchId));
+    if (status && status !== "ALL") params.set("status", status);
+    const suffix = params.size > 0 ? `?${params.toString()}` : "";
+    return request<ReservationDto[]>(`/api/cashier/reservations/today${suffix}`);
+  },
+  checkInReservation: (reservationId: number, payload: { tableId?: number | null; tableIds?: number[] }) =>
+    request<CashierReservationCheckInResultDto>(`/api/cashier/reservations/${reservationId}/check-in`, { method: "POST", body: JSON.stringify({ tableId: payload.tableId ?? null, tableIds: payload.tableIds ?? [] }) }),
   checkout: (orderId: number, payload: { discount?: number; pointsUsed?: number; paymentMethod?: string; paymentAmount?: number; idempotencyKey: string }) =>
     request<CashierCheckoutResultDto>(`/api/gateway/staff/cashier/orders/${orderId}/checkout`, {
       method: "POST",
